@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+bin/
+
+# Loom cache (contains large remapped mod JARs)
+**/loom-cache/
+
+# IDE / Editor
+.idea/
+.cursor/
+*.iml
+.vscode/
+*.ipr
+*.iws
+
+# Minecraft / Fabric run
+run/
+out/
+
+# OS
+.DS_Store
+Thumbs.db

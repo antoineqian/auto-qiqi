@@ -1,0 +1,11 @@
+{
+  "key.autoqiqi.toggle_battle": "Activer/Désactiver AutoBattle",
+  "key.autoqiqi.toggle_walk": "Activer/Désactiver AutoWalk",
+  "key.autoqiqi.toggle_fish": "Activer/Désactiver AutoFish",
+  "key.autoqiqi.toggle_hud": "Afficher/Masquer le HUD légendaire",
+  "key.autoqiqi.toggle_legendary": "Activer/Désactiver le suivi légendaire",
+  "key.autoqiqi.force_poll": "Forcer le sondage légendaire",
+  "key.autoqiqi.toggle_mod": "Activer/Désactiver le mod légendaire",
+  "key.autoqiqi.tower_start": "Démarrer la tour (Directeur)",
+  "category.autoqiqi": "Auto-Qiqi"
+}

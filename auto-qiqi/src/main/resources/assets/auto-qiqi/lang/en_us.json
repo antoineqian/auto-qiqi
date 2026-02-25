@@ -1,0 +1,11 @@
+{
+  "key.autoqiqi.toggle_battle": "Toggle AutoBattle",
+  "key.autoqiqi.toggle_walk": "Toggle AutoWalk",
+  "key.autoqiqi.toggle_fish": "Toggle AutoFish",
+  "key.autoqiqi.toggle_hud": "Toggle Legendary HUD",
+  "key.autoqiqi.toggle_legendary": "Toggle Legendary Auto-switch",
+  "key.autoqiqi.force_poll": "Force Poll Legendary Timers",
+  "key.autoqiqi.toggle_mod": "Toggle Legendary Mod",
+  "key.autoqiqi.tower_start": "Start Tower (Directeur)",
+  "category.autoqiqi": "Auto-Qiqi"
+}

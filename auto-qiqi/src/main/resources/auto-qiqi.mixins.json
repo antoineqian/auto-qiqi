@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "com.cobblemoon.autoqiqi.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "BattleGeneralActionSelectionMixin",
+    "BattleMoveSelectionMixin",
+    "BattleTargetSelectionMixin",
+    "BattleSwitchPokemonSelectionMixin",
+    "ChatHudMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "FishHookEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

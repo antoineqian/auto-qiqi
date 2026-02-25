@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "auto-qiqi",
+  "version": "${version}",
+  "name": "Auto-Qiqi",
+  "description": "All-in-one Cobblemoon automation: auto-battle, legendary tracking, circle walk, and auto-fish.",
+  "authors": ["Cobblemoon"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.cobblemoon.autoqiqi.AutoQiqiClient"
+    ]
+  },
+  "mixins": [
+    "auto-qiqi.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "cobblemon": ">=1.7.0"
+  }
+}
