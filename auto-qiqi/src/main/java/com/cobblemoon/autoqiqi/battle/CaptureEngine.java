@@ -469,13 +469,8 @@ public class CaptureEngine {
     }
 
     private void tickEngaging(MinecraftClient client) {
-        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Target gone during ENGAGING phase");
-            client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
-            stop();
-            return;
-        }
-
+        // Detect battle before "target gone": when send-out starts battle, Cobblemon often
+        // removes the wild entity; we must transition to IN_BATTLE so capture mixin is used.
         if (client.currentScreen != null) {
             String screenName = client.currentScreen.getClass().getSimpleName();
             AutoQiqiClient.log("Capture", "Screen opened during ENGAGING: " + screenName);
@@ -496,6 +491,13 @@ public class CaptureEngine {
             AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
             aimTicks = 0;
             keySent = false;
+            return;
+        }
+
+        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
+            AutoQiqiClient.log("Capture", "Target gone during ENGAGING phase");
+            client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
+            stop();
             return;
         }
 
