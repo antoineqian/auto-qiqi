@@ -106,7 +106,6 @@ public final class MovementHelper {
 
     /**
      * Strafe sideways to find line of sight. Call each tick when LOS is blocked.
-     * Returns the strafe direction being used (1 = left, -1 = right).
      */
     public static void strafeSideways(MinecraftClient client, Entity target,
                                       ClientPlayerEntity player, int direction) {
@@ -121,6 +120,7 @@ public final class MovementHelper {
     public static void stopStrafe(MinecraftClient client) {
         client.options.leftKey.setPressed(false);
         client.options.rightKey.setPressed(false);
+        client.options.backKey.setPressed(false);
         client.options.jumpKey.setPressed(false);
     }
 

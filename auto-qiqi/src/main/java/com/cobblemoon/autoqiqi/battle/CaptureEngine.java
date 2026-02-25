@@ -94,7 +94,8 @@ public class CaptureEngine {
     private static final int LOS_STRAFE_SWITCH_TICKS = 30;
     private static final int LOS_MAX_STRAFE_TICKS = 120; // 6 seconds max strafing
     private int entityObstructionStrafeTicks = 0;
-    private static final int ENTITY_OBSTRUCTION_MAX_STRAFE = 80; // 4 seconds max
+    private static final int ENTITY_OBSTRUCTION_MAX_STRAFE = 140; // 7 seconds: enough for ~quarter circle + retry other direction
+    private static final int ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS = 70; // commit to one direction for ~quarter circle before reversing
     private static final float AIM_YAW_SPEED = 20.0f;
     private static final float AIM_PITCH_SPEED = 14.0f;
 
@@ -708,6 +709,8 @@ public class CaptureEngine {
         }
 
         // Phase 0.5: check for friendly entity blocking throw path (e.g. player's own Pokemon)
+        // Strategy: commit to a full quarter-circle strafe in one direction (with obstacle
+        // handling). If still blocked, reverse and try the other quarter-circle.
         if (targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
             Entity blocker = MovementHelper.getEntityBlockingThrow(client.player, targetEntity);
             if (blocker != null && entityObstructionStrafeTicks < ENTITY_OBSTRUCTION_MAX_STRAFE) {
@@ -715,10 +718,14 @@ public class CaptureEngine {
                     String blockerName = PokemonScanner.getPokemonName(blocker);
                     AutoQiqiClient.log("Capture", "Entity blocking throw path: " + blockerName
                             + " at dist=" + String.format("%.1f", client.player.distanceTo(blocker))
-                            + ", strafing around it");
+                            + ", strafing quarter-circle " + (losStrafeDir > 0 ? "left" : "right"));
                 }
                 entityObstructionStrafeTicks++;
-                if (entityObstructionStrafeTicks % 25 == 0) losStrafeDir = -losStrafeDir;
+                if (entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
+                    losStrafeDir = -losStrafeDir;
+                    AutoQiqiClient.log("Capture", "Quarter-circle blocked, reversing to "
+                            + (losStrafeDir > 0 ? "left" : "right"));
+                }
                 MovementHelper.lookAtEntity(client.player, targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
                 MovementHelper.strafeSideways(client, targetEntity, client.player, losStrafeDir);
                 throwAimTicks = 0;

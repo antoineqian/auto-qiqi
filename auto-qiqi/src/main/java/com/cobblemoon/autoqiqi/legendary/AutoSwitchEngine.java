@@ -199,6 +199,17 @@ public class AutoSwitchEngine {
 
         tickCount++;
 
+        if (!config.legendaryAutoSwitch && state != State.IDLE) {
+            AutoQiqiClient.log("Legendary", "legendaryAutoSwitch OFF while in " + state + ", cancelling");
+            GuiWorldSwitcher.get().cancelPending();
+            pendingCommand = null;
+            pendingHomeWorld = null;
+            isHomeTeleport = false;
+            setState(State.IDLE, "autoSwitch disabled");
+            stateEnteredTick = tickCount;
+            return;
+        }
+
         tickPendingCommand(client);
         if (pendingCommand != null) return;
 

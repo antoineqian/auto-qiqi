@@ -6,8 +6,8 @@ import com.cobblemoon.autoqiqi.battle.CaptureEngine;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
+import com.cobblemoon.autoqiqi.config.AutoQiqiConfigScreen;
 import com.cobblemoon.autoqiqi.fish.AutofishEngine;
-import com.cobblemoon.autoqiqi.fish.AutofishScheduler;
 import com.cobblemoon.autoqiqi.legendary.*;
 import com.cobblemoon.autoqiqi.mine.GoldMiningEngine;
 import com.cobblemoon.autoqiqi.npc.TowerGuiHandler;
@@ -36,7 +36,7 @@ import java.util.List;
 
 /**
  * Main client entrypoint for Auto-Qiqi.
- * Merges AutoBattle, AutoLeg, AutoWalk, and AutoFish into one mod.
+ * Merges AutoBattle, AutoLeg, and AutoWalk into one mod. (AutoFish disabled for now.)
  */
 public class AutoQiqiClient implements ClientModInitializer {
     public static final String MOD_ID = "auto-qiqi";
@@ -44,7 +44,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     // Keybinds
     private static KeyBinding toggleBattleKey;
     private static KeyBinding toggleWalkKey;
-    private static KeyBinding toggleFishKey;
     private static KeyBinding toggleHudKey;
     private static KeyBinding toggleLegendaryKey;
     private static KeyBinding forcePollKey;
@@ -57,12 +56,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static boolean walkEnabled = false;
     private int periodicScanTicks = 0;
 
-    // Fish
-    private AutofishScheduler fishScheduler;
-    private AutofishEngine fishEngine;
-
-    // Fish-battle bridge: tracks battle screen for fish-triggered battles
-    private boolean wasInBattleScreen = false;
 
     // Capture-battle bridge: detect when a capture battle ends (with debounce)
     private boolean wasInCaptureBattle = false;
@@ -82,6 +75,13 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static long huntEndTimeMs = 0;
     private static boolean huntActive = false;
 
+    // Idle/blocked state tracking: detect prolonged inactivity from disconnect or open screen
+    private long blockedSinceMs = 0;
+    private String blockedReason = null;
+    private boolean wasConnected = false;
+    private static final long BLOCKED_LOG_INTERVAL_MS = 300_000; // log every 5 minutes while blocked
+    private long lastBlockedLogMs = 0;
+
     @Override
     public void onInitializeClient() {
         log("Init", "Initializing Auto-Qiqi...");
@@ -90,15 +90,18 @@ public class AutoQiqiClient implements ClientModInitializer {
         AutoQiqiConfig.load();
         AutoBattleEngine.get().setMode(BattleMode.fromString(AutoQiqiConfig.get().battleMode));
         WorldTracker.get().refreshWorldList();
+        if (AutoQiqiConfig.get().autoReconnectEnabled) {
+            AutoReconnectEngine.get().enable();
+        }
 
         registerKeybindings();
         registerScreenEvents();
         registerCommands();
 
-        fishScheduler = new AutofishScheduler();
-        fishEngine = new AutofishEngine(fishScheduler);
-
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            trackBlockedState(client);
+            AutoReconnectEngine.get().tick(client);
+
             if (!firstTickDone && client.player != null) {
                 firstTickDone = true;
                 // Ensure everything starts disabled: no walking, hopping, or capture
@@ -121,16 +124,6 @@ public class AutoQiqiClient implements ClientModInitializer {
             }
 
             handleKeybindings(client);
-
-            // Fish-battle bridge: detect battle screen transitions for fish-triggered battles
-            boolean inBattleScreen = client.currentScreen != null
-                    && client.currentScreen.getClass().getName().toLowerCase().contains("battle");
-            if (inBattleScreen && !wasInBattleScreen) {
-                fishEngine.onBattleStarted();
-            } else if (!inBattleScreen && wasInBattleScreen) {
-                fishEngine.onBattleEnded();
-            }
-            wasInBattleScreen = inBattleScreen;
 
             // Capture: tick engagement + ball throw + miss detection + pickup
             if (CaptureEngine.get().isActive()) {
@@ -215,10 +208,6 @@ public class AutoQiqiClient implements ClientModInitializer {
                 }
             }
 
-            // Fish
-            fishEngine.tick(client);
-            fishScheduler.tick(client);
-
             // Hunt timer
             if (huntActive && System.currentTimeMillis() >= huntEndTimeMs) {
                 stopHunt(client, "duree ecoulee");
@@ -236,7 +225,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         });
 
         log("Init", "Auto-Qiqi initialized!");
-        log("Init", "Keybinds: K=battle, G=walk, V=fish, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
+        log("Init", "Keybinds: K=battle, G=walk, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
     }
 
     // ========================
@@ -246,7 +235,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     private void registerKeybindings() {
         toggleBattleKey = reg("key.autoqiqi.toggle_battle", GLFW.GLFW_KEY_K);
         toggleWalkKey = reg("key.autoqiqi.toggle_walk", GLFW.GLFW_KEY_G);
-        toggleFishKey = reg("key.autoqiqi.toggle_fish", GLFW.GLFW_KEY_V);
         toggleHudKey = reg("key.autoqiqi.toggle_hud", GLFW.GLFW_KEY_H);
         toggleLegendaryKey = reg("key.autoqiqi.toggle_legendary", GLFW.GLFW_KEY_J);
         forcePollKey = reg("key.autoqiqi.force_poll", GLFW.GLFW_KEY_U);
@@ -263,40 +251,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (client.player == null || client.currentScreen != null) return;
 
         if (toggleBattleKey.wasPressed()) {
-            // Always stop capture/walk first (regardless of mode cycling)
-            if (CaptureEngine.get().isActive() || PokemonWalker.get().isActive()) {
-                CaptureEngine.get().stop();
-                PokemonWalker.get().stop();
-                wasInCaptureBattle = false;
-                battleNullTicks = 0;
-            }
-
-            AutoBattleEngine engine = AutoBattleEngine.get();
-            BattleMode prev = engine.getMode();
-            BattleMode next = prev.next();
-            engine.setMode(next);
-            if (next == BattleMode.OFF) engine.reset();
-
-            if (next == BattleMode.OFF) {
-                log("Battle", "User deactivated battle mode (K pressed): " + prev + " -> OFF");
-                com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MODE_OFF",
-                        "Battle mode OFF (was " + prev + ")");
-                java.util.List<String> summary = engine.getSessionSummaryAndReset();
-                if (summary != null) {
-                    for (String line : summary) {
-                        msg(client, line);
-                    }
-                }
-            } else {
-                log("Battle", "User changed battle mode (K pressed): " + prev + " -> " + next);
-                com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MODE_CHANGE",
-                        "Battle mode: " + prev + " -> " + next);
-            }
-
-            AutoQiqiConfig.get().battleMode = next.name();
-            AutoQiqiConfig.save();
-            String color = next == BattleMode.OFF ? "§c" : "§a";
-            msg(client, "§e[Battle]§r " + color + next.displayName());
+            client.setScreen(new AutoQiqiConfigScreen());
         }
 
         if (toggleWalkKey.wasPressed()) {
@@ -308,14 +263,6 @@ public class AutoQiqiClient implements ClientModInitializer {
                 disableWalk(client);
                 msg(client, "§7[Walk]§r OFF");
             }
-        }
-
-        if (toggleFishKey.wasPressed()) {
-            AutoQiqiConfig config = AutoQiqiConfig.get();
-            config.fishEnabled = !config.fishEnabled;
-            AutoQiqiConfig.save();
-            String status = config.fishEnabled ? "§aON" : "§cOFF";
-            client.player.sendMessage(Text.literal("§7[Fish] " + status), true);
         }
 
         if (toggleHudKey.wasPressed()) {
@@ -460,6 +407,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                                                         StringArgumentType.getString(context, "mode"));
                                                 return 1;
                                             }))))
+                    .then(ClientCommandManager.literal("reconnect")
+                            .executes(context -> { executeReconnectToggle(); return 1; }))
             );
         });
     }
@@ -703,6 +652,82 @@ public class AutoQiqiClient implements ClientModInitializer {
     public static boolean isHuntActive() { return huntActive; }
     public static long getHuntRemainingMs() { return huntActive ? Math.max(0, huntEndTimeMs - System.currentTimeMillis()) : 0; }
 
+    // ========================
+    // Blocked state tracking
+    // ========================
+
+    private void trackBlockedState(MinecraftClient client) {
+        long now = System.currentTimeMillis();
+        boolean connected = client.player != null && client.world != null;
+
+        if (wasConnected && !connected) {
+            String screenName = client.currentScreen != null
+                    ? client.currentScreen.getClass().getSimpleName() : "none";
+            log("Idle", "DISCONNECTED from server (screen=" + screenName + ")");
+            com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("DISCONNECT",
+                    "Disconnected (screen=" + screenName + ")");
+        } else if (!wasConnected && connected) {
+            if (blockedSinceMs > 0) {
+                long blockedSec = (now - blockedSinceMs) / 1000;
+                log("Idle", "RECONNECTED after " + formatDuration(blockedSec) + " offline");
+                com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("RECONNECT",
+                        "Reconnected after " + formatDuration(blockedSec) + " offline");
+            }
+            blockedSinceMs = 0;
+            blockedReason = null;
+            lastBlockedLogMs = 0;
+        }
+        wasConnected = connected;
+
+        String reason = null;
+        if (!connected) {
+            reason = "disconnected";
+        } else if (client.currentScreen != null) {
+            String screenName = client.currentScreen.getClass().getSimpleName();
+            if (!screenName.toLowerCase().contains("battle")) {
+                reason = "screen:" + screenName;
+            }
+        }
+
+        if (reason != null) {
+            if (blockedSinceMs == 0) {
+                blockedSinceMs = now;
+                blockedReason = reason;
+                lastBlockedLogMs = 0;
+            }
+            long blockedMs = now - blockedSinceMs;
+            if (blockedMs >= 60_000 && (lastBlockedLogMs == 0 || now - lastBlockedLogMs >= BLOCKED_LOG_INTERVAL_MS)) {
+                log("Idle", "Engines blocked for " + formatDuration(blockedMs / 1000)
+                        + " (reason=" + blockedReason + ")");
+                com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("IDLE",
+                        "Blocked for " + formatDuration(blockedMs / 1000)
+                                + " (reason=" + blockedReason + ")");
+                lastBlockedLogMs = now;
+            }
+        } else {
+            if (blockedSinceMs > 0 && blockedReason != null && blockedReason.startsWith("screen:")) {
+                long blockedSec = (now - blockedSinceMs) / 1000;
+                if (blockedSec >= 10) {
+                    log("Idle", "Screen closed after " + formatDuration(blockedSec)
+                            + " (was " + blockedReason + ")");
+                }
+            }
+            blockedSinceMs = 0;
+            blockedReason = null;
+            lastBlockedLogMs = 0;
+        }
+    }
+
+    private static String formatDuration(long totalSeconds) {
+        if (totalSeconds < 60) return totalSeconds + "s";
+        long min = totalSeconds / 60;
+        long sec = totalSeconds % 60;
+        if (min < 60) return String.format("%dm%02ds", min, sec);
+        long hours = min / 60;
+        min = min % 60;
+        return String.format("%dh%02dm%02ds", hours, min, sec);
+    }
+
     private void executeTpShow() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
@@ -761,6 +786,31 @@ public class AutoQiqiClient implements ClientModInitializer {
         }
         config.setTeleportMode(worldName, mode.toLowerCase());
         msg(client, "§a" + worldName + " §7-> §f" + mode.toLowerCase());
+    }
+
+    // ========================
+    // Reconnect command
+    // ========================
+
+    private void executeReconnectToggle() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        AutoReconnectEngine engine = AutoReconnectEngine.get();
+
+        config.autoReconnectEnabled = !config.autoReconnectEnabled;
+        AutoQiqiConfig.save();
+
+        if (config.autoReconnectEnabled) {
+            engine.enable();
+            if (client.player != null) {
+                msg(client, "§a[Reconnect]§r ON — auto-reconnect on disconnect");
+            }
+        } else {
+            engine.disable();
+            if (client.player != null) {
+                msg(client, "§7[Reconnect]§r OFF");
+            }
+        }
     }
 
     // ========================

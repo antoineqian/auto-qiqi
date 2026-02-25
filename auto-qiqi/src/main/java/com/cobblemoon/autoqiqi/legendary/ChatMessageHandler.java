@@ -27,8 +27,8 @@ import java.util.regex.Pattern;
 public class ChatMessageHandler {
     private static final ChatMessageHandler INSTANCE = new ChatMessageHandler();
 
-    private long clearancePendingUntilMs = 0;
-    private static final long CLEARANCE_GRACE_MS = 75_000;
+    private long clearanceCooldownUntilMs = 0;
+    private static final long POST_CLEAR_COOLDOWN_MS = 15_000;
 
     private Pattern timerPattern;
     private Pattern timerPatternSecondsOnly;
@@ -49,7 +49,7 @@ public class ChatMessageHandler {
     public static ChatMessageHandler get() { return INSTANCE; }
 
     public boolean isEntityClearancePending() {
-        return clearancePendingUntilMs > 0 && System.currentTimeMillis() < clearancePendingUntilMs;
+        return clearanceCooldownUntilMs > 0 && System.currentTimeMillis() < clearanceCooldownUntilMs;
     }
 
     public void recompilePatterns() {
@@ -89,15 +89,14 @@ public class ChatMessageHandler {
         // Entity clearance: "Les entités seront supprimées dans 1 minutes."
         if (stripped.contains("entit") && stripped.contains("supprim")) {
             if (stripped.contains("dans")) {
-                clearancePendingUntilMs = System.currentTimeMillis() + CLEARANCE_GRACE_MS;
-                AutoQiqiClient.log("Chat", "Entity clearance warning detected, pausing new target acquisition for " + (CLEARANCE_GRACE_MS / 1000) + "s");
+                AutoQiqiClient.log("Chat", "Entity clearance warning detected — still engaging until clear happens");
+            } else {
+                clearanceCooldownUntilMs = System.currentTimeMillis() + POST_CLEAR_COOLDOWN_MS;
+                AutoQiqiClient.log("Chat", "Entity clearance done, pausing target acquisition for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s");
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.player != null) {
-                    mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §eEntity clear incoming — pausing new engagements"), false);
+                    mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §eEntities cleared — pausing scans for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s"), false);
                 }
-            } else {
-                clearancePendingUntilMs = 0;
-                AutoQiqiClient.log("Chat", "Entity clearance done, resuming target acquisition");
             }
         }
 

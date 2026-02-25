@@ -17,7 +17,7 @@ import java.util.Collection;
 
 /**
  * Unified HUD rendering for all Auto-Qiqi features.
- * Top-left:    feature status lines (battle, walk, fish)
+ * Top-left:    feature status lines (battle, walk)
  * Bottom-right: legendary world timers
  */
 public class AutoQiqiHud {
@@ -101,12 +101,6 @@ public class AutoQiqiHud {
                     ? String.format("%dh%02dm%02ds", h, m, s)
                     : String.format("%02dm%02ds", m, s);
             context.drawText(tr, Text.literal("§d[Hunt] §f" + timeStr), 4, y, 0xFFFFFF, true);
-            y += 12;
-        }
-
-        // Fish status
-        if (AutoQiqiConfig.get().fishEnabled) {
-            context.drawText(tr, Text.literal("§a[Fish ON]"), 4, y, 0xFFFFFF, true);
             y += 12;
         }
 

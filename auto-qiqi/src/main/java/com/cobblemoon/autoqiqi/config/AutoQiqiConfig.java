@@ -102,6 +102,15 @@ public class AutoQiqiConfig {
     public int hudColorReady = 0xFF44FF44;
 
     // ========================
+    // Auto-reconnect
+    // ========================
+
+    public boolean autoReconnectEnabled = false;
+    public int reconnectDelaySeconds = 10;
+    public int reconnectMaxRetries = 5;
+    public String reconnectButtonText = "Rejoindre";
+
+    // ========================
     // Mining (Nether Gold Ore)
     // ========================
 
