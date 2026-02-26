@@ -147,9 +147,12 @@ public class AutoReconnectEngine {
         if (elapsed >= delayMs) {
             if (screen instanceof DisconnectedScreen) {
                 transition(Phase.DISMISS_DISCONNECT);
+            } else if (screen != null) {
+                AutoQiqiClient.log("Reconnect", "Forcing TitleScreen from unexpected screen: "
+                        + screen.getClass().getSimpleName());
+                client.setScreen(new TitleScreen());
+                transition(Phase.CLICK_REJOINDRE);
             } else {
-                AutoQiqiClient.log("Reconnect", "Unexpected screen after delay: "
-                        + (screen != null ? screen.getClass().getSimpleName() : "null"));
                 transition(Phase.MONITORING);
             }
         }
@@ -159,16 +162,11 @@ public class AutoReconnectEngine {
 
     private void tickDismissDisconnect(MinecraftClient client) {
         Screen screen = client.currentScreen;
-        if (screen instanceof DisconnectedScreen) {
-            if (tryClickBackToServerListButton(screen)) {
-                AutoQiqiClient.log("Reconnect", "Clicked 'Retour à la liste des serveurs' on DisconnectedScreen");
-                transition(Phase.WAIT_BEFORE_DISMISS);
-            } else {
-                AutoQiqiClient.log("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen (no button found)");
-                client.setScreen(new TitleScreen());
-                transition(Phase.CLICK_REJOINDRE);
-            }
-        } else if (screen instanceof TitleScreen) {
+        if (screen instanceof TitleScreen) {
+            transition(Phase.CLICK_REJOINDRE);
+        } else if (screen instanceof DisconnectedScreen) {
+            AutoQiqiClient.log("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen");
+            client.setScreen(new TitleScreen());
             transition(Phase.CLICK_REJOINDRE);
         } else {
             checkTimeout(Phase.MONITORING, "dismiss disconnect");
@@ -179,21 +177,13 @@ public class AutoReconnectEngine {
 
     private void tickClickBackToServerList(MinecraftClient client) {
         Screen screen = client.currentScreen;
-        if (screen == null) {
-            transition(Phase.MONITORING);
-            return;
-        }
-        if (screen instanceof TitleScreen) {
-            AutoQiqiClient.log("Reconnect", "Already on TitleScreen after back, proceeding to Rejoindre");
+        if (screen == null || screen instanceof TitleScreen) {
             transition(Phase.CLICK_REJOINDRE);
             return;
         }
-        if (tryClickBackToServerListButton(screen)) {
-            AutoQiqiClient.log("Reconnect", "Clicked 'Retour à la liste des serveurs'");
-            transition(Phase.WAIT_BEFORE_DISMISS);
-        } else {
-            checkTimeout(Phase.MONITORING, "find back-to-server-list button");
-        }
+        AutoQiqiClient.log("Reconnect", "Forcing TitleScreen from " + screen.getClass().getSimpleName());
+        client.setScreen(new TitleScreen());
+        transition(Phase.CLICK_REJOINDRE);
     }
 
     private boolean hasBackToServerListButton(Screen screen) {
@@ -204,24 +194,6 @@ public class AutoReconnectEngine {
             if (child instanceof PressableWidget widget) {
                 String label = widget.getMessage().getString();
                 if (label.toLowerCase().contains(lower)) return true;
-            }
-        }
-        return false;
-    }
-
-    /** Clicks the "Retour à la liste des serveurs" (or config) button if present. Returns true if clicked. */
-    private boolean tryClickBackToServerListButton(Screen screen) {
-        String match = AutoQiqiConfig.get().reconnectBackToServerListButtonText;
-        if (match == null || match.isEmpty()) return false;
-        String lower = match.toLowerCase();
-        for (var child : screen.children()) {
-            if (child instanceof PressableWidget widget) {
-                String label = widget.getMessage().getString();
-                if (label.toLowerCase().contains(lower)) {
-                    AutoQiqiClient.log("Reconnect", "Clicking button: '" + label + "'");
-                    widget.onPress();
-                    return true;
-                }
             }
         }
         return false;

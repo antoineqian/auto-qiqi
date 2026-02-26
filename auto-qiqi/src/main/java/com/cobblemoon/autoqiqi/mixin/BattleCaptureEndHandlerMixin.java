@@ -17,6 +17,10 @@ import net.minecraft.client.MinecraftClient;
  * a capture attempt (ball hit the Pokemon → either caught or broke out).
  * We use this as the authoritative "ball hit" signal so that only physical
  * misses (timeout with no packet) count toward MAX_MISSES.
+ *
+ * When the packet fires first, BattleGeneralActionSelection init may not run
+ * (game can show another screen after breakout). So we schedule sending the
+ * next action after the shake animation; when the UI is ready we send.
  */
 @Mixin(BattleCaptureEndHandler.class)
 public abstract class BattleCaptureEndHandlerMixin {
@@ -31,7 +35,22 @@ public abstract class BattleCaptureEndHandlerMixin {
         if (!CaptureEngine.get().isActive()) return;
         if (!CaptureEngine.get().isWaitingForBallHit()) return;
 
-        AutoQiqiClient.log("Capture", "Ball HIT confirmed via BattleCaptureEndPacket (succeeded=" + packet.getSucceeded() + ")");
+        boolean succeeded = packet.getSucceeded();
+        AutoQiqiClient.log("Capture", "Ball HIT confirmed via BattleCaptureEndPacket (succeeded=" + succeeded + ")");
         CaptureEngine.get().onBallHitConfirmed();
+
+        if (!succeeded) {
+            // Pokemon broke free — the battle is still minimized from when CAPTURE was chosen.
+            // Un-minimize it so the action selection UI reappears, triggering the mixin
+            // to decide the next capture action. Retry several times in case of timing issues.
+            long baseDelay = CaptureEngine.BALL_HIT_PACKET_FOLLOW_UP_DELAY_MS;
+            for (int i = 0; i < 4; i++) {
+                long delay = baseDelay + i * 2000L;
+                AutoQiqiClient.runLater(() -> {
+                    CaptureEngine.get().unminimizeBattleIfNeeded("breakout follow-up");
+                    CaptureEngine.trySendNextCaptureActionIfReady();
+                }, delay);
+            }
+        }
     }
 }

@@ -5,7 +5,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleGeneralActionSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
@@ -26,7 +25,7 @@ public abstract class BattleGeneralActionSelectionMixin {
 
         if (self.getRequest().getResponse() != null) return;
 
-        if (CaptureEngine.get().isActive()) {
+        if (CaptureEngine.get().isActive() && AutoQiqiClient.getBattleMode() != BattleMode.OFF) {
             // Mixin firing again means previous ball hit the target (battle resumed)
             boolean wasWaitingForHit = CaptureEngine.get().isWaitingForBallHit();
             if (wasWaitingForHit) {
@@ -46,12 +45,18 @@ public abstract class BattleGeneralActionSelectionMixin {
                     : config.battleSelectDelay;
             AutoQiqiClient.log("Mixin", "GeneralAction: CaptureEngine active, delay=" + delay + " (hitConfirmed=" + hitJustConfirmed + ")");
             AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "GeneralAction: stale request, skipping");
+                // Use current action selection: after ball hit the UI may have recreated the screen (new instance),
+                // so self != getCurrentActionSelection() would wrongly skip and leave battle idle.
+                var current = self.getBattleGUI().getCurrentActionSelection();
+                if (!(current instanceof BattleGeneralActionSelection currentSelection)) {
+                    AutoQiqiClient.log("Mixin", "GeneralAction: no longer on action selection, skipping");
                     return;
                 }
-                handleCapture(self);
+                if (currentSelection.getRequest().getResponse() != null) {
+                    AutoQiqiClient.log("Mixin", "GeneralAction: response already set, skipping");
+                    return;
+                }
+                CaptureEngine.handleCaptureAction(currentSelection);
             }, delay);
             return;
         }
@@ -96,35 +101,4 @@ public abstract class BattleGeneralActionSelectionMixin {
         }
     }
 
-    private void handleCapture(BattleGeneralActionSelection self) {
-        CaptureEngine engine = CaptureEngine.get();
-        boolean forceSwitch = self.getRequest().getForceSwitch();
-
-        CaptureEngine.GeneralChoice choice = engine.decideGeneralAction(forceSwitch);
-        AutoQiqiClient.log("Mixin", "GeneralAction capture choice=" + choice + " action=" + engine.getCurrentAction() + " forceSwitch=" + forceSwitch);
-        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-
-        switch (choice) {
-            case FIGHT -> {
-                AutoQiqiClient.log("Mixin", "GeneralAction -> FIGHT (opening move selection)");
-                self.getBattleGUI().changeActionSelection(
-                    new BattleMoveSelection(self.getBattleGUI(), self.getRequest()));
-            }
-            case SWITCH -> {
-                AutoQiqiClient.log("Mixin", "GeneralAction -> SWITCH (opening switch selection)");
-                self.getBattleGUI().changeActionSelection(
-                    new BattleSwitchPokemonSelection(self.getBattleGUI(), self.getRequest()));
-            }
-            case CAPTURE -> {
-                var battle = CobblemonClient.INSTANCE.getBattle();
-                if (battle != null) {
-                    battle.setMinimised(true);
-                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE (battle minimized, preparing ball)");
-                } else {
-                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE but getBattle() is null!");
-                }
-                engine.prepareBallThrow();
-            }
-        }
-    }
 }

@@ -3,7 +3,10 @@ package com.cobblemoon.autoqiqi.battle;
 import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemon.mod.common.client.battle.ClientBattle;
 import com.cobblemon.mod.common.client.battle.ClientBattlePokemon;
+import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleGeneralActionSelection;
+import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection.MoveTile;
+import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection.SwitchTile;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
@@ -139,11 +142,19 @@ public class CaptureEngine {
 
     // Cooldown after a ball hit is confirmed (wait for shake animation to finish)
     private boolean ballHitJustConfirmed = false;
-    private static final int BALL_HIT_EXTRA_DELAY = 100; // 5 seconds for shake animation
+    private static final int BALL_HIT_EXTRA_DELAY = 100; // 100ms when mixin runs
+    /** When ball hit is confirmed via packet, UI may show later; wait this long before trying to send next action. */
+    public static final long BALL_HIT_PACKET_FOLLOW_UP_DELAY_MS = 8_000;
 
     // Hard cooldown after any throw to prevent overlapping throws
     private long lastThrowTimeMs = 0;
     private static final long THROW_COOLDOWN_MS = 12_000; // 12s — must cover full shake animation
+
+    // Idle detection in IN_BATTLE phase: escalate from un-minimize to re-engage
+    private long inBattleIdleSinceMs = 0;
+    private int inBattleIdleRetries = 0;
+    private static final long IN_BATTLE_IDLE_TIMEOUT_MS = 15_000;
+    private static final int IDLE_RETRIES_BEFORE_REENGAGE = 2;
 
     // Deferred retry: set when retryThrow is rejected by cooldown, checked in tickBallThrow
     private boolean retryThrowPending = false;
@@ -304,6 +315,8 @@ public class CaptureEngine {
         losStrafeTicks = 0;
         currentEngageRange = ENGAGE_RANGE_INITIAL;
         lastThrowTimeMs = 0;
+        inBattleIdleSinceMs = 0;
+        inBattleIdleRetries = 0;
     }
 
     /** Records that a capture failed (Pokemon escaped). Blocks re-capture for failedCaptureCooldownSeconds. */
@@ -336,10 +349,19 @@ public class CaptureEngine {
 
     /**
      * Called when the battle object goes null (debounced).
-     * If a capture was confirmed by chat, this is expected. Otherwise, log it.
+     * If a capture was confirmed by chat, this is expected. Otherwise,
+     * re-engage the target if it's still alive in the world.
      */
     public void onBattleEnded() {
         if (!active) return;
+
+        // Target still alive? Re-engage instead of giving up.
+        if (targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
+            AutoQiqiClient.log("Capture", "Battle ended but " + targetName + " is still alive — re-engaging");
+            reengageTarget("battle ended, target still alive");
+            return;
+        }
+
         if (targetName != null) recordCaptureFailed(targetName);
         String msg = targetName + " - battle ended (Balls: " + totalBallsThrown + ")";
         statusMessage = msg;
@@ -428,6 +450,7 @@ public class CaptureEngine {
             case ENGAGING -> tickEngaging(client);
             case IN_BATTLE -> {
                 if (pickingUpBall) tickPickupBall(client);
+                tickInBattleIdleCheck();
             }
             default -> {}
         }
@@ -648,6 +671,7 @@ public class CaptureEngine {
     private KeyBinding findSendOutKey(MinecraftClient client) {
         if (keybindSearchDone) return cachedSendOutKey;
 
+        KeyBinding boundToR = null;
         for (KeyBinding kb : client.options.allKeys) {
             String translationKey = kb.getTranslationKey().toLowerCase();
             String category = kb.getCategory().toLowerCase();
@@ -656,8 +680,15 @@ public class CaptureEngine {
                         || translationKey.contains("summon") || translationKey.contains("battle")
                         || translationKey.contains("challenge") || translationKey.contains("pokemon")) {
                     cachedSendOutKey = kb;
+                    if (kb.getBoundKeyTranslationKey().equals("key.keyboard.r")) {
+                        boundToR = kb;
+                        break;
+                    }
                 }
             }
+        }
+        if (boundToR != null) {
+            cachedSendOutKey = boundToR;
         }
         if (cachedSendOutKey == null) {
             for (KeyBinding kb : client.options.allKeys) {
@@ -1027,6 +1058,88 @@ public class CaptureEngine {
             AutoQiqiClient.log("Capture", "Nearest ball item: " + id + " dist=" + String.format("%.1f", closestDist));
         }
         return closest;
+    }
+
+    private void tickInBattleIdleCheck() {
+        if (pendingBallThrow || waitingForBallHit || pickingUpBall) {
+            inBattleIdleSinceMs = 0;
+            inBattleIdleRetries = 0;
+            return;
+        }
+        if (inBattleIdleSinceMs == 0) {
+            inBattleIdleSinceMs = System.currentTimeMillis();
+            return;
+        }
+        long idleMs = System.currentTimeMillis() - inBattleIdleSinceMs;
+        if (idleMs >= IN_BATTLE_IDLE_TIMEOUT_MS) {
+            inBattleIdleRetries++;
+            if (inBattleIdleRetries <= IDLE_RETRIES_BEFORE_REENGAGE) {
+                unminimizeBattleIfNeeded("idle safety net attempt " + inBattleIdleRetries + " (" + (idleMs / 1000) + "s)");
+                inBattleIdleSinceMs = System.currentTimeMillis();
+            } else {
+                AutoQiqiClient.log("Capture", "Un-minimize failed " + IDLE_RETRIES_BEFORE_REENGAGE
+                        + " times, falling back to re-engage");
+                reengageTarget("idle escalation after " + (inBattleIdleRetries * IN_BATTLE_IDLE_TIMEOUT_MS / 1000) + "s");
+            }
+        }
+    }
+
+    /**
+     * Un-minimizes the battle so the action selection UI reappears.
+     * Used after a breakout (ball failed) when the battle stays minimized.
+     */
+    public void unminimizeBattleIfNeeded(String reason) {
+        if (!active) return;
+        var battle = CobblemonClient.INSTANCE.getBattle();
+        if (battle == null) {
+            AutoQiqiClient.log("Capture", "unminimize: battle is null (" + reason + "), trying re-engage");
+            reengageTarget("battle null during unminimize");
+            return;
+        }
+        if (battle.getMinimised()) {
+            battle.setMinimised(false);
+            AutoQiqiClient.log("Capture", "Battle un-minimized (" + reason + ")");
+        }
+    }
+
+    /**
+     * Hard fallback: reset to ENGAGING phase and press the send-out key again.
+     * The target entity is still alive in the world during/after battle, so
+     * we can always re-engage it.
+     */
+    private void reengageTarget(String reason) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+
+        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
+            AutoQiqiClient.log("Capture", "Re-engage: target entity gone, cannot re-engage (" + reason + ")");
+            client.player.sendMessage(
+                    Text.literal("§6[Capture]§r §cPokemon disparu, impossible de re-engager."), false);
+            stop();
+            return;
+        }
+
+        AutoQiqiClient.log("Capture", "RE-ENGAGING " + targetName + " (" + reason + ")");
+        client.player.sendMessage(
+                Text.literal("§6[Capture]§r §eRe-engagement de §f" + targetName + "§e..."), false);
+
+        pendingBallThrow = false;
+        waitingForBallHit = false;
+        ballHitJustConfirmed = false;
+        retryThrowPending = false;
+        pickingUpBall = false;
+        droppedBallEntity = null;
+        inBattleIdleSinceMs = 0;
+        inBattleIdleRetries = 0;
+        lastThrowTimeMs = 0;
+
+        phase = Phase.ENGAGING;
+        aimTicks = 0;
+        keySent = false;
+        engageAttempts = 0;
+        currentEngageRange = ENGAGE_RANGE_INITIAL;
+        captureStartMs = System.currentTimeMillis();
+        statusMessage = "Re-engaging " + targetName + "...";
     }
 
     private void retryThrow() {
@@ -1412,6 +1525,66 @@ public class CaptureEngine {
     private static String formatBallName(String id) {
         String s = id.replace("_", " ");
         return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    /**
+     * Called from BattleCaptureEndHandlerMixin when the ball-hit packet fires
+     * before BattleGeneralActionSelection's init. Checks if the UI is ready
+     * and sends the next capture action.
+     */
+    public static void trySendNextCaptureActionIfReady() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!CaptureEngine.get().isActive()) return;
+        if (client.currentScreen == null) {
+            AutoQiqiClient.log("Capture", "trySendNextAction: screen is null (battle still minimized?)");
+            return;
+        }
+        try {
+            java.lang.reflect.Method m = client.currentScreen.getClass().getMethod("getCurrentActionSelection");
+            Object current = m.invoke(client.currentScreen);
+            if (current instanceof BattleGeneralActionSelection sel
+                    && sel.getRequest().getResponse() == null) {
+                AutoQiqiClient.log("Mixin", "GeneralAction: packet follow-up, sending next action");
+                handleCaptureAction(sel);
+            } else {
+                AutoQiqiClient.log("Capture", "trySendNextAction: action selection not ready (current="
+                        + (current != null ? current.getClass().getSimpleName() : "null") + ")");
+            }
+        } catch (Exception e) {
+            AutoQiqiClient.log("Capture", "trySendNextAction: screen is " + client.currentScreen.getClass().getSimpleName() + " (not battle GUI)");
+        }
+    }
+
+    public static void handleCaptureAction(BattleGeneralActionSelection self) {
+        CaptureEngine engine = CaptureEngine.get();
+        boolean forceSwitch = self.getRequest().getForceSwitch();
+
+        CaptureEngine.GeneralChoice choice = engine.decideGeneralAction(forceSwitch);
+        AutoQiqiClient.log("Mixin", "GeneralAction capture choice=" + choice + " action=" + engine.getCurrentAction() + " forceSwitch=" + forceSwitch);
+        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
+
+        switch (choice) {
+            case FIGHT -> {
+                AutoQiqiClient.log("Mixin", "GeneralAction -> FIGHT (opening move selection)");
+                self.getBattleGUI().changeActionSelection(
+                    new BattleMoveSelection(self.getBattleGUI(), self.getRequest()));
+            }
+            case SWITCH -> {
+                AutoQiqiClient.log("Mixin", "GeneralAction -> SWITCH (opening switch selection)");
+                self.getBattleGUI().changeActionSelection(
+                    new BattleSwitchPokemonSelection(self.getBattleGUI(), self.getRequest()));
+            }
+            case CAPTURE -> {
+                var battle = CobblemonClient.INSTANCE.getBattle();
+                if (battle != null) {
+                    battle.setMinimised(true);
+                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE (battle minimized, preparing ball)");
+                } else {
+                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE but getBattle() is null!");
+                }
+                engine.prepareBallThrow();
+            }
+        }
     }
 
     private record BallEntry(String name, int count) {}

@@ -96,6 +96,8 @@ public class AutoBattleEngine {
     private static final long BLACKLIST_DURATION_TICKS = 600; // 30 seconds
     private static final double OTHER_PLAYER_PROXIMITY = 6.0;
     private int lastEngagedEntityId = -1;
+    private int bossEngageRetries = 0;
+    private static final int MAX_BOSS_ENGAGE_RETRIES = 5;
     private long globalTickCounter = 0;
 
     // Grace period after mode switch (prevents intermediate modes from starting battles while user cycles K)
@@ -125,6 +127,13 @@ public class AutoBattleEngine {
                 sessionPokemonKills = 0;
                 sessionCaptures.clear();
                 battleCount = 0;
+            }
+            if (mode == BattleMode.OFF) {
+                if (CaptureEngine.get().isActive()) {
+                    CaptureEngine.get().stop();
+                    AutoQiqiClient.log("Battle", "CaptureEngine stopped (mode -> OFF)");
+                }
+                PokemonWalker.get().stop();
             }
         }
         this.mode = mode;
@@ -386,6 +395,7 @@ public class AutoBattleEngine {
         if (wasInBattle) {
             wasInBattle = false;
             lastEngagedEntityId = -1;
+            bossEngageRetries = 0;
             battleCount++;
             if (lastFightWasBoss) {
                 sessionBossKills++;
@@ -454,10 +464,20 @@ public class AutoBattleEngine {
             }
             cooldown--;
             if (cooldown == 0 && lastEngagedEntityId != -1) {
-                engageBlacklist.put(lastEngagedEntityId, globalTickCounter + BLACKLIST_DURATION_TICKS);
-                AutoQiqiClient.log("Battle", "Engage failed (no battle started) — blacklisting entity #"
-                        + lastEngagedEntityId + " for 30s");
-                lastEngagedEntityId = -1;
+                if (lastFightWasBoss && bossEngageRetries < MAX_BOSS_ENGAGE_RETRIES) {
+                    bossEngageRetries++;
+                    AutoQiqiClient.log("Battle", "Boss engage attempt " + bossEngageRetries + "/" + MAX_BOSS_ENGAGE_RETRIES
+                            + " failed — retrying (entity #" + lastEngagedEntityId + ")");
+                    lastEngagedEntityId = -1;
+                    scanTimer = 0;
+                } else {
+                    engageBlacklist.put(lastEngagedEntityId, globalTickCounter + BLACKLIST_DURATION_TICKS);
+                    AutoQiqiClient.log("Battle", "Engage failed (no battle started) — blacklisting entity #"
+                            + lastEngagedEntityId + " for 30s"
+                            + (lastFightWasBoss ? " (boss, " + bossEngageRetries + " retries exhausted)" : ""));
+                    lastEngagedEntityId = -1;
+                    bossEngageRetries = 0;
+                }
             }
             return;
         }
@@ -684,6 +704,7 @@ public class AutoBattleEngine {
     private KeyBinding findSendOutKey(MinecraftClient client) {
         if (keybindSearchDone) return cachedSendOutKey;
 
+        KeyBinding boundToR = null;
         for (KeyBinding kb : client.options.allKeys) {
             String translationKey = kb.getTranslationKey().toLowerCase();
             String category = kb.getCategory().toLowerCase();
@@ -693,8 +714,15 @@ public class AutoBattleEngine {
                         || translationKey.contains("summon") || translationKey.contains("battle")
                         || translationKey.contains("challenge") || translationKey.contains("pokemon")) {
                     cachedSendOutKey = kb;
+                    if (kb.getBoundKeyTranslationKey().equals("key.keyboard.r")) {
+                        boundToR = kb;
+                        break;
+                    }
                 }
             }
+        }
+        if (boundToR != null) {
+            cachedSendOutKey = boundToR;
         }
 
         if (cachedSendOutKey == null) {
@@ -811,13 +839,15 @@ public class AutoBattleEngine {
     }
 
     /**
-     * ROAMING priority: boss (kill) > uncaught non-boss (capture) > whitelisted (kill).
+     * ROAMING priority: boss (kill) > uncaught non-boss (capture) > uncaught legendary (capture) > caught legendary (kill) > whitelisted (kill).
      * Bosses are ALWAYS targeted for kill (they cannot be captured in Cobblemon).
      * Non-boss uncaught Pokemon are targeted for capture when canCapture is true.
+     * Uncaught legendaries are always targeted for capture (even when canCapture is false) so wild legendaries are never skipped.
      */
     private Entity findRoamingTarget(java.util.List<Entity> sortedCandidates, java.util.List<String> whitelist) {
         boolean canCapture = AutoQiqiClient.canRoamCapture();
         Entity bestUncaught = null;
+        Entity bestUncaughtLegendary = null;
         Entity bestBoss = null;
         Entity bestWhitelisted = null;
         Entity bestCaughtLegendary = null;
@@ -839,6 +869,9 @@ public class AutoBattleEngine {
             }
             if (canCapture && uncaught && !boss && bestUncaught == null) {
                 bestUncaught = e;
+            }
+            if (uncaught && !boss && legendary && bestUncaughtLegendary == null) {
+                bestUncaughtLegendary = e;
             }
             if (!uncaught && legendary && bestCaughtLegendary == null) {
                 caughtLegCount++;
@@ -867,6 +900,11 @@ public class AutoBattleEngine {
             targetForCapture = true;
             AutoQiqiClient.log("Battle", "Roaming: -> uncaught (capture) " + PokemonScanner.getDisplayInfo(bestUncaught));
             return bestUncaught;
+        }
+        if (bestUncaughtLegendary != null) {
+            targetForCapture = true;
+            AutoQiqiClient.log("Battle", "Roaming: -> uncaught legendary (capture) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
+            return bestUncaughtLegendary;
         }
         if (bestCaughtLegendary != null) {
             targetForCapture = false;
