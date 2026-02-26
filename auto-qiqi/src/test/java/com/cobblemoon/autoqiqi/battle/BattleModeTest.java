@@ -15,14 +15,13 @@ class BattleModeTest {
         assertEquals(BattleMode.BERSERK, BattleMode.OFF.next());
         assertEquals(BattleMode.ROAMING, BattleMode.BERSERK.next());
         assertEquals(BattleMode.TRAINER, BattleMode.ROAMING.next());
-        assertEquals(BattleMode.TEST, BattleMode.TRAINER.next());
-        assertEquals(BattleMode.OFF, BattleMode.TEST.next());
+        assertEquals(BattleMode.OFF, BattleMode.TRAINER.next());
     }
 
     @Test
     void nextFullCycleReturnsToStart() {
         BattleMode mode = BattleMode.OFF;
-        mode = mode.next().next().next().next().next();
+        mode = mode.next().next().next().next();
         assertEquals(BattleMode.OFF, mode);
     }
 
@@ -32,7 +31,6 @@ class BattleModeTest {
         assertEquals("Berserk", BattleMode.BERSERK.displayName());
         assertEquals("Roaming", BattleMode.ROAMING.displayName());
         assertEquals("Trainer", BattleMode.TRAINER.displayName());
-        assertEquals("Test (Lv40+)", BattleMode.TEST.displayName());
     }
 
     @ParameterizedTest

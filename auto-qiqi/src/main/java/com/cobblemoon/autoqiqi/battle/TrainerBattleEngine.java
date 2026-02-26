@@ -180,12 +180,20 @@ public class TrainerBattleEngine {
 
     private MoveInfo lookupMove(String moveName) {
         try {
-            MoveTemplate tpl = Moves.INSTANCE.getByName(moveName);
+            // Cobblemon registry uses Showdown-style IDs: lowercase, no spaces/hyphens
+            // e.g. "Hyper Beam" → "hyperbeam", "Dragon Pulse" → "dragonpulse"
+            String normalized = moveName.toLowerCase().replaceAll("[^a-z0-9]", "");
+            MoveTemplate tpl = Moves.INSTANCE.getByName(normalized);
+            if (tpl == null) {
+                // Fallback: try with the original name (getByName lowercases internally)
+                tpl = Moves.INSTANCE.getByName(moveName);
+            }
             if (tpl != null) {
                 String type = tpl.getElementalType().getName().toLowerCase();
                 double power = tpl.getPower();
                 return new MoveInfo(type, power);
             }
+            AutoQiqiClient.log("Trainer", "Move not found in registry: '" + moveName + "' (tried '" + normalized + "')");
         } catch (Exception e) {
             AutoQiqiClient.log("Trainer", "Move lookup failed for '" + moveName + "': " + e.getMessage());
         }

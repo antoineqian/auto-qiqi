@@ -65,7 +65,10 @@ public abstract class BattleSwitchPokemonSelectionMixin {
             boolean isTrainer = AutoQiqiClient.getBattleMode() == BattleMode.TRAINER;
             AutoQiqiClient.runLater(() -> {
                 if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) return;
+                        || self.getRequest().getResponse() != null) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: stale request (autofight), skipping");
+                    return;
+                }
 
                 List<SwitchTile> tiles = self.getTiles().stream()
                         .filter(t -> self.isReviving()
@@ -83,13 +86,15 @@ public abstract class BattleSwitchPokemonSelectionMixin {
                 }
 
                 if (chosen != null) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
                     self.getBattleGUI().selectAction(
                             self.getRequest(),
                             new SwitchActionResponse(chosen.getPokemon().getUuid()));
                 } else {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target (autofight)");
                     self.getBattleGUI().changeActionSelection(null);
                 }
-            }, config.battleSelectDelay);
+            }, config.battleSelectDelay + 800);
         }
     }
 }

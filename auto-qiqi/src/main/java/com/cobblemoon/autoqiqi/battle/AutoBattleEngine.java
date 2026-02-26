@@ -192,6 +192,17 @@ public class AutoBattleEngine {
         engageBlacklist.clear();
     }
 
+    public void forceTarget(Entity entity, boolean forCapture) {
+        this.target = entity;
+        this.targetForCapture = forCapture;
+        this.aimTicks = 0;
+        this.keySimulated = false;
+        this.losStrafeTicks = 0;
+        this.cooldown = 0;
+        AutoQiqiClient.log("Battle", "Force target set: " + PokemonScanner.getDisplayInfo(entity)
+                + " (forCapture=" + forCapture + ")");
+    }
+
     public void recordCapture(String pokemonName) {
         sessionCaptures.add(pokemonName);
         AutoQiqiClient.log("Stats", "Capture recorded: " + pokemonName + " (session total: " + sessionCaptures.size() + ")");
@@ -388,9 +399,13 @@ public class AutoBattleEngine {
             AutoQiqiClient.log("Battle", mode.displayName() + " battle finished (total: " + battleCount + ")");
 
             int healEvery = AutoQiqiConfig.get().battleHealEveryN;
-            if (healEvery > 0 && battleCount % healEvery == 0 && player.networkHandler != null) {
-                player.networkHandler.sendChatCommand("pokeheal");
-                AutoQiqiClient.log("Battle", "Sent /pokeheal (after " + battleCount + " battles)");
+            if (healEvery > 0 && battleCount % healEvery == 0 && AutoQiqiClient.isConnected(MinecraftClient.getInstance())) {
+                try {
+                    player.networkHandler.sendChatCommand("pokeheal");
+                    AutoQiqiClient.log("Battle", "Sent /pokeheal (after " + battleCount + " battles)");
+                } catch (Exception e) {
+                    AutoQiqiClient.log("Battle", "pokeheal failed (network?): " + e.getMessage());
+                }
             }
 
             if (pausedFishingForBattle) {
@@ -771,10 +786,6 @@ public class AutoBattleEngine {
 
         candidates.sort(Comparator.comparingDouble(e -> e.distanceTo(player)));
 
-        if (mode == BattleMode.TEST) {
-            return findTestTarget(candidates);
-        }
-
         if (roaming) {
             return findRoamingTarget(candidates, whitelist);
         }
@@ -870,36 +881,6 @@ public class AutoBattleEngine {
 
         targetForCapture = false;
         return null;
-    }
-
-    /**
-     * TEST mode: capture any wild Pokemon with level > 40.
-     * Picks the closest qualifying target.
-     */
-    private Entity findTestTarget(java.util.List<Entity> sortedCandidates) {
-        Entity best = null;
-        int count = 0;
-
-        for (Entity e : sortedCandidates) {
-            try {
-                int level = ((PokemonEntity) e).getPokemon().getLevel();
-                if (level > 40) {
-                    count++;
-                    if (best == null) best = e;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        AutoQiqiClient.log("Battle", "Test scan: " + sortedCandidates.size() + " wild, "
-                + count + " above Lv.40");
-
-        if (best != null) {
-            targetForCapture = true;
-            AutoQiqiClient.log("Battle", "Test: -> " + PokemonScanner.getDisplayInfo(best));
-        } else {
-            targetForCapture = false;
-        }
-        return best;
     }
 
     private boolean isWhitelisted(Entity entity, java.util.List<String> whitelist) {

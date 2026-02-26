@@ -98,9 +98,13 @@ public class AutofishEngine {
             com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Fish battle ended (total: " + fishBattleCount + ") — recast queued");
 
             int healEvery = AutoQiqiConfig.get().battleHealEveryN;
-            if (healEvery > 0 && fishBattleCount % healEvery == 0 && client.player != null && client.player.networkHandler != null) {
-                client.player.networkHandler.sendChatCommand("pokeheal");
-                com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Sent /pokeheal (after " + fishBattleCount + " fish battles)");
+            if (healEvery > 0 && fishBattleCount % healEvery == 0 && com.cobblemoon.autoqiqi.AutoQiqiClient.isConnected(client)) {
+                try {
+                    client.player.networkHandler.sendChatCommand("pokeheal");
+                    com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Sent /pokeheal (after " + fishBattleCount + " fish battles)");
+                } catch (Exception e) {
+                    com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "pokeheal failed (network?): " + e.getMessage());
+                }
             }
 
             queueRecast();
@@ -333,7 +337,7 @@ public class AutofishEngine {
     private boolean tryRepairIfNeeded() {
         AutoQiqiConfig config = AutoQiqiConfig.get();
         if (!config.fishAutoRepair) return false;
-        if (client.player == null || client.player.networkHandler == null) return false;
+        if (!com.cobblemoon.autoqiqi.AutoQiqiClient.isConnected(client)) return false;
 
         ItemStack held = getHeldItem();
         if (!isAboutToBreak(held)) return false;
@@ -341,7 +345,12 @@ public class AutofishEngine {
         long now = Util.getMeasuringTimeMs();
         long elapsed = now - config.lastRepairTimeMs;
         if (elapsed >= config.fishRepairCooldownMs) {
-            client.player.networkHandler.sendChatCommand("repair");
+            try {
+                client.player.networkHandler.sendChatCommand("repair");
+            } catch (Exception e) {
+                com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "repair send failed (network?): " + e.getMessage());
+                return false;
+            }
             config.lastRepairTimeMs = now;
             AutoQiqiConfig.save();
             int remaining = held.getMaxDamage() - held.getDamage();

@@ -189,8 +189,12 @@ public class GoldMiningEngine {
         if (previousSlot == -1) previousSlot = player.getInventory().selectedSlot;
         player.getInventory().selectedSlot = slot;
 
-        if (player.networkHandler != null) {
-            player.networkHandler.sendChatCommand("repair");
+        if (AutoQiqiClient.isConnected(MinecraftClient.getInstance())) {
+            try {
+                player.networkHandler.sendChatCommand("repair");
+            } catch (Exception e) {
+                AutoQiqiClient.log("Mine", "repair send failed (network?): " + e.getMessage());
+            }
         }
         AutoQiqiConfig config = AutoQiqiConfig.get();
         config.goldMiningLastRepairTimeMs = System.currentTimeMillis();

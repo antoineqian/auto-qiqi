@@ -50,8 +50,6 @@ public class AutoQiqiHud {
                 modeTag = "§c[Roaming]";
             } else if (battleMode == BattleMode.TRAINER) {
                 modeTag = "§b[Trainer]";
-            } else if (battleMode == BattleMode.TEST) {
-                modeTag = "§6[Test Lv40+]";
             } else {
                 modeTag = "§a[Berserk]";
             }

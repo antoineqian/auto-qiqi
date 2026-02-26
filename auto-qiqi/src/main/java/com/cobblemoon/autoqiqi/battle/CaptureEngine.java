@@ -9,6 +9,7 @@ import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
+import com.cobblemoon.autoqiqi.common.SessionLogger;
 import com.cobblemoon.autoqiqi.legendary.PokemonWalker;
 
 import net.minecraft.client.MinecraftClient;
@@ -134,7 +135,7 @@ public class CaptureEngine {
     private int throwWaitTicks = 0;
     private int missCount = 0;
     private static final int MISS_TIMEOUT_TICKS = 240; // 12 seconds — ball shake animation can take 8-12s
-    private static final int MAX_MISSES = 3;
+    private static final int MAX_MISSES = 6;
 
     // Cooldown after a ball hit is confirmed (wait for shake animation to finish)
     private boolean ballHitJustConfirmed = false;
@@ -176,6 +177,13 @@ public class CaptureEngine {
             new BallEntry("ultra_ball", Integer.MAX_VALUE),
     };
 
+    /** Legendaries (level 70+): ultra ball only, give up after this many throws. */
+    private static final BallEntry[] LEGENDARY_BALLS = {
+            new BallEntry("ultra_ball", Integer.MAX_VALUE),
+    };
+    private static final int LEGENDARY_LEVEL_THRESHOLD = 70;
+    private static final int LEGENDARY_GIVE_UP_AFTER_THROWS = 20;
+
     private BallEntry[] activeBallSequence;
 
     private CaptureEngine() {}
@@ -206,7 +214,11 @@ public class CaptureEngine {
             return;
         }
         this.targetEntity = entity;
-        this.activeBallSequence = level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS;
+        if (level >= LEGENDARY_LEVEL_THRESHOLD) {
+            this.activeBallSequence = LEGENDARY_BALLS;
+        } else {
+            this.activeBallSequence = level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS;
+        }
         this.phase = (entity != null) ? Phase.WALKING : Phase.IN_BATTLE;
         this.captureStartMs = System.currentTimeMillis();
         resetState();
@@ -866,9 +878,11 @@ public class CaptureEngine {
             throwWaitTicks = 0;
 
             if (missCount >= MAX_MISSES) {
-                AutoQiqiClient.log("Capture", "Too many misses (" + MAX_MISSES + "), aborting capture");
+                AutoQiqiClient.log("Capture", "Too many misses (" + MAX_MISSES + "), switching to kill");
+                String target = targetName != null ? targetName : "Pokemon";
+                SessionLogger.get().logCaptureFailed(target, targetLevel, targetIsLegendary, totalBallsThrown, "too many misses (" + MAX_MISSES + "), switching to kill");
                 client.player.sendMessage(
-                        Text.literal("§6[Capture]§r §cTrop de balls ratees, arret."), false);
+                        Text.literal("§6[Capture]§r §cTrop de balls ratees (" + MAX_MISSES + "). Abandon capture — passage en combat pour tuer §e" + target + "§c."), false);
                 stop();
                 return;
             }
@@ -1123,6 +1137,19 @@ public class CaptureEngine {
             return GeneralChoice.FIGHT;
         }
 
+        // Legendary (70+): give up after 20 throws and kill
+        if (targetIsLegendary && totalBallsThrown >= LEGENDARY_GIVE_UP_AFTER_THROWS) {
+            AutoQiqiClient.log("Capture", "Legendary: " + totalBallsThrown + " balls thrown, giving up — killing " + targetName);
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null && client.player != null) {
+                client.player.sendMessage(
+                        Text.literal("§6[Capture]§r §c" + totalBallsThrown + " balls, abandon capture — passage en combat pour tuer §e" + targetName + "§c."), false);
+            }
+            SessionLogger.get().logCaptureFailed(targetName, targetLevel, true, totalBallsThrown, "gave up after " + totalBallsThrown + " balls");
+            stop();
+            return GeneralChoice.FIGHT;
+        }
+
         if (cycleNextIsBall) {
             currentAction = CaptureAction.THROW_BALL;
             cycleNextIsBall = false;
@@ -1174,12 +1201,7 @@ public class CaptureEngine {
     }
 
     private String getNextBallName() {
-        if (targetIsLegendary && ultraBallsThrown >= 20) {
-            statusMessage = "Master Ball!";
-            totalBallsThrown++;
-            return "master_ball";
-        }
-
+        // Legendaries (70+): ultra only, give up after LEGENDARY_GIVE_UP_AFTER_THROWS (handled in decideGeneralAction)
         if (ballSequenceIndex >= activeBallSequence.length) {
             statusMessage = "Ultra Ball #" + (ultraBallsThrown + 1);
             ultraBallsThrown++;

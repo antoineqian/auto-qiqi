@@ -30,7 +30,7 @@ public class AutoQiqiConfig {
     // Battle
     // ========================
 
-    public String battleMode = "OFF";
+    public String battleMode = "ROAMING";
     public long battleSelectDelay = 200;
     public double battleSwitchChance = 0.0;
     public int battleHealEveryN = 3;
@@ -107,8 +107,12 @@ public class AutoQiqiConfig {
 
     public boolean autoReconnectEnabled = false;
     public int reconnectDelaySeconds = 10;
+    /** Max seconds to wait for connection after clicking Rejoindre (covers e.g. ~1 min WiFi outage). */
+    public int reconnectWaitConnectionSeconds = 90;
     public int reconnectMaxRetries = 5;
     public String reconnectButtonText = "Rejoindre";
+    /** Button text to click to leave the disconnect/error screen (FR: "Retour à la liste des serveurs", EN: "Back to server list"). */
+    public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
 
     // ========================
     // Mining (Nether Gold Ore)

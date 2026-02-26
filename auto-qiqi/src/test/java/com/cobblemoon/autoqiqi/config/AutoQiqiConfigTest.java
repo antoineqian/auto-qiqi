@@ -81,8 +81,8 @@ class AutoQiqiConfigTest {
     // ── Default values ──
 
     @Test
-    void defaultBattleModeIsOff() {
-        assertEquals("OFF", config.battleMode);
+    void defaultBattleModeIsRoaming() {
+        assertEquals("ROAMING", config.battleMode);
     }
 
     @Test

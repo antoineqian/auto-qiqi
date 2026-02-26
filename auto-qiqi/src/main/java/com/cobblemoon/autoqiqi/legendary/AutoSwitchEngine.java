@@ -304,11 +304,7 @@ public class AutoSwitchEngine {
         }
 
         String eventWorld = tracker.getWorldToSwitchTo();
-        if (eventWorld != null && AutoBattleEngine.get().getMode() == BattleMode.TEST) {
-            if (tickCount % 200 == 0) {
-                AutoQiqiClient.log("Legendary", "IDLE: event ready (" + eventWorld + ") but TEST mode active, skipping switch");
-            }
-        } else if (eventWorld != null) {
+        if (eventWorld != null) {
             targetEventWorld = eventWorld;
             WorldTimerData evtData = tracker.getTimer(eventWorld);
             String evtInfo = evtData != null ? (evtData.isEventActive() ? "EVENT_ACTIVE" : evtData.getFormattedTime()) : "?";
@@ -705,6 +701,20 @@ public class AutoSwitchEngine {
     }
 
     /**
+     * Cancel any in-progress world switch and go to IDLE.
+     * Used when activating tower mode so tower and legendary hop are mutually exclusive.
+     */
+    public void cancelToIdle() {
+        if (state == State.IDLE) return;
+        AutoQiqiClient.log("Legendary", "cancelToIdle: " + state + " -> IDLE (tower or manual)");
+        GuiWorldSwitcher.get().cancelPending();
+        pendingCommand = null;
+        pendingHomeWorld = null;
+        isHomeTeleport = false;
+        setState(State.IDLE, "tower / mutually exclusive");
+    }
+
+    /**
      * Verifies we're in the expected dimension for the given world (home command mapping).
      * Returns true if we're in the right place (or if verification is disabled), false if dimension mismatch.
      * Disable via config.verifyHomeDimension for servers with custom resource dimensions.
@@ -738,6 +748,12 @@ public class AutoSwitchEngine {
 
     private void tickPendingCommand(MinecraftClient client) {
         if (pendingCommand != null && tickCount >= commandExecuteAtTick) {
+            if (client.player == null || !AutoQiqiClient.isConnected(client)) {
+                // Network down or not in game — retry in 2 seconds instead of dropping the command
+                commandExecuteAtTick = tickCount + 40;
+                AutoQiqiClient.log("Legendary", "Command deferred (no connection), retry in 2s: '" + pendingCommand + "'");
+                return;
+            }
             String cmd = pendingCommand;
             pendingCommand = null;
 
@@ -747,10 +763,16 @@ public class AutoSwitchEngine {
             }
 
             AutoQiqiClient.log("Legendary", "Command executing: '" + cmd + "'");
-            if (cmd.startsWith("/")) {
-                client.player.networkHandler.sendCommand(cmd.substring(1));
-            } else {
-                client.player.networkHandler.sendChatMessage(cmd);
+            try {
+                if (cmd.startsWith("/")) {
+                    client.player.networkHandler.sendCommand(cmd.substring(1));
+                } else {
+                    client.player.networkHandler.sendChatMessage(cmd);
+                }
+            } catch (Exception e) {
+                AutoQiqiClient.log("Legendary", "Command send failed (network?): " + e.getMessage() + " — re-queuing");
+                pendingCommand = cmd;
+                commandExecuteAtTick = tickCount + 40;
             }
         }
     }

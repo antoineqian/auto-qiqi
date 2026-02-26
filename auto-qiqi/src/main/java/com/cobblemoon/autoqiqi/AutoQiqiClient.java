@@ -198,6 +198,7 @@ public class AutoQiqiClient implements ClientModInitializer {
             }
             AutoSwitchEngine.get().tick();
             PokemonWalker.get().tick();
+            TowerNpcEngine.get().tick();
 
             // Walk
             if (walkEnabled) {
@@ -302,8 +303,18 @@ public class AutoQiqiClient implements ClientModInitializer {
         }
 
         if (towerStartKey.wasPressed()) {
-            if (TowerNpcEngine.get().tryStartTower()) {
-                msg(client, "§a[Tower]§r Interaction avec le NPC...");
+            if (TowerNpcEngine.get().isLoopEnabled()) {
+                TowerNpcEngine.get().stopLoop();
+                msg(client, "§e[Tower]§r Tour arrêtée après le prochain combat.");
+            } else if (TowerNpcEngine.get().tryStartTower()) {
+                AutoQiqiConfig config = AutoQiqiConfig.get();
+                if (config.legendaryAutoSwitch) {
+                    config.legendaryAutoSwitch = false;
+                    AutoQiqiConfig.save();
+                    AutoSwitchEngine.get().cancelToIdle();
+                    msg(client, "§7[Tower]§r Legendary hop désactivé (mutuellement exclusif).");
+                }
+                msg(client, "§a[Tower]§r Tour démarrée. Appuyez sur I pour arrêter.");
             } else {
                 msg(client, "§c[Tower]§r Aucun NPC de tour trouvé (Directeur ou combat).");
             }
@@ -321,22 +332,30 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     private void registerScreenEvents() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            // Tower dialog: also handle non-HandledScreen (EasyNPC dialog buttons)
+            TowerGuiHandler.get().onAnyScreenOpened(screen);
+
             if (screen instanceof HandledScreen<?> handledScreen) {
-                GuiWorldSwitcher.get().onScreenOpened(handledScreen);
-                TowerGuiHandler.get().onScreenOpened(handledScreen);
-
-                ScreenEvents.afterTick(screen).register(s -> {
-                    if (s instanceof HandledScreen<?> hs) {
-                        GuiWorldSwitcher.get().onScreenTick(hs);
-                        TowerGuiHandler.get().onScreenTick(hs);
-                    }
-                });
-
-                ScreenEvents.remove(screen).register(s -> {
-                    GuiWorldSwitcher.get().onScreenClosed();
-                    TowerGuiHandler.get().onScreenClosed();
-                });
+                TowerGuiHandler.get().onChestScreenOpened(handledScreen);
+                if (!TowerGuiHandler.get().isHandlingScreen()) {
+                    GuiWorldSwitcher.get().onScreenOpened(handledScreen);
+                }
             }
+
+            ScreenEvents.afterTick(screen).register(s -> {
+                TowerGuiHandler.get().onAnyScreenTick(s);
+                if (s instanceof HandledScreen<?> hs) {
+                    TowerGuiHandler.get().onChestScreenTick(hs);
+                    if (!TowerGuiHandler.get().isHandlingScreen()) {
+                        GuiWorldSwitcher.get().onScreenTick(hs);
+                    }
+                }
+            });
+
+            ScreenEvents.remove(screen).register(s -> {
+                GuiWorldSwitcher.get().onScreenClosed();
+                TowerGuiHandler.get().onScreenClosed();
+            });
         });
     }
 
@@ -886,7 +905,6 @@ public class AutoQiqiClient implements ClientModInitializer {
      * Bosses and whitelisted kills are always allowed regardless of this check.
      */
     public static boolean canRoamCapture() {
-        if (AutoBattleEngine.get().getMode() == BattleMode.TEST) return true;
         AutoQiqiConfig config = AutoQiqiConfig.get();
         if (!config.legendaryEnabled || !config.legendaryAutoSwitch) return true;
 
@@ -922,6 +940,17 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     public static BattleMode getBattleMode() { return AutoBattleEngine.get().getMode(); }
     public static boolean isWalkEnabled() { return walkEnabled; }
+
+    /**
+     * True when the client is in-game and has a network handler (can send commands).
+     * Use before sending commands to avoid errors during/after network outages.
+     */
+    public static boolean isConnected(MinecraftClient client) {
+        return client != null
+                && client.getNetworkHandler() != null
+                && client.player != null
+                && client.world != null;
+    }
 
     /** True when battle actions should be automated (any battle mode active OR fish-triggered battle). */
     public static boolean shouldAutoFight() {

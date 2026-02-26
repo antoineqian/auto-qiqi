@@ -29,6 +29,7 @@ public class AutoReconnectEngine {
         MONITORING,
         WAIT_BEFORE_DISMISS,
         DISMISS_DISCONNECT,
+        CLICK_BACK_TO_SERVER_LIST,
         CLICK_REJOINDRE,
         WAIT_CONNECT,
         WAIT_LOBBY_LOAD,
@@ -78,11 +79,17 @@ public class AutoReconnectEngine {
     }
 
     public void tick(MinecraftClient client) {
-        if (phase == Phase.DISABLED) return;
-
         AutoQiqiConfig config = AutoQiqiConfig.get();
+
+        if (phase == Phase.DISABLED) {
+            if (config.autoReconnectEnabled) {
+                enable();
+            }
+            return;
+        }
+
         if (!config.autoReconnectEnabled) {
-            if (phase != Phase.DISABLED) disable();
+            disable();
             return;
         }
 
@@ -90,6 +97,7 @@ public class AutoReconnectEngine {
             case MONITORING -> tickMonitoring(client);
             case WAIT_BEFORE_DISMISS -> tickWaitBeforeDismiss(client);
             case DISMISS_DISCONNECT -> tickDismissDisconnect(client);
+            case CLICK_BACK_TO_SERVER_LIST -> tickClickBackToServerList(client);
             case CLICK_REJOINDRE -> tickClickRejoindre(client);
             case WAIT_CONNECT -> tickWaitConnect(client);
             case WAIT_LOBBY_LOAD -> tickWaitLobbyLoad(client);
@@ -114,22 +122,31 @@ public class AutoReconnectEngine {
             AutoQiqiClient.log("Reconnect", "Title screen detected while not connected, starting reconnect flow");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Title screen detected, starting reconnect");
             transition(Phase.WAIT_BEFORE_DISMISS);
+        } else if (screen != null && hasBackToServerListButton(screen)) {
+            AutoQiqiClient.log("Reconnect", "Error/disconnect screen with 'Retour à la liste des serveurs' detected, clicking it");
+            SessionLogger.get().logEvent("AUTO_RECONNECT", "Error screen (back to server list) detected");
+            transition(Phase.CLICK_BACK_TO_SERVER_LIST);
         }
     }
 
     // --- Phase: WAIT_BEFORE_DISMISS ---
 
     private void tickWaitBeforeDismiss(MinecraftClient client) {
+        Screen screen = client.currentScreen;
+        if (screen instanceof TitleScreen) {
+            AutoQiqiClient.log("Reconnect", "Title screen visible, proceeding to Rejoindre");
+            transition(Phase.CLICK_REJOINDRE);
+            return;
+        }
+        if (client.player != null && client.world != null) {
+            onSuccess();
+            return;
+        }
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         long delayMs = getReconnectDelayMs();
         if (elapsed >= delayMs) {
-            Screen screen = client.currentScreen;
             if (screen instanceof DisconnectedScreen) {
                 transition(Phase.DISMISS_DISCONNECT);
-            } else if (screen instanceof TitleScreen) {
-                transition(Phase.CLICK_REJOINDRE);
-            } else if (client.player != null && client.world != null) {
-                onSuccess();
             } else {
                 AutoQiqiClient.log("Reconnect", "Unexpected screen after delay: "
                         + (screen != null ? screen.getClass().getSimpleName() : "null"));
@@ -143,14 +160,71 @@ public class AutoReconnectEngine {
     private void tickDismissDisconnect(MinecraftClient client) {
         Screen screen = client.currentScreen;
         if (screen instanceof DisconnectedScreen) {
-            AutoQiqiClient.log("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen");
-            client.setScreen(new TitleScreen());
-            transition(Phase.CLICK_REJOINDRE);
+            if (tryClickBackToServerListButton(screen)) {
+                AutoQiqiClient.log("Reconnect", "Clicked 'Retour à la liste des serveurs' on DisconnectedScreen");
+                transition(Phase.WAIT_BEFORE_DISMISS);
+            } else {
+                AutoQiqiClient.log("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen (no button found)");
+                client.setScreen(new TitleScreen());
+                transition(Phase.CLICK_REJOINDRE);
+            }
         } else if (screen instanceof TitleScreen) {
             transition(Phase.CLICK_REJOINDRE);
         } else {
             checkTimeout(Phase.MONITORING, "dismiss disconnect");
         }
+    }
+
+    // --- Phase: CLICK_BACK_TO_SERVER_LIST ---
+
+    private void tickClickBackToServerList(MinecraftClient client) {
+        Screen screen = client.currentScreen;
+        if (screen == null) {
+            transition(Phase.MONITORING);
+            return;
+        }
+        if (screen instanceof TitleScreen) {
+            AutoQiqiClient.log("Reconnect", "Already on TitleScreen after back, proceeding to Rejoindre");
+            transition(Phase.CLICK_REJOINDRE);
+            return;
+        }
+        if (tryClickBackToServerListButton(screen)) {
+            AutoQiqiClient.log("Reconnect", "Clicked 'Retour à la liste des serveurs'");
+            transition(Phase.WAIT_BEFORE_DISMISS);
+        } else {
+            checkTimeout(Phase.MONITORING, "find back-to-server-list button");
+        }
+    }
+
+    private boolean hasBackToServerListButton(Screen screen) {
+        String match = AutoQiqiConfig.get().reconnectBackToServerListButtonText;
+        if (match == null || match.isEmpty()) return false;
+        String lower = match.toLowerCase();
+        for (var child : screen.children()) {
+            if (child instanceof PressableWidget widget) {
+                String label = widget.getMessage().getString();
+                if (label.toLowerCase().contains(lower)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Clicks the "Retour à la liste des serveurs" (or config) button if present. Returns true if clicked. */
+    private boolean tryClickBackToServerListButton(Screen screen) {
+        String match = AutoQiqiConfig.get().reconnectBackToServerListButtonText;
+        if (match == null || match.isEmpty()) return false;
+        String lower = match.toLowerCase();
+        for (var child : screen.children()) {
+            if (child instanceof PressableWidget widget) {
+                String label = widget.getMessage().getString();
+                if (label.toLowerCase().contains(lower)) {
+                    AutoQiqiClient.log("Reconnect", "Clicking button: '" + label + "'");
+                    widget.onPress();
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // --- Phase: CLICK_REJOINDRE ---
@@ -201,7 +275,12 @@ public class AutoReconnectEngine {
             return;
         }
 
-        checkTimeout(Phase.MONITORING, "wait for connection");
+        long timeoutMs = AutoQiqiConfig.get().reconnectWaitConnectionSeconds * 1000L;
+        long elapsed = System.currentTimeMillis() - phaseStartMs;
+        if (elapsed >= timeoutMs) {
+            AutoQiqiClient.log("Reconnect", "Timeout waiting for connection (" + (timeoutMs / 1000) + "s)");
+            onFailure("timeout: wait for connection");
+        }
     }
 
     // --- Phase: WAIT_LOBBY_LOAD ---

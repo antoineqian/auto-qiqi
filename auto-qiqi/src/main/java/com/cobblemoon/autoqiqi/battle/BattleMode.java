@@ -1,15 +1,14 @@
 package com.cobblemoon.autoqiqi.battle;
 
 public enum BattleMode {
-    OFF, BERSERK, ROAMING, TRAINER, TEST;
+    OFF, BERSERK, ROAMING, TRAINER;
 
     public BattleMode next() {
         return switch (this) {
             case OFF -> BERSERK;
             case BERSERK -> ROAMING;
             case ROAMING -> TRAINER;
-            case TRAINER -> TEST;
-            case TEST -> OFF;
+            case TRAINER -> OFF;
         };
     }
 
@@ -19,7 +18,6 @@ public enum BattleMode {
             case BERSERK -> "Berserk";
             case ROAMING -> "Roaming";
             case TRAINER -> "Trainer";
-            case TEST -> "Test (Lv40+)";
         };
     }
 

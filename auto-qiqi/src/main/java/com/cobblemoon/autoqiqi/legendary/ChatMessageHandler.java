@@ -42,6 +42,11 @@ public class ChatMessageHandler {
     private boolean suppressNextChatMessages = false;
     private long suppressUntil = 0;
 
+    private String lastLegendaryHandled = null;
+    private long lastLegendaryHandledAt = 0;
+    private double[] pendingLegendaryCoords = null;
+    private static final long LEGENDARY_DEDUP_MS = 5000;
+
     private ChatMessageHandler() {
         recompilePatterns();
     }
@@ -173,11 +178,33 @@ public class ChatMessageHandler {
         if (player == null) return;
 
         String ourName = player.getName().getString();
-        boolean isNearUs = nearPlayer.equalsIgnoreCase(ourName);
+        boolean isSelfReference = nearPlayer.equalsIgnoreCase("vous") || nearPlayer.equalsIgnoreCase("toi");
+        boolean isNearUs = isSelfReference || nearPlayer.equalsIgnoreCase(ourName);
         AutoQiqiConfig config = AutoQiqiConfig.get();
 
+        double[] coords = parseCoordinates(fullMessage);
+
+        if (isSelfReference && coords != null) {
+            pendingLegendaryCoords = coords;
+            AutoQiqiClient.log("Legendary", "Stored coords from 'pres de vous' message: ("
+                    + (int)coords[0] + "," + (int)coords[1] + "," + (int)coords[2] + ")");
+        }
+
+        long now = System.currentTimeMillis();
+        boolean isDuplicate = pokemonName.equalsIgnoreCase(lastLegendaryHandled)
+                && (now - lastLegendaryHandledAt) < LEGENDARY_DEDUP_MS;
+
+        if (isNearUs && !isSelfReference) {
+            if (isDuplicate) {
+                AutoQiqiClient.log("Legendary", "Dedup: skipping second spawn message for " + pokemonName);
+                return;
+            }
+            lastLegendaryHandled = pokemonName;
+            lastLegendaryHandledAt = now;
+        }
+
         String currentWorld = WorldTracker.get().getCurrentWorld();
-        if (isNearUs) {
+        if (isNearUs && !isDuplicate) {
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logLegendarySpawn(
                     pokemonName, currentWorld != null ? currentWorld : "unknown", true);
         }
@@ -185,7 +212,7 @@ public class ChatMessageHandler {
         boolean shouldPlaySound = config.legendarySpawnSoundEnabled
                 && (!config.legendarySpawnSoundOnlyForMe || isNearUs);
 
-        if (shouldPlaySound) {
+        if (shouldPlaySound && !isDuplicate) {
             int repeats = isNearUs
                     ? Math.max(1, Math.min(5, config.legendarySpawnSoundRepeats))
                     : 1;
@@ -208,33 +235,48 @@ public class ChatMessageHandler {
             }, "AutoQiqi-Sound").start();
         }
 
-        if (isNearUs) {
+        if (isNearUs && !isSelfReference) {
             AutoSwitchEngine.get().pauseForCapture(pokemonName);
 
-            double[] coords = parseCoordinates(fullMessage);
+            double[] effectiveCoords = coords != null ? coords : pendingLegendaryCoords;
+            pendingLegendaryCoords = null;
+
             client.execute(() -> {
                 if (client.player == null || client.world == null) return;
-                Entity legendaryEntity = findLegendaryEntity(client, pokemonName, coords);
+                Entity legendaryEntity = findLegendaryEntity(client, pokemonName, effectiveCoords);
                 if (legendaryEntity != null) {
                     String name = PokemonScanner.getPokemonName(legendaryEntity);
                     int level = PokemonScanner.getPokemonLevel(legendaryEntity);
-                    AutoQiqiClient.log("Legendary", "Auto-capture: found " + name + " Lv." + level
-                            + " at dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity)));
-                    client.player.sendMessage(
-                            Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                    + " §e§ldetecte ! §7Auto-capture en cours..."),
-                            false);
-                    CaptureEngine.get().start(name, level, true, legendaryEntity);
+                    String dexStatus = PokemonScanner.getPokedexStatus(legendaryEntity);
+                    boolean alreadyCaught = "CAUGHT".equals(dexStatus);
+
+                    AutoQiqiClient.log("Legendary", "Auto-engage: " + name + " Lv." + level
+                            + " dex=" + dexStatus + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
+                            + " -> " + (alreadyCaught ? "KILL" : "CAPTURE"));
+
+                    if (alreadyCaught) {
+                        client.player.sendMessage(
+                                Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                        + " §e§ldetecte ! §7[DEX] Deja capture — combat pour tuer."),
+                                false);
+                        AutoBattleEngine.get().forceTarget(legendaryEntity, false);
+                    } else {
+                        client.player.sendMessage(
+                                Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                        + " §e§ldetecte ! §7Auto-capture en cours..."),
+                                false);
+                        CaptureEngine.get().start(name, level, true, legendaryEntity);
+                    }
                 } else {
-                    AutoQiqiClient.log("Legendary", "Auto-capture: could not find entity for " + pokemonName
-                            + (coords != null ? " near coords (" + (int)coords[0] + "," + (int)coords[1] + "," + (int)coords[2] + ")" : " (no coords)"));
+                    AutoQiqiClient.log("Legendary", "Auto-engage: could not find entity for " + pokemonName
+                            + (effectiveCoords != null ? " near coords (" + (int)effectiveCoords[0] + "," + (int)effectiveCoords[1] + "," + (int)effectiveCoords[2] + ")" : " (no coords)"));
                     client.player.sendMessage(
                             Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
                                     + " §e§lest apparu pres de vous ! §c§lEntite introuvable, capture manuelle requise. §7[J] pour reprendre"),
                             false);
                 }
             });
-        } else {
+        } else if (!isNearUs) {
             client.execute(() -> {
                 if (client.player != null) {
                     client.player.sendMessage(
@@ -278,7 +320,6 @@ public class ChatMessageHandler {
         double bestDist = Double.MAX_VALUE;
 
         for (Entity entity : candidates) {
-            if (!PokemonScanner.isLegendary(entity)) continue;
             String entityName = PokemonScanner.getPokemonName(entity).toLowerCase();
             if (!entityName.contains(cleanName) && !cleanName.contains(entityName)) continue;
 
@@ -301,9 +342,10 @@ public class ChatMessageHandler {
         if (bestMatch != null) {
             AutoQiqiClient.log("Legendary", "Found legendary entity: " + PokemonScanner.getPokemonName(bestMatch)
                     + " dist=" + String.format("%.1f", bestDist)
+                    + " dex=" + PokemonScanner.getPokedexStatus(bestMatch)
                     + " pos=(" + (int)bestMatch.getX() + "," + (int)bestMatch.getY() + "," + (int)bestMatch.getZ() + ")");
         } else {
-            AutoQiqiClient.log("Legendary", "No matching legendary entity found among " + candidates.size()
+            AutoQiqiClient.log("Legendary", "No matching entity found among " + candidates.size()
                     + " pokemon in range (looking for '" + cleanName + "')");
         }
 

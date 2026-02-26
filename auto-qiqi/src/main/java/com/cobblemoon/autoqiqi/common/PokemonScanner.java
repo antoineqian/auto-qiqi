@@ -183,7 +183,8 @@ public class PokemonScanner {
             "regieleki", "regidrago", "glastrier", "spectrier", "calyrex",
             "enamorus",
             "wochien", "chienpao", "tinglu", "chiyu",
-            "koraidon", "miraidon", "ogerpon", "terapagos", "pecharunt"
+            "koraidon", "miraidon", "ogerpon", "terapagos", "pecharunt",
+            "okidogi", "munkidori", "fezandipiti"
     );
 
     public static boolean isLegendary(Entity entity) {
@@ -191,7 +192,9 @@ public class PokemonScanner {
             try {
                 var pokemon = pe.getPokemon();
                 if (pokemon.isLegendary() || pokemon.isMythical() || pokemon.isUltraBeast()) return true;
-                if (pokemon.hasLabels("legendary") || pokemon.hasLabels("mythical") || pokemon.hasLabels("ultra_beast")) return true;
+                if (pokemon.hasLabels("legendary") || pokemon.hasLabels("mythical")
+                        || pokemon.hasLabels("ultra_beast") || pokemon.hasLabels("sub_legendary")
+                        || pokemon.hasLabels("restricted")) return true;
             } catch (Exception ignored) {}
         }
         String name = getPokemonName(entity).toLowerCase().replaceAll("[^a-z]", "");
