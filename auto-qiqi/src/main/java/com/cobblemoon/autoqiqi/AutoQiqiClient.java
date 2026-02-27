@@ -82,6 +82,13 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static final long BLOCKED_LOG_INTERVAL_MS = 300_000; // log every 5 minutes while blocked
     private long lastBlockedLogMs = 0;
 
+    // Manual vs mod engagement: only auto-fight when the mod started the battle (simulated send-out key)
+    private static long clientTickCounter = 0;
+    private static long lastModEngagementTick = -1000;
+    private static Boolean currentBattleStartedByMod = null;
+    private boolean wasInBattleScreen = false;
+    private static final int MOD_ENGAGEMENT_WINDOW_TICKS = 100; // ~5 seconds to attribute battle to mod
+
     @Override
     public void onInitializeClient() {
         log("Init", "Initializing Auto-Qiqi...");
@@ -99,7 +106,14 @@ public class AutoQiqiClient implements ClientModInitializer {
         registerCommands();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            clientTickCounter++;
             trackBlockedState(client);
+            boolean nowInBattleScreen = client.currentScreen != null
+                    && client.currentScreen.getClass().getSimpleName().toLowerCase().contains("battle");
+            if (wasInBattleScreen && !nowInBattleScreen) {
+                currentBattleStartedByMod = null;
+            }
+            wasInBattleScreen = nowInBattleScreen;
             AutoReconnectEngine.get().tick(client);
 
             if (!firstTickDone && client.player != null) {
@@ -952,11 +966,24 @@ public class AutoQiqiClient implements ClientModInitializer {
                 && client.world != null;
     }
 
-    /** True when battle actions should be automated (any battle mode active OR fish-triggered battle). */
+    /** True when battle actions should be automated. Only true if the mod started the battle (simulated send-out), so manually engaged battles are not auto-fought. */
     public static boolean shouldAutoFight() {
-        if (AutoBattleEngine.get().getMode() != BattleMode.OFF) return true;
+        if (CaptureEngine.get().isActive()) return true;
+        if (AutoBattleEngine.get().getMode() != BattleMode.OFF) {
+            if (currentBattleStartedByMod == null) {
+                currentBattleStartedByMod = (clientTickCounter - lastModEngagementTick) <= MOD_ENGAGEMENT_WINDOW_TICKS;
+                log("Battle", "Battle attribution: " + (currentBattleStartedByMod ? "mod (auto-fight)" : "manual (no auto-fight)"));
+            }
+            if (!currentBattleStartedByMod) return false;
+            return true;
+        }
         AutofishEngine fish = AutofishEngine.get();
         return fish != null && fish.isFishBattleActive();
+    }
+
+    /** Call right before simulating the send-out key so we attribute the ensuing battle to the mod. */
+    public static void recordModEngagement() {
+        lastModEngagementTick = clientTickCounter;
     }
 
     /**

@@ -29,6 +29,7 @@ public abstract class BattleGeneralActionSelectionMixin {
             // Mixin firing again means previous ball hit the target (battle resumed)
             boolean wasWaitingForHit = CaptureEngine.get().isWaitingForBallHit();
             if (wasWaitingForHit) {
+                CaptureEngine.chatBall("Hit confirmed (mixin: action screen shown again)");
                 CaptureEngine.get().onBallHitConfirmed();
             }
 

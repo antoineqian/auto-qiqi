@@ -52,14 +52,23 @@ public class PokemonWalker {
     private static final float YAW_SPEED = 10.0f;
     private static final float PITCH_SPEED = 8.0f;
 
+    /** After arriving at a user-chosen walk target, this entity is not auto-engaged for a grace period (manual fight/capture). */
+    private int lastWalkTargetEntityId = -1;
+    private int lastWalkTargetGraceTicks = 0;
+    private static final int MANUAL_WALK_GRACE_TICKS = 400; // ~20 seconds
+
     private PokemonWalker() {}
 
     public static PokemonWalker get() { return INSTANCE; }
     public boolean isActive() { return active; }
     public boolean hasTimedOut() { return timedOut; }
     public Entity getTarget() { return target; }
+    public int getLastWalkTargetEntityId() { return lastWalkTargetEntityId; }
+    public boolean isInManualWalkGracePeriod() { return lastWalkTargetGraceTicks > 0; }
 
     public void startWalking(Entity targetEntity) {
+        this.lastWalkTargetEntityId = -1;
+        this.lastWalkTargetGraceTicks = 0;
         this.target = targetEntity;
         this.active = true;
         this.path = null;
@@ -106,6 +115,9 @@ public class PokemonWalker {
     }
 
     public void tick() {
+        if (!active && lastWalkTargetGraceTicks > 0) {
+            lastWalkTargetGraceTicks--;
+        }
         MinecraftClient client = MinecraftClient.getInstance();
         if (!active || target == null) return;
 
@@ -136,6 +148,8 @@ public class PokemonWalker {
             String name = PokemonScanner.getPokemonName(target);
             AutoQiqiClient.log("Walker", "Arrived near " + name + " (dist=" + String.format("%.1f", distToTarget) + ")");
             player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §aArrive pres de §e" + name + "§a !"), false);
+            lastWalkTargetEntityId = target.getId();
+            lastWalkTargetGraceTicks = MANUAL_WALK_GRACE_TICKS;
             stop();
             return;
         }

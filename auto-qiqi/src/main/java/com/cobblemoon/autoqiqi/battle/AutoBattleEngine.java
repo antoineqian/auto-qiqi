@@ -492,6 +492,26 @@ public class AutoBattleEngine {
             if (walking) stopWalking();
         }
 
+        // Yield to manual engagement: user chose to walk to this Pokemon
+        PokemonWalker walkerForYield = PokemonWalker.get();
+        if (target != null) {
+            if (walkerForYield.isActive() && walkerForYield.getTarget() != null && target.getId() == walkerForYield.getTarget().getId()) {
+                AutoQiqiClient.log("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — user walking to it (manual)");
+                target = null;
+                targetForCapture = false;
+                aimTicks = 0;
+                keySimulated = false;
+                if (walking) stopWalking();
+            } else if (walkerForYield.isInManualWalkGracePeriod() && target.getId() == walkerForYield.getLastWalkTargetEntityId()) {
+                AutoQiqiClient.log("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — manual engagement grace");
+                target = null;
+                targetForCapture = false;
+                aimTicks = 0;
+                keySimulated = false;
+                if (walking) stopWalking();
+            }
+        }
+
         if (target == null) {
             if (scanTimer > 0) { scanTimer--; return; }
             target = findTarget(client, player);
@@ -557,6 +577,7 @@ public class AutoBattleEngine {
                         logCrosshairInfo(client);
                         lastFightWasBoss = PokemonScanner.isBoss(target);
                         lastEngagedEntityId = target.getId();
+                        AutoQiqiClient.recordModEngagement();
                         simulateSendOutKey(client);
                         keySimulated = true;
                         keySimulatedAtTick = aimTicks;
@@ -805,6 +826,31 @@ public class AutoBattleEngine {
             }
             return false;
         });
+
+        // Do not auto-engage the Pokemon the user chose to walk to (manual engagement)
+        PokemonWalker walker = PokemonWalker.get();
+        if (walker.isActive() && walker.getTarget() != null) {
+            final int walkTargetId = walker.getTarget().getId();
+            candidates.removeIf(e -> {
+                if (e.getId() == walkTargetId) {
+                    AutoQiqiClient.log("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
+                            + " — user is walking to this Pokemon (manual engagement)");
+                    return true;
+                }
+                return false;
+            });
+        }
+        if (walker.isInManualWalkGracePeriod()) {
+            final int lastId = walker.getLastWalkTargetEntityId();
+            candidates.removeIf(e -> {
+                if (e.getId() == lastId) {
+                    AutoQiqiClient.log("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
+                            + " — just arrived (manual engagement grace)");
+                    return true;
+                }
+                return false;
+            });
+        }
 
         if (candidates.isEmpty()) return null;
 
