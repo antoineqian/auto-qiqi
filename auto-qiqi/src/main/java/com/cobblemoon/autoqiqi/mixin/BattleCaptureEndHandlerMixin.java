@@ -18,9 +18,9 @@ import net.minecraft.client.MinecraftClient;
  * We use this as the authoritative "ball hit" signal so that only physical
  * misses (timeout with no packet) count toward MAX_MISSES.
  *
- * When the packet fires first, BattleGeneralActionSelection init may not run
- * (game can show another screen after breakout). So we schedule sending the
- * next action after the shake animation; when the UI is ready we send.
+ * On breakout, the battle is still minimized. We schedule a re-engage
+ * (press send-out key) to bring the battle screen back. If the normal
+ * mixin flow already resumed the battle, the re-engage is a no-op.
  */
 @Mixin(BattleCaptureEndHandler.class)
 public abstract class BattleCaptureEndHandlerMixin {
@@ -41,17 +41,12 @@ public abstract class BattleCaptureEndHandlerMixin {
         CaptureEngine.get().onBallHitConfirmed();
 
         if (!succeeded) {
-            // Pokemon broke free — the battle is still minimized from when CAPTURE was chosen.
-            // Un-minimize it so the action selection UI reappears, triggering the mixin
-            // to decide the next capture action. Retry several times in case of timing issues.
-            long baseDelay = CaptureEngine.BALL_HIT_PACKET_FOLLOW_UP_DELAY_MS;
-            for (int i = 0; i < 4; i++) {
-                long delay = baseDelay + i * 2000L;
-                AutoQiqiClient.runLater(() -> {
-                    CaptureEngine.get().unminimizeBattleIfNeeded("breakout follow-up");
-                    CaptureEngine.trySendNextCaptureActionIfReady();
-                }, delay);
-            }
+            // Pokemon broke free — re-engage (press send-out key) to bring back the battle screen.
+            // setMinimised(false) alone only toggles a flag; the actual way to restore the
+            // battle GUI is to interact with the Pokémon again.
+            AutoQiqiClient.runLater(() -> {
+                CaptureEngine.get().reengageAfterBreakout("breakout");
+            }, 2000);
         }
     }
 }
