@@ -12,8 +12,6 @@ import com.cobblemoon.autoqiqi.legendary.*;
 import com.cobblemoon.autoqiqi.mine.GoldMiningEngine;
 import com.cobblemoon.autoqiqi.npc.TowerGuiHandler;
 import com.cobblemoon.autoqiqi.npc.TowerNpcEngine;
-import com.cobblemoon.autoqiqi.walk.CircleWalkEngine;
-
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -43,7 +41,6 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     // Keybinds
     private static KeyBinding toggleBattleKey;
-    private static KeyBinding toggleWalkKey;
     private static KeyBinding toggleHudKey;
     private static KeyBinding toggleLegendaryKey;
     private static KeyBinding forcePollKey;
@@ -214,12 +211,10 @@ public class AutoQiqiClient implements ClientModInitializer {
             PokemonWalker.get().tick();
             TowerNpcEngine.get().tick();
 
-            // Walk
+            // Walk (circle walk feature removed; G key no longer used for this)
             if (walkEnabled) {
                 if (client.player == null || client.currentScreen != null) {
                     disableWalk(client);
-                } else {
-                    CircleWalkEngine.get().tick(client);
                 }
             }
 
@@ -240,7 +235,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         });
 
         log("Init", "Auto-Qiqi initialized!");
-        log("Init", "Keybinds: K=battle, G=walk, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
+        log("Init", "Keybinds: K=battle, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
     }
 
     // ========================
@@ -249,7 +244,6 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     private void registerKeybindings() {
         toggleBattleKey = reg("key.autoqiqi.toggle_battle", GLFW.GLFW_KEY_K);
-        toggleWalkKey = reg("key.autoqiqi.toggle_walk", GLFW.GLFW_KEY_G);
         toggleHudKey = reg("key.autoqiqi.toggle_hud", GLFW.GLFW_KEY_H);
         toggleLegendaryKey = reg("key.autoqiqi.toggle_legendary", GLFW.GLFW_KEY_J);
         forcePollKey = reg("key.autoqiqi.force_poll", GLFW.GLFW_KEY_U);
@@ -267,17 +261,6 @@ public class AutoQiqiClient implements ClientModInitializer {
 
         if (toggleBattleKey.wasPressed()) {
             client.setScreen(new AutoQiqiConfigScreen());
-        }
-
-        if (toggleWalkKey.wasPressed()) {
-            walkEnabled = !walkEnabled;
-            if (walkEnabled) {
-                CircleWalkEngine.get().start(client.player.getX(), client.player.getZ());
-                msg(client, "§a[Walk]§r ON – marche en cercle");
-            } else {
-                disableWalk(client);
-                msg(client, "§7[Walk]§r OFF");
-            }
         }
 
         if (toggleHudKey.wasPressed()) {
@@ -386,6 +369,15 @@ public class AutoQiqiClient implements ClientModInitializer {
                             .then(ClientCommandManager.argument("index", IntegerArgumentType.integer(1))
                                     .executes(context -> {
                                         executeWalk(IntegerArgumentType.getInteger(context, "index"));
+                                        return 1;
+                                    })))
+                    .then(ClientCommandManager.literal("guide")
+                            .executes(context -> { executeGuideStop(); return 1; })
+                            .then(ClientCommandManager.literal("stop")
+                                    .executes(context -> { executeGuideStop(); return 1; }))
+                            .then(ClientCommandManager.argument("index", IntegerArgumentType.integer(1))
+                                    .executes(context -> {
+                                        executeGuide(IntegerArgumentType.getInteger(context, "index"));
                                         return 1;
                                     })))
                     .then(ClientCommandManager.literal("stop")
@@ -499,7 +491,37 @@ public class AutoQiqiClient implements ClientModInitializer {
             double dist = client.player.distanceTo(entity);
             msg(client, "§e" + (i + 1) + ". §f" + info + cTag + " §7- " + String.format("%.1f", dist) + " blocs");
         }
-        msg(client, "§7Utilise §f/pk walk <n>§7 ou §f/pk capture <n>§7.");
+        msg(client, "§7Utilise §f/pk walk <n>§7, §f/pk guide <n>§7 ou §f/pk capture <n>§7.");
+    }
+
+    private void executeGuide(int index) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+
+        PokemonScanner scanner = PokemonScanner.get();
+        if (scanner.getLastScanSize() == 0) {
+            msg(client, "§cFais d'abord §f/pk scan§c !");
+            return;
+        }
+
+        Entity target = scanner.getFromLastScan(index);
+        if (target == null) {
+            msg(client, "§cIndex invalide. Refais §f/pk scan§c.");
+            return;
+        }
+
+        double dist = client.player.distanceTo(target);
+        String name = PokemonScanner.getDisplayInfo(target);
+        DirectionGuide.get().setTarget(target);
+        msg(client, "§bGuide direction vers §e" + name + "§b (" + String.format("%.1f", dist) + " blocs) — marche toi-meme, /pk guide stop pour annuler.");
+    }
+
+    private void executeGuideStop() {
+        DirectionGuide.get().stop();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.player != null) {
+            msg(client, "§7Guide direction annule.");
+        }
     }
 
     private void executeWalk(int index) {
@@ -558,6 +580,11 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (PokemonWalker.get().isActive()) {
             PokemonWalker.get().stop();
             msg(client, "§7Marche arretee.");
+            stopped = true;
+        }
+        if (DirectionGuide.get().isActive()) {
+            DirectionGuide.get().stop();
+            msg(client, "§7Guide direction annule.");
             stopped = true;
         }
         if (AutoBattleEngine.get().getMode() != BattleMode.OFF) {

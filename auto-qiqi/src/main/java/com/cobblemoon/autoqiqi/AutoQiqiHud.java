@@ -82,12 +82,6 @@ public class AutoQiqiHud {
             y += 12;
         }
 
-        // Walk status
-        if (AutoQiqiClient.isWalkEnabled()) {
-            context.drawText(tr, Text.literal("§a[Walk ON]"), 4, y, 0xFFFFFF, true);
-            y += 12;
-        }
-
         // Hunt timer
         if (AutoQiqiClient.isHuntActive()) {
             long ms = AutoQiqiClient.getHuntRemainingMs();
@@ -197,11 +191,21 @@ public class AutoQiqiHud {
         PokemonWalker walker = PokemonWalker.get();
         String walkStatus = walker.getStatusDisplay();
         boolean showWalk = walkStatus != null;
+        DirectionGuide guide = DirectionGuide.get();
+        String guideStatus = guide.getStatusDisplay();
+        boolean showGuide = guideStatus != null;
         if (showWalk) totalLines++;
+        if (showGuide) totalLines++;
 
         int bottomY = screenHeight - margin;
         int y = bottomY - (totalLines * lineHeight);
 
+        if (showGuide) {
+            int w = tr.getWidth(guideStatus);
+            int x = screenWidth - w - margin;
+            drawBg(context, tr, guideStatus, x, y, 0xFF55FF88);
+            y += lineHeight;
+        }
         if (showWalk) {
             int w = tr.getWidth(walkStatus);
             int x = screenWidth - w - margin;
