@@ -1,4 +1,4 @@
-package com.cobblemoon.autoqiqi.common;
+package com.cobblemoon.autocobblemon.common;
 
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import net.minecraft.client.MinecraftClient;
@@ -6,6 +6,10 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
 
 import java.util.*;
+
+/**
+ * Scans for wild Pokemon in range. Used by periodic alerts and /pk scan.
+ */
 public class PokemonScanner {
     private static final PokemonScanner INSTANCE = new PokemonScanner();
     private static final double SCAN_RANGE = 80.0;
@@ -42,20 +46,12 @@ public class PokemonScanner {
     }
 
     /**
-     * Manual scan triggered by /pk scan. Results are preserved for /pk capture.
+     * Manual scan triggered by /pk scan. Results are stored for display.
      */
     public List<Entity> manualScan() {
         List<Entity> results = scan();
         manualScanResults = new ArrayList<>(results);
         return manualScanResults;
-    }
-
-    public Entity getFromLastScan(int oneBasedIndex) {
-        int idx = oneBasedIndex - 1;
-        if (idx < 0 || idx >= manualScanResults.size()) return null;
-        Entity e = manualScanResults.get(idx);
-        if (!e.isAlive() || e.isRemoved()) return null;
-        return e;
     }
 
     public int getLastScanSize() {
@@ -107,7 +103,20 @@ public class PokemonScanner {
     }
 
     public static boolean isBoss(Entity entity) {
-        return entity.getDisplayName().getString().toLowerCase().contains("boss");
+        if (entity.hasCustomName()) {
+            String customName = entity.getCustomName().getString().toLowerCase();
+            if (customName.contains("boss")) return true;
+        }
+        if (entity instanceof PokemonEntity pe) {
+            try {
+                var pokemon = pe.getPokemon();
+                if (pokemon.hasLabels("boss")) return true;
+                if (pokemon.getAspects().stream().anyMatch(a -> a.toLowerCase().contains("boss"))) return true;
+                var form = pokemon.getForm();
+                if (form.getName().toLowerCase().contains("boss")) return true;
+            } catch (Exception ignored) {}
+        }
+        return false;
     }
 
     // ========================
@@ -150,7 +159,7 @@ public class PokemonScanner {
         return count;
     }
 
-    private static final java.util.Set<String> LEGENDARY_NAMES = java.util.Set.of(
+    private static final Set<String> LEGENDARY_NAMES = Set.of(
             "articuno", "zapdos", "moltres", "mewtwo", "mew",
             "raikou", "entei", "suicune", "lugia", "hooh", "celebi",
             "regirock", "regice", "registeel", "latias", "latios",
@@ -209,38 +218,5 @@ public class PokemonScanner {
             sb.append(" (Lv.").append(level).append(")");
         }
         return sb.toString();
-    }
-
-    public static void debugDumpEntity(Entity entity) {
-        log("=== Pokemon Debug Dump ===");
-        log("  Entity class: " + entity.getClass().getName());
-        log("  DisplayName: " + entity.getDisplayName().getString());
-        log("  CustomName: " + (entity.hasCustomName() ? entity.getCustomName().getString() : "none"));
-        log("  Glowing: " + entity.isGlowing());
-
-        if (entity instanceof PokemonEntity pe) {
-            var pokemon = pe.getPokemon();
-            log("  --- Pokemon ---");
-            log("  Species: " + pokemon.getSpecies().getName());
-            log("  Level: " + pokemon.getLevel());
-            log("  PlayerOwned: " + pokemon.isPlayerOwned());
-            log("  OwnerUUID: " + pokemon.getOwnerUUID());
-            log("  Legendary: " + pokemon.isLegendary());
-            log("  Mythical: " + pokemon.isMythical());
-            log("  UltraBeast: " + pokemon.isUltraBeast());
-            log("  Aspects: " + pokemon.getAspects());
-            log("  Busy: " + pe.isBusy());
-            log("  Owner: " + pe.getOwner());
-
-            var species = pokemon.getSpecies();
-            log("  --- Species ---");
-            log("  Labels: " + species.getLabels());
-        } else {
-            log("  Not a PokemonEntity");
-        }
-    }
-
-    private static void log(String message) {
-        System.out.println("[Auto-Qiqi] " + message);
     }
 }

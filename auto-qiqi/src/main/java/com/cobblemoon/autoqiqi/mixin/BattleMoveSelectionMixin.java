@@ -11,9 +11,8 @@ import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection.MoveTile;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleTargetSelection;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
-import com.cobblemoon.autoqiqi.battle.BattleMode;
+import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
-import com.cobblemoon.autoqiqi.battle.TrainerBattleEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 
 import net.minecraft.client.MinecraftClient;
@@ -65,21 +64,13 @@ public abstract class BattleMoveSelectionMixin {
         }
 
         if (AutoQiqiClient.shouldAutoFight()) {
-            boolean isTrainer = AutoQiqiClient.getBattleMode() == BattleMode.TRAINER;
             AutoQiqiClient.runLater(() -> {
                 if (self.getBattleGUI().getCurrentActionSelection() != self
                         || self.getRequest().getResponse() != null) return;
 
                 List<MoveTile> tiles = self.getMoveTiles().stream()
                         .filter(t -> t.getSelectable()).toList();
-
-                MoveTile chosen;
-                if (isTrainer) {
-                    AutoQiqiClient.log("Mixin", "MoveSelection: Trainer mode, " + tiles.size() + " selectable moves");
-                    chosen = TrainerBattleEngine.get().chooseBestMove(tiles);
-                } else {
-                    chosen = tiles.isEmpty() ? null : tiles.get((int) (Math.random() * tiles.size()));
-                }
+                MoveTile chosen = BattleDecisionRouter.chooseMove(tiles);
 
                 if (chosen != null) {
                     if (self.getRequest().getActivePokemon().getFormat()

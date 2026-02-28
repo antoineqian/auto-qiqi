@@ -35,6 +35,8 @@ public class AutoQiqiConfig {
     public double battleSwitchChance = 0.0;
     public int battleHealEveryN = 3;
     public int postBattlePartyUpPresses = 1;
+    /** In Berserk mode: scan radius (blocks) for finding wild Pokemon to fight. Default 24. */
+    public double berserkScanRange = 24.0;
     public List<String> battleTargetWhitelist = new ArrayList<>(List.of(
             "Combee", "Vespiquen", "Cutiefly", "Ribombee"
     ));
@@ -223,6 +225,14 @@ public class AutoQiqiConfig {
         return changed;
     }
 
+    /** Clamp Berserk scan range to sensible bounds. */
+    public boolean enforceBattleConstraints() {
+        boolean changed = false;
+        if (berserkScanRange < 1.0) { berserkScanRange = 1.0; changed = true; }
+        if (berserkScanRange > 128.0) { berserkScanRange = 128.0; changed = true; }
+        return changed;
+    }
+
     // ========================
     // Persistence
     // ========================
@@ -249,6 +259,7 @@ public class AutoQiqiConfig {
                     INSTANCE = new AutoQiqiConfig();
                 }
                 INSTANCE.enforceFishConstraints();
+                INSTANCE.enforceBattleConstraints();
                 INSTANCE.migrateResourceWorlds();
                 save();
             } catch (IOException e) {
@@ -257,6 +268,7 @@ public class AutoQiqiConfig {
             }
         } else {
             INSTANCE = new AutoQiqiConfig();
+            INSTANCE.enforceBattleConstraints();
             save();
         }
     }

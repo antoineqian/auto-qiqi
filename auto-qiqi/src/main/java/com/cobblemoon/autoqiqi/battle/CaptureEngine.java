@@ -57,136 +57,48 @@ public class CaptureEngine {
         }
     }
 
-    public enum CaptureAction {
-        FALSE_SWIPE, THUNDER_WAVE,
-        SWITCH_MAROWAK, SWITCH_DRAGONITE, SWITCH_TANK,
-        THROW_BALL
-    }
-
     public enum GeneralChoice { FIGHT, SWITCH, CAPTURE }
 
     public enum Phase { IDLE, WALKING, ENGAGING, IN_BATTLE }
 
-    private boolean active = false;
-    private Phase phase = Phase.IDLE;
-    private String targetName;
-    private int targetLevel;
-    private boolean targetIsLegendary;
-    private Entity targetEntity;
+    /** Single active capture run; null when idle. */
+    private CaptureSession session = null;
 
-    // Walking timeout (abort if stuck for too long)
-    private int walkTicks = 0;
-    private int walkRetries = 0;
-    private static final int MAX_WALK_TICKS = 20 * 30; // 30 seconds at 20 tps
-    private static final int MAX_WALK_RETRIES = 3;
-
-    // Total capture timeout: abort if entire capture takes too long
-    private long captureStartMs = 0;
-    private static final long CAPTURE_TOTAL_TIMEOUT_MS = 60_000; // 60 seconds
-
-    // Engagement (aim + send-out key)
-    private int aimTicks = 0;
-    private boolean keySent = false;
-    private int engageAttempts = 0;
-    private InputUtil.Key pendingKeyRelease = null;
+    // Keybind cache (shared across sessions)
     private KeyBinding cachedSendOutKey = null;
     private boolean keybindSearchDone = false;
+
+    private static final int MAX_WALK_TICKS = 20 * 30; // 30 seconds at 20 tps
+    private static final int MAX_WALK_RETRIES = 3;
+    private static final long CAPTURE_TOTAL_TIMEOUT_MS = 60_000; // 60 seconds
     private static final int AIM_TICKS_BEFORE_PRESS = 10;
     private static final int AIM_TICKS_AFTER_PRESS = 5;
     private static final int MAX_ENGAGE_ATTEMPTS = 15;
     private static final int CROSSHAIR_BYPASS_AFTER = 6;
-    private double currentEngageRange = 6.0;
-    private static final double ENGAGE_RANGE_INITIAL = 6.0;
+    static final double ENGAGE_RANGE_INITIAL = 6.0;
     private static final double ENGAGE_RANGE_MIN = 3.5;
     private static final double ENGAGE_RANGE_TOO_CLOSE = 3.0;
-
-    // Line-of-sight strafing: move sideways when an obstacle blocks the target
-    private int losStrafeTicks = 0;
-    private int losStrafeDir = 1;
     private static final int LOS_STRAFE_SWITCH_TICKS = 30;
-    private static final int LOS_MAX_STRAFE_TICKS = 120; // 6 seconds max strafing
-    private int entityObstructionStrafeTicks = 0;
-    private static final int ENTITY_OBSTRUCTION_MAX_STRAFE = 140; // 7 seconds: enough for ~quarter circle + retry other direction
-    private static final int ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS = 70; // commit to one direction for ~quarter circle before reversing
+    private static final int LOS_MAX_STRAFE_TICKS = 120;
+    private static final int ENTITY_OBSTRUCTION_MAX_STRAFE = 140;
+    private static final int ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS = 70;
     private static final float AIM_YAW_SPEED = 20.0f;
     private static final float AIM_PITCH_SPEED = 14.0f;
-
-    private boolean targetAtOneHp = false;
-    private boolean falseSwipeUsedThisBattle = false;
-    private int falseSwipeCount = 0;
-    private float lastOppHpBeforeFalseSwipe = -1;
-    private boolean thunderWaveApplied = false;
-    private int ballsSinceLastTWave = 0;
-    private boolean cycleNextIsBall = true;
-    private CaptureAction currentAction = null;
-    private int decisionCount = 0;
-
-    private int consecutiveSwitchAttempts = 0;
-    private CaptureAction lastAttemptedSwitchAction = null;
     private static final int MAX_SWITCH_ATTEMPTS = 3;
-
-    // Ball tracking
-    private int ballSequenceIndex = 0;
-    private int currentBallCount = 0;
-    private int greatBallsThrown = 0;
-    private int ultraBallsThrown = 0;
-    private int totalBallsThrown = 0;
-
-    // Ball throw state (multi-tick: back up -> aim -> select slot -> throw -> wait for hit)
-    private boolean pendingBallThrow = false;
-    private String pendingBallName = null;
-    private int throwTicksRemaining = 0;
     private static final int THROW_DELAY_TICKS = 10;
     private static final int AIM_BEFORE_THROW_TICKS = 8;
     private static final double MIN_THROW_DISTANCE = 4.5;
     private static final int MAX_BACKUP_TICKS = 40;
-    private int throwAimTicks = 0;
-    private boolean throwSlotSelected = false;
-    private boolean backingUp = false;
-    private int backupTicks = 0;
-
-    // Ball hit / fail detection: (1) Primary: BattleCaptureEndPacket → onBallHitConfirmed; (2) Fallback: action
-    // selection mixin runs again → wasWaitingForHit → onBallHitConfirmed; (3) Tick timeout → Ball MISSED;
-    // (4) Wall-clock timeout → re-engage (stuck recovery).
-    private boolean waitingForBallHit = false;
-    private int throwWaitTicks = 0;
-    private int missCount = 0;
-    private static final int MISS_TIMEOUT_TICKS = 240; // 12 seconds — ball shake animation can take 8-12s
-    /** Wall-clock fallback when packet never arrives or game was paused (tick-based timeout didn't run). */
-    private static final long BALL_HIT_WALL_CLOCK_TIMEOUT_MS = 20_000; // 20s
+    private static final int MISS_TIMEOUT_TICKS = 240;
+    private static final long BALL_HIT_WALL_CLOCK_TIMEOUT_MS = 20_000;
     private static final int MAX_MISSES = 6;
-
-    // Cooldown after a ball hit is confirmed (wait for shake animation to finish)
-    private boolean ballHitJustConfirmed = false;
-    private static final int BALL_HIT_EXTRA_DELAY = 100; // 100ms when mixin runs
-
-    // Hard cooldown after any throw to prevent overlapping throws
-    private long lastThrowTimeMs = 0;
-    private static final long THROW_COOLDOWN_MS = 12_000; // 12s — must cover full shake animation
-
-    // Idle detection in IN_BATTLE phase: re-engage if stuck
-    private long inBattleIdleSinceMs = 0;
+    public static final int BALL_HIT_EXTRA_DELAY = 100;
+    private static final long THROW_COOLDOWN_MS = 12_000;
     private static final long IN_BATTLE_IDLE_TIMEOUT_MS = 15_000;
-
-    // When true, tickEngaging skips the getBattle()!=null short-circuit so the
-    // send-out key is actually pressed again (re-engage while battle is stuck).
-    private boolean reengagePending = false;
-
-    // Deferred retry: set when retryThrow is rejected by cooldown, checked in tickBallThrow
-    private boolean retryThrowPending = false;
-
-    // Pickup dropped ball after miss
-    private boolean pickingUpBall = false;
-    private Entity droppedBallEntity = null;
-    private int pickupTicks = 0;
-    private static final int MAX_PICKUP_TICKS = 20 * 10; // 10 seconds
-
-    private String statusMessage = "";
+    private static final int MAX_PICKUP_TICKS = 20 * 10;
 
     /** Pokemon names that recently failed capture -> timestamp (ms). Prevents immediate retry after escape. */
     private static final Map<String, Long> recentlyFailedCaptures = new ConcurrentHashMap<>();
-
-    private static final float LOW_HP_THRESHOLD = 50f;
 
     private static final BallEntry[] LOW_LEVEL_BALLS = {
             new BallEntry("premier_ball", 3),
@@ -211,27 +123,17 @@ public class CaptureEngine {
     private static final int LEGENDARY_LEVEL_THRESHOLD = 70;
     private static final int LEGENDARY_GIVE_UP_AFTER_THROWS = 20;
 
-    private BallEntry[] activeBallSequence;
-
     private CaptureEngine() {}
 
     public static CaptureEngine get() { return INSTANCE; }
-
-    /** Level-dependent minimum False Swipe count before considering 1HP confirmed. */
-    private static int getMinFalseSwipes(int level) {
-        if (level < 30) return 1;
-        return Math.max(1, (level - 10) / 10);
-    }
 
     // ========================
     // Lifecycle
     // ========================
 
+    public CaptureSession getCurrentSession() { return session; }
+
     public void start(String name, int level, boolean isLegendary, Entity entity) {
-        this.active = true;
-        this.targetName = name;
-        this.targetLevel = level;
-        this.targetIsLegendary = isLegendary;
         if (isRecentlyFailed(name)) {
             AutoQiqiClient.log("Capture", "Skipping " + name + " - recently failed (cooldown " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s)");
             MinecraftClient client = MinecraftClient.getInstance();
@@ -240,23 +142,24 @@ public class CaptureEngine {
             }
             return;
         }
-        this.targetEntity = entity;
-        if (level >= LEGENDARY_LEVEL_THRESHOLD) {
-            this.activeBallSequence = LEGENDARY_BALLS;
-        } else {
-            this.activeBallSequence = level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS;
-        }
-        this.phase = (entity != null) ? Phase.WALKING : Phase.IN_BATTLE;
-        this.captureStartMs = System.currentTimeMillis();
-        resetState();
-        statusMessage = "Capture: " + name + " Lv." + level;
+        CaptureSession s = new CaptureSession();
+        s.targetName = name;
+        s.targetLevel = level;
+        s.targetIsLegendary = isLegendary;
+        s.targetEntity = entity;
+        s.activeBallSequence = level >= LEGENDARY_LEVEL_THRESHOLD ? LEGENDARY_BALLS : (level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS);
+        s.phase = (entity != null) ? Phase.WALKING : Phase.IN_BATTLE;
+        s.captureStartMs = System.currentTimeMillis();
+        s.resetBattleAndBallState();
+        s.statusMessage = "Capture: " + name + " Lv." + level;
+        this.session = s;
         AutoQiqiClient.log("Capture", "Started for " + name + " Lv." + level
-                + " (legendary=" + isLegendary + ", phase=" + phase + ")");
+                + " (legendary=" + isLegendary + ", phase=" + s.phase + ")");
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logBattleStart(name, level, "capture");
     }
 
     public void stop() {
-        if (active) {
+        if (session != null) {
             AutoQiqiClient.log("Capture", "Stopped");
             PokemonWalker.get().stop();
             MinecraftClient client = MinecraftClient.getInstance();
@@ -264,79 +167,12 @@ public class CaptureEngine {
                 client.options.forwardKey.setPressed(false);
                 MovementHelper.stopStrafe(client);
             }
+            if (session.pendingKeyRelease != null) {
+                KeyBinding.setKeyPressed(session.pendingKeyRelease, false);
+                session.pendingKeyRelease = null;
+            }
+            session = null;
         }
-        losStrafeTicks = 0;
-        active = false;
-        phase = Phase.IDLE;
-        targetName = null;
-        targetEntity = null;
-        statusMessage = "";
-        currentAction = null;
-        targetAtOneHp = false;
-        falseSwipeUsedThisBattle = false;
-        falseSwipeCount = 0;
-        lastOppHpBeforeFalseSwipe = -1;
-        thunderWaveApplied = false;
-        ballsSinceLastTWave = 0;
-        cycleNextIsBall = true;
-        decisionCount = 0;
-        consecutiveSwitchAttempts = 0;
-        lastAttemptedSwitchAction = null;
-        pendingBallThrow = false;
-        waitingForBallHit = false;
-        ballHitJustConfirmed = false;
-        retryThrowPending = false;
-        reengagePending = false;
-        pickingUpBall = false;
-        droppedBallEntity = null;
-        if (pendingKeyRelease != null) {
-            KeyBinding.setKeyPressed(pendingKeyRelease, false);
-            pendingKeyRelease = null;
-        }
-    }
-
-    private void resetState() {
-        targetAtOneHp = false;
-        falseSwipeUsedThisBattle = false;
-        falseSwipeCount = 0;
-        lastOppHpBeforeFalseSwipe = -1;
-        thunderWaveApplied = false;
-        ballsSinceLastTWave = 0;
-        cycleNextIsBall = true;
-        decisionCount = 0;
-        consecutiveSwitchAttempts = 0;
-        lastAttemptedSwitchAction = null;
-        currentAction = null;
-        ballSequenceIndex = 0;
-        currentBallCount = 0;
-        greatBallsThrown = 0;
-        ultraBallsThrown = 0;
-        totalBallsThrown = 0;
-        pendingBallThrow = false;
-        pendingBallName = null;
-        throwTicksRemaining = 0;
-        throwAimTicks = 0;
-        throwSlotSelected = false;
-        backingUp = false;
-        backupTicks = 0;
-        entityObstructionStrafeTicks = 0;
-        waitingForBallHit = false;
-        throwWaitTicks = 0;
-        missCount = 0;
-        ballHitJustConfirmed = false;
-        retryThrowPending = false;
-        pickingUpBall = false;
-        droppedBallEntity = null;
-        pickupTicks = 0;
-        aimTicks = 0;
-        keySent = false;
-        engageAttempts = 0;
-        walkTicks = 0;
-        walkRetries = 0;
-        losStrafeTicks = 0;
-        currentEngageRange = ENGAGE_RANGE_INITIAL;
-        lastThrowTimeMs = 0;
-        inBattleIdleSinceMs = 0;
     }
 
     /** Records that a capture failed (Pokemon escaped). Blocks re-capture for failedCaptureCooldownSeconds. */
@@ -358,14 +194,14 @@ public class CaptureEngine {
         return true;
     }
 
-    public boolean isActive() { return active; }
-    public Phase getPhase() { return phase; }
-    public String getStatusMessage() { return statusMessage; }
-    public CaptureAction getCurrentAction() { return currentAction; }
-    public int getTargetLevel() { return targetLevel; }
-    public boolean isTargetLegendary() { return targetIsLegendary; }
-    public int getTotalBallsThrown() { return totalBallsThrown; }
-    public String getTargetName() { return targetName; }
+    public boolean isActive() { return session != null; }
+    public Phase getPhase() { return session != null ? session.phase : Phase.IDLE; }
+    public String getStatusMessage() { return session != null ? session.statusMessage : ""; }
+    public CaptureAction getCurrentAction() { return session != null ? session.currentAction : null; }
+    public int getTargetLevel() { return session != null ? session.targetLevel : 0; }
+    public boolean isTargetLegendary() { return session != null && session.targetIsLegendary; }
+    public int getTotalBallsThrown() { return session != null ? session.totalBallsThrown : 0; }
+    public String getTargetName() { return session != null ? session.targetName : null; }
 
     /**
      * Called when the battle object goes null (debounced).
@@ -373,18 +209,19 @@ public class CaptureEngine {
      * re-engage the target if it's still alive in the world.
      */
     public void onBattleEnded() {
-        if (!active) return;
+        CaptureSession s = session;
+        if (s == null) return;
 
         // Target still alive? Re-engage instead of giving up.
-        if (targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Battle ended but " + targetName + " is still alive — re-engaging");
-            reengageTarget("battle ended, target still alive");
+        if (s.targetEntity != null && s.targetEntity.isAlive() && !s.targetEntity.isRemoved()) {
+            AutoQiqiClient.log("Capture", "Battle ended but " + s.targetName + " is still alive — re-engaging");
+            reengageTarget(s, "battle ended, target still alive");
             return;
         }
 
-        if (targetName != null) recordCaptureFailed(targetName);
-        String msg = targetName + " - battle ended (Balls: " + totalBallsThrown + ")";
-        statusMessage = msg;
+        if (s.targetName != null) recordCaptureFailed(s.targetName);
+        String msg = s.targetName + " - battle ended (Balls: " + s.totalBallsThrown + ")";
+        s.statusMessage = msg;
         AutoQiqiClient.log("Capture", msg);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
@@ -392,26 +229,10 @@ public class CaptureEngine {
                     Text.literal("§6[Capture]§r §a" + msg), false);
             client.options.forwardKey.setPressed(false);
         }
-        String reason = totalBallsThrown == 0 ? "no balls thrown" : "escaped after " + totalBallsThrown + " balls";
+        String reason = s.totalBallsThrown == 0 ? "no balls thrown" : "escaped after " + s.totalBallsThrown + " balls";
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logCaptureFailed(
-                targetName, targetLevel, targetIsLegendary, totalBallsThrown, reason);
-        active = false;
-        phase = Phase.IDLE;
-        targetAtOneHp = false;
-        falseSwipeUsedThisBattle = false;
-        falseSwipeCount = 0;
-        lastOppHpBeforeFalseSwipe = -1;
-        thunderWaveApplied = false;
-        ballsSinceLastTWave = 0;
-        cycleNextIsBall = true;
-        decisionCount = 0;
-        consecutiveSwitchAttempts = 0;
-        lastAttemptedSwitchAction = null;
-        pendingBallThrow = false;
-        waitingForBallHit = false;
-        retryThrowPending = false;
-        pickingUpBall = false;
-        droppedBallEntity = null;
+                s.targetName, s.targetLevel, s.targetIsLegendary, s.totalBallsThrown, reason);
+        session = null;
     }
 
     /**
@@ -419,30 +240,15 @@ public class CaptureEngine {
      * This is the reliable capture success signal.
      */
     public void onCaptureConfirmedByChat(String pokemonName) {
-        if (!active) return;
+        CaptureSession s = session;
+        if (s == null) return;
         AutoQiqiClient.log("Capture", "CAPTURE CONFIRMED via chat: " + pokemonName);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
             client.player.sendMessage(
-                    Text.literal("§6[Capture]§r §a§l" + pokemonName + " capture ! §7(balls: " + totalBallsThrown + ")"), false);
+                    Text.literal("§6[Capture]§r §a§l" + pokemonName + " capture ! §7(balls: " + s.totalBallsThrown + ")"), false);
         }
-        active = false;
-        phase = Phase.IDLE;
-        targetAtOneHp = false;
-        falseSwipeUsedThisBattle = false;
-        falseSwipeCount = 0;
-        lastOppHpBeforeFalseSwipe = -1;
-        thunderWaveApplied = false;
-        ballsSinceLastTWave = 0;
-        cycleNextIsBall = true;
-        decisionCount = 0;
-        consecutiveSwitchAttempts = 0;
-        lastAttemptedSwitchAction = null;
-        pendingBallThrow = false;
-        waitingForBallHit = false;
-        retryThrowPending = false;
-        pickingUpBall = false;
-        droppedBallEntity = null;
+        session = null;
     }
 
     // ========================
@@ -450,38 +256,39 @@ public class CaptureEngine {
     // ========================
 
     public void tick(MinecraftClient client) {
-        if (!active || client.player == null) return;
+        CaptureSession s = session;
+        if (s == null || client.player == null) return;
 
         // Total capture timeout (walking + engaging phases only)
-        if (phase == Phase.WALKING || phase == Phase.ENGAGING) {
-            long elapsed = System.currentTimeMillis() - captureStartMs;
+        if (s.phase == Phase.WALKING || s.phase == Phase.ENGAGING) {
+            long elapsed = System.currentTimeMillis() - s.captureStartMs;
             if (elapsed > CAPTURE_TOTAL_TIMEOUT_MS) {
                 AutoQiqiClient.log("Capture", "TOTAL TIMEOUT after " + (elapsed / 1000) + "s");
                 client.player.sendMessage(
-                        Text.literal("§6[Capture]§r §cTimeout: impossible de capturer §e" + targetName + "§c. Arret."), false);
+                        Text.literal("§6[Capture]§r §cTimeout: impossible de capturer §e" + s.targetName + "§c. Arret."), false);
                 stop();
                 return;
             }
         }
 
-        if (pendingKeyRelease != null) {
-            KeyBinding.setKeyPressed(pendingKeyRelease, false);
-            pendingKeyRelease = null;
+        if (s.pendingKeyRelease != null) {
+            KeyBinding.setKeyPressed(s.pendingKeyRelease, false);
+            s.pendingKeyRelease = null;
         }
 
-        switch (phase) {
-            case WALKING -> tickWalking(client);
-            case ENGAGING -> tickEngaging(client);
+        switch (s.phase) {
+            case WALKING -> tickWalking(s, client);
+            case ENGAGING -> tickEngaging(s, client);
             case IN_BATTLE -> {
-                if (pickingUpBall) tickPickupBall(client);
-                tickInBattleIdleCheck();
+                if (s.pickingUpBall) tickPickupBall(s, client);
+                tickInBattleIdleCheck(s);
             }
             default -> {}
         }
     }
 
-    private void tickWalking(MinecraftClient client) {
-        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
+    private void tickWalking(CaptureSession s, MinecraftClient client) {
+        if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
             AutoQiqiClient.log("Capture", "Target gone during WALKING phase");
             client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
             stop();
@@ -490,177 +297,173 @@ public class CaptureEngine {
 
         if (client.currentScreen != null) return;
 
-        walkTicks++;
-        if (walkTicks > MAX_WALK_TICKS) {
-            walkRetries++;
-            double dist = client.player.distanceTo(targetEntity);
-            AutoQiqiClient.log("Capture", "Walk timeout (" + walkRetries + "/" + MAX_WALK_RETRIES
+        s.walkTicks++;
+        if (s.walkTicks > MAX_WALK_TICKS) {
+            s.walkRetries++;
+            double dist = client.player.distanceTo(s.targetEntity);
+            AutoQiqiClient.log("Capture", "Walk timeout (" + s.walkRetries + "/" + MAX_WALK_RETRIES
                     + ") dist=" + String.format("%.1f", dist)
                     + " player=" + fmtPos(client.player.getPos())
-                    + " target=" + fmtPos(targetEntity.getPos()));
-            if (walkRetries >= MAX_WALK_RETRIES) {
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + targetName + " (pathfinding echoue). /pk stop pour annuler."), false);
+                    + " target=" + fmtPos(s.targetEntity.getPos()));
+            if (s.walkRetries >= MAX_WALK_RETRIES) {
+                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + " (pathfinding echoue). /pk stop pour annuler."), false);
                 stop();
                 return;
             }
-            walkTicks = 0;
+            s.walkTicks = 0;
             PokemonWalker.get().stop();
         }
 
         if (!PokemonWalker.get().isActive()) {
             if (PokemonWalker.get().hasTimedOut()) {
                 AutoQiqiClient.log("Capture", "Walker timed out, aborting capture");
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + targetName + ". Arret."), false);
+                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + ". Arret."), false);
                 stop();
                 return;
             }
-            double dist = client.player.distanceTo(targetEntity);
-            if (dist <= currentEngageRange) {
-                phase = Phase.ENGAGING;
-                aimTicks = 0;
-                keySent = false;
-                statusMessage = "Engaging " + targetName + "...";
+            double dist = client.player.distanceTo(s.targetEntity);
+            if (dist <= s.currentEngageRange) {
+                s.phase = Phase.ENGAGING;
+                s.aimTicks = 0;
+                s.keySent = false;
+                s.statusMessage = "Engaging " + s.targetName + "...";
                 AutoQiqiClient.log("Capture", "WALKING->ENGAGING dist=" + String.format("%.1f", dist));
             } else {
                 AutoQiqiClient.log("Capture", "Walker stopped but still far (dist=" + String.format("%.1f", dist) + "), restarting walk");
-                PokemonWalker.get().startWalking(targetEntity);
+                PokemonWalker.get().startWalking(s.targetEntity);
             }
         }
     }
 
-    private void tickEngaging(MinecraftClient client) {
+    private void tickEngaging(CaptureSession s, MinecraftClient client) {
         // Detect battle before "target gone": when send-out starts battle, Cobblemon often
         // removes the wild entity; we must transition to IN_BATTLE so capture mixin is used.
         if (client.currentScreen != null) {
             String screenName = client.currentScreen.getClass().getSimpleName();
             AutoQiqiClient.log("Capture", "Screen opened during ENGAGING: " + screenName);
             if (screenName.toLowerCase().contains("battle")) {
-                reengagePending = false;
-                phase = Phase.IN_BATTLE;
-                statusMessage = "In battle - " + targetName;
+                s.reengagePending = false;
+                s.phase = Phase.IN_BATTLE;
+                s.statusMessage = "In battle - " + s.targetName;
                 AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (battle screen detected)");
-                aimTicks = 0;
-                keySent = false;
+                s.aimTicks = 0;
+                s.keySent = false;
             }
             return;
         }
 
         // Also check if CobblemonClient reports a battle (screen may lag).
-        // Skip this when re-engaging: the old battle is stuck with no screen,
-        // so we must press the send-out key again instead of looping back to IN_BATTLE.
-        if (!reengagePending
-                && com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
-                && phase != Phase.IN_BATTLE) {
-            phase = Phase.IN_BATTLE;
-            statusMessage = "In battle - " + targetName;
+        if (!s.reengagePending
+                && CobblemonClient.INSTANCE.getBattle() != null
+                && s.phase != Phase.IN_BATTLE) {
+            s.phase = Phase.IN_BATTLE;
+            s.statusMessage = "In battle - " + s.targetName;
             AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
-            aimTicks = 0;
-            keySent = false;
+            s.aimTicks = 0;
+            s.keySent = false;
             return;
         }
 
-        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
+        if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
             AutoQiqiClient.log("Capture", "Target gone during ENGAGING phase");
             client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
             stop();
             return;
         }
 
-        double dist = client.player.distanceTo(targetEntity);
-        if (dist > currentEngageRange) {
+        double dist = client.player.distanceTo(s.targetEntity);
+        if (dist > s.currentEngageRange) {
             MovementHelper.stopStrafe(client);
-            losStrafeTicks = 0;
+            s.losStrafeTicks = 0;
             AutoQiqiClient.log("Capture", "ENGAGING->WALKING target moved away (dist=" + String.format("%.1f", dist) + ")");
-            phase = Phase.WALKING;
-            PokemonWalker.get().startWalking(targetEntity);
-            statusMessage = "Walking to " + targetName + "...";
+            s.phase = Phase.WALKING;
+            PokemonWalker.get().startWalking(s.targetEntity);
+            s.statusMessage = "Walking to " + s.targetName + "...";
             return;
         }
 
         if (dist < ENGAGE_RANGE_TOO_CLOSE) {
-            MovementHelper.lookAtEntity(client.player, targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
+            MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
             client.options.backKey.setPressed(true);
             client.options.forwardKey.setPressed(false);
             client.options.sprintKey.setPressed(false);
-            statusMessage = "Too close, backing up...";
-            aimTicks = 0;
-            keySent = false;
+            s.statusMessage = "Too close, backing up...";
+            s.aimTicks = 0;
+            s.keySent = false;
             return;
         }
         client.options.backKey.setPressed(false);
 
-        boolean hasLOS = MovementHelper.hasLineOfSight(client.player, targetEntity);
+        boolean hasLOS = MovementHelper.hasLineOfSight(client.player, s.targetEntity);
 
         if (!hasLOS) {
-            losStrafeTicks++;
-            if (losStrafeTicks == 1) {
+            s.losStrafeTicks++;
+            if (s.losStrafeTicks == 1) {
                 AutoQiqiClient.log("Capture", "No LOS to target, strafing to find clear angle");
             }
-            if (losStrafeTicks % LOS_STRAFE_SWITCH_TICKS == 0) {
-                losStrafeDir = -losStrafeDir;
+            if (s.losStrafeTicks % LOS_STRAFE_SWITCH_TICKS == 0) {
+                s.losStrafeDir = -s.losStrafeDir;
             }
-            if (losStrafeTicks > LOS_MAX_STRAFE_TICKS) {
+            if (s.losStrafeTicks > LOS_MAX_STRAFE_TICKS) {
                 AutoQiqiClient.log("Capture", "LOS strafe timeout, trying to engage anyway");
-                losStrafeTicks = 0;
+                s.losStrafeTicks = 0;
             } else {
-                MovementHelper.strafeSideways(client, targetEntity, client.player, losStrafeDir);
-                statusMessage = "Finding clear angle on " + targetName + "...";
-                aimTicks = 0;
-                keySent = false;
+                MovementHelper.strafeSideways(client, s.targetEntity, client.player, s.losStrafeDir);
+                s.statusMessage = "Finding clear angle on " + s.targetName + "...";
+                s.aimTicks = 0;
+                s.keySent = false;
                 return;
             }
-        } else if (losStrafeTicks > 0) {
-            AutoQiqiClient.log("Capture", "LOS acquired after " + losStrafeTicks + " ticks of strafing");
+        } else if (s.losStrafeTicks > 0) {
+            AutoQiqiClient.log("Capture", "LOS acquired after " + s.losStrafeTicks + " ticks of strafing");
             MovementHelper.stopStrafe(client);
-            losStrafeTicks = 0;
+            s.losStrafeTicks = 0;
         }
 
-        // Snap aim directly at entity (no smoothing) for crosshair precision
-        snapLookAtEntity(client.player, targetEntity);
-        aimTicks++;
+        snapLookAtEntity(client.player, s.targetEntity);
+        s.aimTicks++;
 
-        // Check if crosshair is actually on the target entity
-        boolean crosshairOnTarget = isCrosshairOnTarget(client, targetEntity);
+        boolean crosshairOnTarget = isCrosshairOnTarget(client, s.targetEntity);
 
-        if (!keySent && aimTicks >= AIM_TICKS_BEFORE_PRESS) {
-            boolean bypassCrosshair = engageAttempts >= CROSSHAIR_BYPASS_AFTER;
+        if (!s.keySent && s.aimTicks >= AIM_TICKS_BEFORE_PRESS) {
+            boolean bypassCrosshair = s.engageAttempts >= CROSSHAIR_BYPASS_AFTER;
             if (!crosshairOnTarget && !bypassCrosshair) {
-                if (aimTicks % 4 == 0) {
+                if (s.aimTicks % 4 == 0) {
                     AutoQiqiClient.log("Capture", "Crosshair not on target, wiggling aim (dist=" + String.format("%.1f", dist) + ")");
                 }
-                if (aimTicks > AIM_TICKS_BEFORE_PRESS + 10) {
-                    aimTicks = 0;
-                    engageAttempts++;
-                    if (engageAttempts >= CROSSHAIR_BYPASS_AFTER) {
-                        AutoQiqiClient.log("Capture", "Crosshair bypass active after " + engageAttempts + " misses (small hitbox?), will force send-out key");
+                if (s.aimTicks > AIM_TICKS_BEFORE_PRESS + 10) {
+                    s.aimTicks = 0;
+                    s.engageAttempts++;
+                    if (s.engageAttempts >= CROSSHAIR_BYPASS_AFTER) {
+                        AutoQiqiClient.log("Capture", "Crosshair bypass active after " + s.engageAttempts + " misses (small hitbox?), will force send-out key");
                     }
-                    if (engageAttempts >= 4 && currentEngageRange > ENGAGE_RANGE_MIN) {
-                        currentEngageRange = Math.max(ENGAGE_RANGE_MIN, currentEngageRange - 1.0);
-                        AutoQiqiClient.log("Capture", "Reducing engage range to " + String.format("%.1f", currentEngageRange));
+                    if (s.engageAttempts >= 4 && s.currentEngageRange > ENGAGE_RANGE_MIN) {
+                        s.currentEngageRange = Math.max(ENGAGE_RANGE_MIN, s.currentEngageRange - 1.0);
+                        AutoQiqiClient.log("Capture", "Reducing engage range to " + String.format("%.1f", s.currentEngageRange));
                     }
                 }
                 return;
             }
 
-            engageAttempts++;
-            if (engageAttempts > MAX_ENGAGE_ATTEMPTS) {
+            s.engageAttempts++;
+            if (s.engageAttempts > MAX_ENGAGE_ATTEMPTS) {
                 AutoQiqiClient.log("Capture", "Engagement failed after " + MAX_ENGAGE_ATTEMPTS + " attempts (not wild?)");
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'engager " + targetName + " (pas sauvage ?). Arret."), false);
+                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'engager " + s.targetName + " (pas sauvage ?). Arret."), false);
                 stop();
                 return;
             }
             String reason = crosshairOnTarget ? "crosshair hit" : "bypass (snap aim)";
-            AutoQiqiClient.log("Capture", "Sending send-out key (" + reason + ", attempt=" + engageAttempts + "/" + MAX_ENGAGE_ATTEMPTS
-                    + " dist=" + String.format("%.1f", dist) + " reengage=" + reengagePending + ")");
-            reengagePending = false;
+            AutoQiqiClient.log("Capture", "Sending send-out key (" + reason + ", attempt=" + s.engageAttempts + "/" + MAX_ENGAGE_ATTEMPTS
+                    + " dist=" + String.format("%.1f", dist) + " reengage=" + s.reengagePending + ")");
+            s.reengagePending = false;
             AutoQiqiClient.recordModEngagement();
-            simulateSendOutKey(client);
-            keySent = true;
+            simulateSendOutKey(s, client);
+            s.keySent = true;
         }
 
-        if (keySent && aimTicks >= AIM_TICKS_BEFORE_PRESS + AIM_TICKS_AFTER_PRESS) {
-            aimTicks = 0;
-            keySent = false;
+        if (s.keySent && s.aimTicks >= AIM_TICKS_BEFORE_PRESS + AIM_TICKS_AFTER_PRESS) {
+            s.aimTicks = 0;
+            s.keySent = false;
         }
     }
 
@@ -687,13 +490,13 @@ public class CaptureEngine {
         return false;
     }
 
-    private void simulateSendOutKey(MinecraftClient client) {
+    private void simulateSendOutKey(CaptureSession s, MinecraftClient client) {
         KeyBinding sendOut = findSendOutKey(client);
         if (sendOut != null) {
             InputUtil.Key key = InputUtil.fromTranslationKey(sendOut.getBoundKeyTranslationKey());
             KeyBinding.setKeyPressed(key, true);
             KeyBinding.onKeyPressed(key);
-            pendingKeyRelease = key;
+            s.pendingKeyRelease = key;
             AutoQiqiClient.log("Capture", "Send-out key pressed");
         } else {
             AutoQiqiClient.log("Capture", "Could not find Cobblemon send-out keybinding");
@@ -742,131 +545,127 @@ public class CaptureEngine {
     // ========================
 
     public void tickBallThrow(MinecraftClient client) {
-        if (client.player == null) return;
+        CaptureSession s = session;
+        if (client.player == null || s == null) return;
 
         // Deferred retry: reattempt throw once cooldown expires
-        if (retryThrowPending && !pendingBallThrow && !waitingForBallHit && !pickingUpBall) {
-            long sinceLast = System.currentTimeMillis() - lastThrowTimeMs;
+        if (s.retryThrowPending && !s.pendingBallThrow && !s.waitingForBallHit && !s.pickingUpBall) {
+            long sinceLast = System.currentTimeMillis() - s.lastThrowTimeMs;
             if (sinceLast >= THROW_COOLDOWN_MS) {
-                retryThrowPending = false;
+                s.retryThrowPending = false;
                 AutoQiqiClient.log("Capture", "Deferred retry: cooldown expired, retrying ball throw");
                 prepareBallThrow();
             }
         }
 
         // Battle ended during throw phase (e.g. fled): cancel and allow main tick to call onBattleEnded
-        if (pendingBallThrow && CobblemonClient.INSTANCE.getBattle() == null) {
-            pendingBallThrow = false;
-            backingUp = false;
-            backupTicks = 0;
-            entityObstructionStrafeTicks = 0;
-            throwSlotSelected = false;
-            throwAimTicks = 0;
-            retryThrowPending = false;
+        if (s.pendingBallThrow && CobblemonClient.INSTANCE.getBattle() == null) {
+            s.pendingBallThrow = false;
+            s.backingUp = false;
+            s.backupTicks = 0;
+            s.entityObstructionStrafeTicks = 0;
+            s.throwSlotSelected = false;
+            s.throwAimTicks = 0;
+            s.retryThrowPending = false;
             client.options.backKey.setPressed(false);
             MovementHelper.stopStrafe(client);
             AutoQiqiClient.log("Capture", "Battle ended during throw phase, cancelling");
             return;
         }
 
-        if (!pendingBallThrow) return;
+        if (!s.pendingBallThrow) return;
 
-        throwTicksRemaining--;
-        if (throwTicksRemaining > 0) return;
+        s.throwTicksRemaining--;
+        if (s.throwTicksRemaining > 0) return;
 
-        // Phase 0: back up if too close (ball overshoots big Pokemon at close range)
-        // Cap: never exceed currentEngageRange (battle flee distance); skip backup if already near limit.
-        if (targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
-            double dist = client.player.distanceTo(targetEntity);
-            if (dist > currentEngageRange) {
-                pendingBallThrow = false;
-                backingUp = false;
-                backupTicks = 0;
-                entityObstructionStrafeTicks = 0;
-                throwSlotSelected = false;
-                throwAimTicks = 0;
+        // Phase 0: back up if too close
+        if (s.targetEntity != null && s.targetEntity.isAlive() && !s.targetEntity.isRemoved()) {
+            double dist = client.player.distanceTo(s.targetEntity);
+            if (dist > s.currentEngageRange) {
+                s.pendingBallThrow = false;
+                s.backingUp = false;
+                s.backupTicks = 0;
+                s.entityObstructionStrafeTicks = 0;
+                s.throwSlotSelected = false;
+                s.throwAimTicks = 0;
                 client.options.backKey.setPressed(false);
                 MovementHelper.stopStrafe(client);
                 AutoQiqiClient.log("Capture", "Too far from target during throw (dist=" + String.format("%.1f", dist)
-                        + " > " + currentEngageRange + "), aborting");
+                        + " > " + s.currentEngageRange + "), aborting");
                 return;
             }
-            // Only back up if we're too close AND we won't exceed safe distance (currentEngageRange - 0.5)
-            if (dist < MIN_THROW_DISTANCE && dist < currentEngageRange - 0.5 && backupTicks < MAX_BACKUP_TICKS) {
-                if (!backingUp) {
-                    backingUp = true;
+            if (dist < MIN_THROW_DISTANCE && dist < s.currentEngageRange - 0.5 && s.backupTicks < MAX_BACKUP_TICKS) {
+                if (!s.backingUp) {
+                    s.backingUp = true;
                     AutoQiqiClient.log("Capture", "Too close to throw (dist=" + String.format("%.1f", dist)
                             + "), backing up to " + MIN_THROW_DISTANCE);
                 }
-                MovementHelper.lookAtEntity(client.player, targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
+                MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
                 client.options.backKey.setPressed(true);
                 client.options.forwardKey.setPressed(false);
                 client.options.sprintKey.setPressed(false);
-                backupTicks++;
+                s.backupTicks++;
                 return;
             }
-            if (backingUp) {
+            if (s.backingUp) {
                 client.options.backKey.setPressed(false);
-                backingUp = false;
+                s.backingUp = false;
                 AutoQiqiClient.log("Capture", "Backed up to dist=" + String.format("%.1f", dist)
-                        + " after " + backupTicks + " ticks");
+                        + " after " + s.backupTicks + " ticks");
             }
         }
 
-        // Phase 0.5: check for friendly entity blocking throw path (e.g. player's own Pokemon).
-        // When battle is minimized (capture throw), skip strafing to avoid moving and triggering flee.
         ClientBattle battle = CobblemonClient.INSTANCE.getBattle();
-        if (battle != null && !battle.getMinimised() && targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
-            Entity blocker = MovementHelper.getEntityBlockingThrow(client.player, targetEntity);
-            if (blocker != null && entityObstructionStrafeTicks < ENTITY_OBSTRUCTION_MAX_STRAFE) {
-                if (entityObstructionStrafeTicks == 0) {
+        if (battle != null && !battle.getMinimised() && s.targetEntity != null && s.targetEntity.isAlive() && !s.targetEntity.isRemoved()) {
+            Entity blocker = MovementHelper.getEntityBlockingThrow(client.player, s.targetEntity);
+            if (blocker != null && s.entityObstructionStrafeTicks < ENTITY_OBSTRUCTION_MAX_STRAFE) {
+                if (s.entityObstructionStrafeTicks == 0) {
                     String blockerName = PokemonScanner.getPokemonName(blocker);
                     AutoQiqiClient.log("Capture", "Entity blocking throw path: " + blockerName
                             + " at dist=" + String.format("%.1f", client.player.distanceTo(blocker))
-                            + ", strafing quarter-circle " + (losStrafeDir > 0 ? "left" : "right"));
+                            + ", strafing quarter-circle " + (s.losStrafeDir > 0 ? "left" : "right"));
                 }
-                entityObstructionStrafeTicks++;
-                if (entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
-                    losStrafeDir = -losStrafeDir;
+                s.entityObstructionStrafeTicks++;
+                if (s.entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
+                    s.losStrafeDir = -s.losStrafeDir;
                     AutoQiqiClient.log("Capture", "Quarter-circle blocked, reversing to "
-                            + (losStrafeDir > 0 ? "left" : "right"));
+                            + (s.losStrafeDir > 0 ? "left" : "right"));
                 }
-                MovementHelper.lookAtEntity(client.player, targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
-                MovementHelper.strafeSideways(client, targetEntity, client.player, losStrafeDir);
-                throwAimTicks = 0;
+                MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
+                MovementHelper.strafeSideways(client, s.targetEntity, client.player, s.losStrafeDir);
+                s.throwAimTicks = 0;
                 return;
-            } else if (blocker == null && entityObstructionStrafeTicks > 0) {
-                AutoQiqiClient.log("Capture", "Entity obstruction cleared after " + entityObstructionStrafeTicks + " ticks");
+            } else if (blocker == null && s.entityObstructionStrafeTicks > 0) {
+                AutoQiqiClient.log("Capture", "Entity obstruction cleared after " + s.entityObstructionStrafeTicks + " ticks");
                 MovementHelper.stopStrafe(client);
-                entityObstructionStrafeTicks = 0;
+                s.entityObstructionStrafeTicks = 0;
             }
         }
 
-        // Phase 1: aim at target for several ticks, strafing if blocked by terrain
-        if (targetEntity != null && targetEntity.isAlive() && !targetEntity.isRemoved()) {
-            MovementHelper.lookAtEntity(client.player, targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
+        if (s.targetEntity != null && s.targetEntity.isAlive() && !s.targetEntity.isRemoved()) {
+            MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
 
-            boolean hasLOS = MovementHelper.hasLineOfSight(client.player, targetEntity);
-            if (!hasLOS && throwAimTicks < AIM_BEFORE_THROW_TICKS + 60) {
-                losStrafeTicks++;
-                if (losStrafeTicks % LOS_STRAFE_SWITCH_TICKS == 0) losStrafeDir = -losStrafeDir;
-                MovementHelper.strafeSideways(client, targetEntity, client.player, losStrafeDir);
-                throwAimTicks++;
+            boolean hasLOS = MovementHelper.hasLineOfSight(client.player, s.targetEntity);
+            if (!hasLOS && s.throwAimTicks < AIM_BEFORE_THROW_TICKS + 60) {
+                s.losStrafeTicks++;
+                if (s.losStrafeTicks % LOS_STRAFE_SWITCH_TICKS == 0) s.losStrafeDir = -s.losStrafeDir;
+                MovementHelper.strafeSideways(client, s.targetEntity, client.player, s.losStrafeDir);
+                s.throwAimTicks++;
                 return;
-            } else if (hasLOS && losStrafeTicks > 0) {
+            } else if (hasLOS && s.losStrafeTicks > 0) {
                 MovementHelper.stopStrafe(client);
-                losStrafeTicks = 0;
+                s.losStrafeTicks = 0;
             }
         }
-        throwAimTicks++;
-        if (throwAimTicks < AIM_BEFORE_THROW_TICKS) return;
+        s.throwAimTicks++;
+        if (s.throwAimTicks < AIM_BEFORE_THROW_TICKS) return;
 
         // Phase 2: select hotbar slot (once)
-        if (!throwSlotSelected) {
-            int slot = findBallInHotbar(client, pendingBallName);
+        if (!s.throwSlotSelected) {
+            int slot = findBallInHotbar(client, s.pendingBallName);
             if (slot == -1) {
-                AutoQiqiClient.log("Capture", "Ball '" + pendingBallName + "' not in hotbar (seqIdx=" + ballSequenceIndex
-                        + " count=" + currentBallCount + " total=" + totalBallsThrown + "), searching any ball...");
+                AutoQiqiClient.log("Capture", "Ball '" + s.pendingBallName + "' not in hotbar (seqIdx=" + s.ballSequenceIndex
+                        + " count=" + s.currentBallCount + " total=" + s.totalBallsThrown + "), searching any ball...");
                 slot = findAnyBallInHotbar(client);
                 if (slot == -1) {
                     AutoQiqiClient.log("Capture", "NO balls found in hotbar! Dumping hotbar:");
@@ -877,9 +676,9 @@ public class CaptureEngine {
                             AutoQiqiClient.log("Capture", "  slot " + i + ": " + id + " x" + stack.getCount());
                         }
                     }
-                    statusMessage = "No balls in hotbar!";
-                    pendingBallThrow = false;
-                    throwAimTicks = 0;
+                    s.statusMessage = "No balls in hotbar!";
+                    s.pendingBallThrow = false;
+                    s.throwAimTicks = 0;
                     return;
                 }
             }
@@ -889,30 +688,29 @@ public class CaptureEngine {
             AutoQiqiClient.log("Capture", "Selecting ball: slot=" + slot + " item=" + ballId + " x" + ballStack.getCount());
 
             client.player.getInventory().selectedSlot = slot;
-            throwSlotSelected = true;
+            s.throwSlotSelected = true;
             return; // wait one more tick for slot selection to register
         }
 
         // Phase 3: throw
-        AutoQiqiClient.log("Capture", "Throwing ball (aimed for " + throwAimTicks + " ticks)");
+        AutoQiqiClient.log("Capture", "Throwing ball (aimed for " + s.throwAimTicks + " ticks)");
         if (client.interactionManager != null) {
             client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
             AutoQiqiClient.log("Capture", "interactItem called (ball thrown)");
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logBallThrow(
-                    targetName, pendingBallName != null ? pendingBallName : "unknown", totalBallsThrown);
+                    s.targetName, s.pendingBallName != null ? s.pendingBallName : "unknown", s.totalBallsThrown);
         }
 
-        pendingBallThrow = false;
-        throwAimTicks = 0;
-        throwSlotSelected = false;
-        backingUp = false;
-        backupTicks = 0;
-        entityObstructionStrafeTicks = 0;
-        lastThrowTimeMs = System.currentTimeMillis();
+        s.pendingBallThrow = false;
+        s.throwAimTicks = 0;
+        s.throwSlotSelected = false;
+        s.backingUp = false;
+        s.backupTicks = 0;
+        s.entityObstructionStrafeTicks = 0;
+        s.lastThrowTimeMs = System.currentTimeMillis();
 
-        // Start miss detection
-        waitingForBallHit = true;
-        throwWaitTicks = 0;
+        s.waitingForBallHit = true;
+        s.throwWaitTicks = 0;
         AutoQiqiClient.log("Capture", "Waiting for ball hit (timeout=" + MISS_TIMEOUT_TICKS + " ticks)");
         chatBall("Waiting for hit (tick=" + (MISS_TIMEOUT_TICKS / 20) + "s, wall=" + (BALL_HIT_WALL_CLOCK_TIMEOUT_MS / 1000) + "s)");
     }
@@ -958,54 +756,52 @@ public class CaptureEngine {
     // ========================
 
     public void tickBallWait(MinecraftClient client) {
-        if (!waitingForBallHit || client.player == null) return;
+        CaptureSession s = session;
+        if (s == null || !s.waitingForBallHit || client.player == null) return;
 
-        // Battle ended (e.g. fled) while ball in air: stop waiting so main tick can call onBattleEnded
         if (CobblemonClient.INSTANCE.getBattle() == null) {
-            waitingForBallHit = false;
-            throwWaitTicks = 0;
-            retryThrowPending = false;
+            s.waitingForBallHit = false;
+            s.throwWaitTicks = 0;
+            s.retryThrowPending = false;
             AutoQiqiClient.log("Capture", "Battle ended while waiting for ball hit, clearing state");
             chatBall("Battle ended while waiting for hit, clearing");
             return;
         }
 
-        // Wall-clock fallback: if packet never arrived and tick timeout didn't run (e.g. game paused), recover
-        long waitMs = System.currentTimeMillis() - lastThrowTimeMs;
+        long waitMs = System.currentTimeMillis() - s.lastThrowTimeMs;
         if (waitMs >= BALL_HIT_WALL_CLOCK_TIMEOUT_MS) {
             AutoQiqiClient.log("Capture", "Ball wait wall-clock timeout (" + (waitMs / 1000) + "s) — re-engaging");
             chatBall("Wall-clock timeout " + (waitMs / 1000) + "s → re-engage");
-            waitingForBallHit = false;
-            throwWaitTicks = 0;
-            ballHitJustConfirmed = false;
-            reengageTarget("ball wait wall-clock timeout");
+            s.waitingForBallHit = false;
+            s.throwWaitTicks = 0;
+            s.ballHitJustConfirmed = false;
+            reengageTarget(s, "ball wait wall-clock timeout");
             return;
         }
 
-        throwWaitTicks++;
-        if (throwWaitTicks >= MISS_TIMEOUT_TICKS) {
-            missCount++;
+        s.throwWaitTicks++;
+        if (s.throwWaitTicks >= MISS_TIMEOUT_TICKS) {
+            s.missCount++;
             AutoQiqiClient.log("Capture", "Ball MISSED! (timeout " + MISS_TIMEOUT_TICKS
-                    + " ticks, missCount=" + missCount + "/" + MAX_MISSES + ")");
-            chatBall("Tick timeout " + (MISS_TIMEOUT_TICKS / 20) + "s → Ball MISSED (" + missCount + "/" + MAX_MISSES + ")");
+                    + " ticks, missCount=" + s.missCount + "/" + MAX_MISSES + ")");
+            chatBall("Tick timeout " + (MISS_TIMEOUT_TICKS / 20) + "s → Ball MISSED (" + s.missCount + "/" + MAX_MISSES + ")");
             client.player.sendMessage(
-                    Text.literal("§6[Capture]§r §eBall rate ! (" + missCount + "/" + MAX_MISSES + ")"), false);
+                    Text.literal("§6[Capture]§r §eBall rate ! (" + s.missCount + "/" + MAX_MISSES + ")"), false);
 
-            waitingForBallHit = false;
-            throwWaitTicks = 0;
+            s.waitingForBallHit = false;
+            s.throwWaitTicks = 0;
 
-            if (missCount >= MAX_MISSES) {
+            if (s.missCount >= MAX_MISSES) {
                 AutoQiqiClient.log("Capture", "Too many misses (" + MAX_MISSES + "), switching to kill");
-                String target = targetName != null ? targetName : "Pokemon";
-                SessionLogger.get().logCaptureFailed(target, targetLevel, targetIsLegendary, totalBallsThrown, "too many misses (" + MAX_MISSES + "), switching to kill");
+                String target = s.targetName != null ? s.targetName : "Pokemon";
+                SessionLogger.get().logCaptureFailed(target, s.targetLevel, s.targetIsLegendary, s.totalBallsThrown, "too many misses (" + MAX_MISSES + "), switching to kill");
                 client.player.sendMessage(
                         Text.literal("§6[Capture]§r §cTrop de balls ratees (" + MAX_MISSES + "). Abandon capture — passage en combat pour tuer §e" + target + "§c."), false);
                 stop();
                 return;
             }
 
-            // Try to pick up the dropped ball
-            startPickupBall(client);
+            startPickupBall(s, client);
         }
     }
 
@@ -1014,13 +810,14 @@ public class CaptureEngine {
      * confirming the previous ball hit the target.
      */
     public void onBallHitConfirmed() {
-        if (waitingForBallHit) {
-            AutoQiqiClient.log("Capture", "Ball HIT confirmed (wait=" + throwWaitTicks + " ticks)");
-            chatBall("Ball HIT confirmed (wait=" + throwWaitTicks + " ticks)");
-            waitingForBallHit = false;
-            throwWaitTicks = 0;
-            missCount = 0;
-            ballHitJustConfirmed = true;
+        CaptureSession s = session;
+        if (s != null && s.waitingForBallHit) {
+            AutoQiqiClient.log("Capture", "Ball HIT confirmed (wait=" + s.throwWaitTicks + " ticks)");
+            chatBall("Ball HIT confirmed (wait=" + s.throwWaitTicks + " ticks)");
+            s.waitingForBallHit = false;
+            s.throwWaitTicks = 0;
+            s.missCount = 0;
+            s.ballHitJustConfirmed = true;
         }
     }
 
@@ -1029,8 +826,9 @@ public class CaptureEngine {
      * Used by the mixin to add extra delay before the next action.
      */
     public boolean consumeBallHitConfirmed() {
-        if (ballHitJustConfirmed) {
-            ballHitJustConfirmed = false;
+        CaptureSession s = session;
+        if (s != null && s.ballHitJustConfirmed) {
+            s.ballHitJustConfirmed = false;
             return true;
         }
         return false;
@@ -1041,26 +839,26 @@ public class CaptureEngine {
     }
 
     public boolean isWaitingForBallHit() {
-        return waitingForBallHit;
+        return session != null && session.waitingForBallHit;
     }
 
     public boolean isPendingBallThrow() {
-        return pendingBallThrow;
+        return session != null && session.pendingBallThrow;
     }
 
     public boolean isPickingUpBall() {
-        return pickingUpBall;
+        return session != null && session.pickingUpBall;
     }
 
     // ========================
     // Pickup dropped ball after miss
     // ========================
 
-    private void startPickupBall(MinecraftClient client) {
-        droppedBallEntity = findNearbyBallItem(client);
-        if (droppedBallEntity == null) {
+    private void startPickupBall(CaptureSession s, MinecraftClient client) {
+        s.droppedBallEntity = findNearbyBallItem(client);
+        if (s.droppedBallEntity == null) {
             if (CobblemonClient.INSTANCE.getBattle() == null) {
-                waitingForBallHit = false;
+                s.waitingForBallHit = false;
                 AutoQiqiClient.log("Capture", "No dropped ball and battle ended, not retrying");
                 chatBall("No dropped ball, battle ended — not retrying");
                 return;
@@ -1071,51 +869,48 @@ public class CaptureEngine {
             return;
         }
 
-        double dist = client.player.distanceTo(droppedBallEntity);
-        AutoQiqiClient.log("Capture", "Found dropped ball at " + fmtPos(droppedBallEntity.getPos())
+        double dist = client.player.distanceTo(s.droppedBallEntity);
+        AutoQiqiClient.log("Capture", "Found dropped ball at " + fmtPos(s.droppedBallEntity.getPos())
                 + " dist=" + String.format("%.1f", dist) + ", walking to pick up");
         client.player.sendMessage(
                 Text.literal("§6[Capture]§r §7Recuperation de la ball..."), false);
-        pickingUpBall = true;
-        pickupTicks = 0;
+        s.pickingUpBall = true;
+        s.pickupTicks = 0;
     }
 
-    public void tickPickupBall(MinecraftClient client) {
-        if (!pickingUpBall || client.player == null) return;
+    private void tickPickupBall(CaptureSession s, MinecraftClient client) {
+        if (!s.pickingUpBall || client.player == null) return;
 
-        pickupTicks++;
+        s.pickupTicks++;
 
-        if (droppedBallEntity == null || !droppedBallEntity.isAlive() || droppedBallEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Dropped ball entity gone (picked up or despawned) after " + pickupTicks + " ticks");
+        if (s.droppedBallEntity == null || !s.droppedBallEntity.isAlive() || s.droppedBallEntity.isRemoved()) {
+            AutoQiqiClient.log("Capture", "Dropped ball entity gone (picked up or despawned) after " + s.pickupTicks + " ticks");
             client.options.forwardKey.setPressed(false);
-            pickingUpBall = false;
-            droppedBallEntity = null;
+            s.pickingUpBall = false;
+            s.droppedBallEntity = null;
             retryThrow();
             return;
         }
 
-        double dist = client.player.distanceTo(droppedBallEntity);
+        double dist = client.player.distanceTo(s.droppedBallEntity);
         if (dist <= 1.5) {
             AutoQiqiClient.log("Capture", "Close enough to ball (dist=" + String.format("%.1f", dist) + "), waiting for auto-pickup");
-            // Player auto-picks up items within ~1.5 blocks; just wait for entity to disappear
             return;
         }
 
-        if (pickupTicks > MAX_PICKUP_TICKS) {
+        if (s.pickupTicks > MAX_PICKUP_TICKS) {
             AutoQiqiClient.log("Capture", "Pickup timeout (" + MAX_PICKUP_TICKS + " ticks), giving up on this ball");
             client.options.forwardKey.setPressed(false);
-            pickingUpBall = false;
-            droppedBallEntity = null;
+            s.pickingUpBall = false;
+            s.droppedBallEntity = null;
             PokemonWalker.get().stop();
             retryThrow();
             return;
         }
 
-        // Walk toward the dropped ball
-        if (!PokemonWalker.get().isActive() || pickupTicks % 40 == 0) {
-            MovementHelper.lookAtEntity(client.player, droppedBallEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
-            // Simple walk: press forward toward the entity
-            walkTowardEntity(client, droppedBallEntity);
+        if (!PokemonWalker.get().isActive() || s.pickupTicks % 40 == 0) {
+            MovementHelper.lookAtEntity(client.player, s.droppedBallEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
+            walkTowardEntity(client, s.droppedBallEntity);
         }
     }
 
@@ -1154,46 +949,40 @@ public class CaptureEngine {
         return closest;
     }
 
-    private void tickInBattleIdleCheck() {
-        if (pendingBallThrow || waitingForBallHit || pickingUpBall) {
-            inBattleIdleSinceMs = 0;
+    private void tickInBattleIdleCheck(CaptureSession s) {
+        if (s.pendingBallThrow || s.waitingForBallHit || s.pickingUpBall) {
+            s.inBattleIdleSinceMs = 0;
             return;
         }
-        if (inBattleIdleSinceMs == 0) {
-            inBattleIdleSinceMs = System.currentTimeMillis();
+        if (s.inBattleIdleSinceMs == 0) {
+            s.inBattleIdleSinceMs = System.currentTimeMillis();
             return;
         }
-        long idleMs = System.currentTimeMillis() - inBattleIdleSinceMs;
+        long idleMs = System.currentTimeMillis() - s.inBattleIdleSinceMs;
         if (idleMs >= IN_BATTLE_IDLE_TIMEOUT_MS) {
             AutoQiqiClient.log("Capture", "IN_BATTLE idle for " + (idleMs / 1000) + "s, re-engaging");
-            reengageTarget("idle safety net after " + (idleMs / 1000) + "s");
+            reengageTarget(s, "idle safety net after " + (idleMs / 1000) + "s");
         }
     }
 
     /**
      * Called from BattleCaptureEndHandlerMixin after a breakout.
-     * Re-engages (presses send-out key) to bring the battle screen back.
-     * Only fires if the normal mixin flow hasn't already resumed the battle.
      */
     public void reengageAfterBreakout(String reason) {
-        if (!active) return;
-        if (phase != Phase.IN_BATTLE) return;
-        if (pendingBallThrow || waitingForBallHit) return;
+        CaptureSession s = session;
+        if (s == null) return;
+        if (s.phase != Phase.IN_BATTLE) return;
+        if (s.pendingBallThrow || s.waitingForBallHit) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.currentScreen != null) return;
-        reengageTarget(reason);
+        reengageTarget(s, reason);
     }
 
-    /**
-     * Hard fallback: reset to ENGAGING phase and press the send-out key again.
-     * The target entity is still alive in the world during/after battle, so
-     * we can always re-engage it.
-     */
-    private void reengageTarget(String reason) {
+    private void reengageTarget(CaptureSession s, String reason) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
-        if (targetEntity == null || !targetEntity.isAlive() || targetEntity.isRemoved()) {
+        if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
             AutoQiqiClient.log("Capture", "Re-engage: target entity gone, cannot re-engage (" + reason + ")");
             client.player.sendMessage(
                     Text.literal("§6[Capture]§r §cPokemon disparu, impossible de re-engager."), false);
@@ -1201,36 +990,38 @@ public class CaptureEngine {
             return;
         }
 
-        AutoQiqiClient.log("Capture", "RE-ENGAGING " + targetName + " (" + reason + ")");
+        AutoQiqiClient.log("Capture", "RE-ENGAGING " + s.targetName + " (" + reason + ")");
         client.player.sendMessage(
-                Text.literal("§6[Capture]§r §eRe-engagement de §f" + targetName + "§e..."), false);
+                Text.literal("§6[Capture]§r §eRe-engagement de §f" + s.targetName + "§e..."), false);
 
-        pendingBallThrow = false;
-        waitingForBallHit = false;
-        ballHitJustConfirmed = false;
-        retryThrowPending = false;
-        pickingUpBall = false;
-        droppedBallEntity = null;
-        inBattleIdleSinceMs = 0;
-        lastThrowTimeMs = 0;
+        s.pendingBallThrow = false;
+        s.waitingForBallHit = false;
+        s.ballHitJustConfirmed = false;
+        s.retryThrowPending = false;
+        s.pickingUpBall = false;
+        s.droppedBallEntity = null;
+        s.inBattleIdleSinceMs = 0;
+        s.lastThrowTimeMs = 0;
 
-        reengagePending = true;
-        phase = Phase.ENGAGING;
-        aimTicks = 0;
-        keySent = false;
-        engageAttempts = 0;
-        currentEngageRange = ENGAGE_RANGE_INITIAL;
-        captureStartMs = System.currentTimeMillis();
-        statusMessage = "Re-engaging " + targetName + "...";
+        s.reengagePending = true;
+        s.phase = Phase.ENGAGING;
+        s.aimTicks = 0;
+        s.keySent = false;
+        s.engageAttempts = 0;
+        s.currentEngageRange = ENGAGE_RANGE_INITIAL;
+        s.captureStartMs = System.currentTimeMillis();
+        s.statusMessage = "Re-engaging " + s.targetName + "...";
     }
 
     private void retryThrow() {
-        AutoQiqiClient.log("Capture", "Retrying ball throw (missCount=" + missCount + ")");
+        CaptureSession s = session;
+        if (s == null) return;
+        AutoQiqiClient.log("Capture", "Retrying ball throw (missCount=" + s.missCount + ")");
         var battle = CobblemonClient.INSTANCE.getBattle();
         if (battle != null && battle.getMinimised()) {
             prepareBallThrow();
-            if (!pendingBallThrow) {
-                retryThrowPending = true;
+            if (session != null && !session.pendingBallThrow) {
+                session.retryThrowPending = true;
                 AutoQiqiClient.log("Capture", "Retry deferred (cooldown), will retry when cooldown expires");
             }
         } else {
@@ -1247,152 +1038,88 @@ public class CaptureEngine {
     }
 
     public GeneralChoice decideGeneralAction(boolean forceSwitch, boolean trapped) {
-        decisionCount++;
-        float activeHp = getActiveHpPercent();
-        float oppHp = getOpponentHpPercent();
-        String activeName = getActivePokemonName();
-        String oppStatus = getOpponentStatus();
+        CaptureSession s = session;
+        if (s == null) return GeneralChoice.FIGHT;
 
-        int minFS = getMinFalseSwipes(targetLevel);
-        // 1HP confirmation: require minimum False Swipe count OR delta-confirmed HP unchanged
-        if (falseSwipeCount >= minFS && !targetAtOneHp) {
-            AutoQiqiClient.log("Capture", "1HP CONFIRMED: " + falseSwipeCount + " False Swipes used (min=" + minFS + " for Lv." + targetLevel + ")");
-            targetAtOneHp = true;
-        } else if (falseSwipeUsedThisBattle && lastOppHpBeforeFalseSwipe >= 0 && oppHp >= 0 && falseSwipeCount >= 2) {
-            float delta = Math.abs(lastOppHpBeforeFalseSwipe - oppHp);
-            if (delta < 0.5f) {
-                AutoQiqiClient.log("Capture", "1HP CONFIRMED (delta): HP unchanged after False Swipe #" + falseSwipeCount
-                        + " (" + f(lastOppHpBeforeFalseSwipe) + "% -> " + f(oppHp) + "%)");
-                targetAtOneHp = true;
-            }
-        }
+        s.decisionCount++;
+        BattleSnapshot battle = new BattleSnapshot(
+            getActivePokemonName(),
+            getActiveHpPercent(),
+            getOpponentHpPercent(),
+            getOpponentPokemonName(),
+            getOpponentStatus()
+        );
+        CaptureSessionSnapshot sessionSnapshot = new CaptureSessionSnapshot(
+            s.targetName,
+            s.targetLevel,
+            s.targetIsLegendary,
+            s.targetAtOneHp,
+            s.falseSwipeUsedThisBattle,
+            s.falseSwipeCount,
+            s.lastOppHpBeforeFalseSwipe,
+            s.thunderWaveApplied,
+            s.ballsSinceLastTWave,
+            s.cycleNextIsBall,
+            s.consecutiveSwitchAttempts,
+            s.lastAttemptedSwitchAction,
+            s.totalBallsThrown,
+            s.decisionCount
+        );
 
-        if (targetAtOneHp && oppHp > 10) {
-            AutoQiqiClient.log("Capture", "Opponent healed! HP=" + f(oppHp) + "%, resetting targetAtOneHp");
-            targetAtOneHp = false;
-        }
-        if (oppStatus != null && oppStatus.toLowerCase().contains("par") && !thunderWaveApplied) {
-            thunderWaveApplied = true;
-            ballsSinceLastTWave = 0;
-        }
+        CaptureDecision decision = CaptureStrategy.decide(sessionSnapshot, battle, forceSwitch, trapped);
 
-        boolean isMarowak = nameContains(activeName, "marowak");
-        boolean isDragonite = nameContains(activeName, "dragonite");
-
-        boolean switchBlocked = trapped || (consecutiveSwitchAttempts >= MAX_SWITCH_ATTEMPTS);
-        if (switchBlocked && consecutiveSwitchAttempts >= MAX_SWITCH_ATTEMPTS) {
-            AutoQiqiClient.log("Capture", "Switch blocked: " + consecutiveSwitchAttempts + " consecutive attempts for " + lastAttemptedSwitchAction + ", falling back to FIGHT");
-        }
-
-        AutoQiqiClient.log("Capture", "Decide #" + decisionCount
-                + ": target=" + targetName + " Lv." + targetLevel + (targetIsLegendary ? " [LEG]" : "")
-                + " | active=" + activeName + " HP=" + f(activeHp) + "%"
-                + " | opp=" + getOpponentPokemonName() + " HP=" + f(oppHp) + "% status=" + oppStatus
-                + " | at1HP=" + targetAtOneHp + " twave=" + thunderWaveApplied
-                + " | fsCount=" + falseSwipeCount + " minFS=" + minFS + " prevHp=" + f(lastOppHpBeforeFalseSwipe) + "%"
-                + " | balls=" + totalBallsThrown + " ballsSinceTWave=" + ballsSinceLastTWave
-                + " cycleNext=" + (cycleNextIsBall ? "BALL" : "FS")
-                + " | forceSwitch=" + forceSwitch + " trapped=" + trapped
-                + " | switchAttempts=" + consecutiveSwitchAttempts);
-
-        if (forceSwitch) {
-            currentAction = CaptureAction.SWITCH_TANK;
-            statusMessage = "Forced switch -> tank";
-            AutoQiqiClient.log("Capture", "Decision: SWITCH_TANK (forced)");
-            chatBall("Decide #" + decisionCount + ": SWITCH (forced)");
-            trackSwitchAttempt(CaptureAction.SWITCH_TANK);
-            return GeneralChoice.SWITCH;
-        }
-
-        boolean isKeyPokemon = isMarowak || isDragonite;
-        if (!switchBlocked && isKeyPokemon && activeHp >= 0 && activeHp < LOW_HP_THRESHOLD) {
-            currentAction = CaptureAction.SWITCH_TANK;
-            statusMessage = activeName + " HP low, switching to tank";
-            AutoQiqiClient.log("Capture", "Decision: SWITCH_TANK (" + activeName + " HP=" + f(activeHp) + "%)");
-            chatBall("Decide #" + decisionCount + ": SWITCH (tank HP)");
-            trackSwitchAttempt(CaptureAction.SWITCH_TANK);
-            return GeneralChoice.SWITCH;
-        }
-
-        if (!targetAtOneHp) {
-            if (!isMarowak && !switchBlocked) {
-                currentAction = CaptureAction.SWITCH_MAROWAK;
-                statusMessage = "Switching to Marowak";
-                AutoQiqiClient.log("Capture", "Decision: SWITCH_MAROWAK (need False Swipe, active=" + activeName + ")");
-                chatBall("Decide #" + decisionCount + ": SWITCH (Marowak)");
-                trackSwitchAttempt(CaptureAction.SWITCH_MAROWAK);
-                return GeneralChoice.SWITCH;
-            }
-            lastOppHpBeforeFalseSwipe = oppHp;
-            currentAction = CaptureAction.FALSE_SWIPE;
-            statusMessage = "False Swipe (#" + (falseSwipeCount + 1) + ")";
-            AutoQiqiClient.log("Capture", "Decision: FALSE_SWIPE #" + (falseSwipeCount + 1) + " (opp HP=" + f(oppHp) + "%, saving for delta check)");
-            chatBall("Decide #" + decisionCount + ": FALSE_SWIPE #" + (falseSwipeCount + 1));
-            resetSwitchAttempts();
-            return GeneralChoice.FIGHT;
-        }
-
-        boolean needTWave = targetLevel >= 50
-                && (!thunderWaveApplied || ballsSinceLastTWave >= 8);
-        if (needTWave) {
-            if (!isDragonite && !switchBlocked) {
-                currentAction = CaptureAction.SWITCH_DRAGONITE;
-                statusMessage = "Switching to Dragonite";
-                AutoQiqiClient.log("Capture", "Decision: SWITCH_DRAGONITE (need Thunder Wave, ballsSinceTWave=" + ballsSinceLastTWave + ")");
-                chatBall("Decide #" + decisionCount + ": SWITCH (Dragonite)");
-                trackSwitchAttempt(CaptureAction.SWITCH_DRAGONITE);
-                return GeneralChoice.SWITCH;
-            }
-            currentAction = CaptureAction.THUNDER_WAVE;
-            statusMessage = "Thunder Wave (balls since last=" + ballsSinceLastTWave + ")";
-            AutoQiqiClient.log("Capture", "Decision: THUNDER_WAVE (ballsSinceTWave=" + ballsSinceLastTWave + ")");
-            chatBall("Decide #" + decisionCount + ": THUNDER_WAVE");
-            thunderWaveApplied = true;
-            ballsSinceLastTWave = 0;
-            cycleNextIsBall = true;
-            resetSwitchAttempts();
-            return GeneralChoice.FIGHT;
-        }
-
-        // Legendary (70+): give up after 20 throws and kill
-        if (targetIsLegendary && totalBallsThrown >= LEGENDARY_GIVE_UP_AFTER_THROWS) {
-            AutoQiqiClient.log("Capture", "Legendary: " + totalBallsThrown + " balls thrown, giving up — killing " + targetName);
+        if (decision.giveUp()) {
+            AutoQiqiClient.log("Capture", "Legendary: " + s.totalBallsThrown + " balls thrown, giving up — killing " + s.targetName);
             MinecraftClient client = MinecraftClient.getInstance();
             if (client != null && client.player != null) {
                 client.player.sendMessage(
-                        Text.literal("§6[Capture]§r §c" + totalBallsThrown + " balls, abandon capture — passage en combat pour tuer §e" + targetName + "§c."), false);
+                        Text.literal("§6[Capture]§r §c" + s.totalBallsThrown + " balls, abandon capture — passage en combat pour tuer §e" + s.targetName + "§c."), false);
             }
-            SessionLogger.get().logCaptureFailed(targetName, targetLevel, true, totalBallsThrown, "gave up after " + totalBallsThrown + " balls");
+            SessionLogger.get().logCaptureFailed(s.targetName, s.targetLevel, true, s.totalBallsThrown, "gave up after " + s.totalBallsThrown + " balls");
             stop();
             return GeneralChoice.FIGHT;
         }
 
-        if (cycleNextIsBall) {
-            currentAction = CaptureAction.THROW_BALL;
-            cycleNextIsBall = false;
-            ballsSinceLastTWave++;
-            AutoQiqiClient.log("Capture", "Decision: THROW_BALL [cycle] (total=" + totalBallsThrown
-                    + " ballsSinceTWave=" + ballsSinceLastTWave + " oppHp=" + f(oppHp) + "%)");
-            chatBall("Decide #" + decisionCount + ": THROW_BALL (total=" + totalBallsThrown + ")");
-            resetSwitchAttempts();
-            return GeneralChoice.CAPTURE;
-        }
+        SessionUpdates u = decision.sessionUpdates();
+        s.targetAtOneHp = u.targetAtOneHp();
+        s.thunderWaveApplied = u.thunderWaveApplied();
+        s.ballsSinceLastTWave = u.ballsSinceLastTWave();
+        s.lastOppHpBeforeFalseSwipe = u.lastOppHpBeforeFalseSwipe();
+        s.cycleNextIsBall = u.cycleNextIsBall();
+        s.consecutiveSwitchAttempts = u.consecutiveSwitchAttempts();
+        s.lastAttemptedSwitchAction = u.lastAttemptedSwitchAction();
+        s.currentAction = decision.action();
+        if (decision.statusMessage() != null) s.statusMessage = decision.statusMessage();
 
-        if (!isMarowak && !switchBlocked) {
-            currentAction = CaptureAction.SWITCH_MAROWAK;
-            statusMessage = "Switching to Marowak (cycle FS)";
-            AutoQiqiClient.log("Capture", "Decision: SWITCH_MAROWAK (cycle False Swipe, active=" + activeName + ")");
-            chatBall("Decide #" + decisionCount + ": SWITCH (Marowak cycle)");
-            trackSwitchAttempt(CaptureAction.SWITCH_MAROWAK);
-            return GeneralChoice.SWITCH;
-        }
-        currentAction = CaptureAction.FALSE_SWIPE;
-        cycleNextIsBall = true;
-        statusMessage = "False Swipe (cycle #" + (falseSwipeCount + 1) + ")";
-        AutoQiqiClient.log("Capture", "Decision: FALSE_SWIPE [cycle] #" + (falseSwipeCount + 1) + " (opp HP=" + f(oppHp) + "%)");
-        chatBall("Decide #" + decisionCount + ": FALSE_SWIPE (cycle)");
-        resetSwitchAttempts();
-        return GeneralChoice.FIGHT;
+        int minFS = CaptureStrategy.getMinFalseSwipes(s.targetLevel);
+        AutoQiqiClient.log("Capture", "Decide #" + s.decisionCount
+                + ": target=" + s.targetName + " Lv." + s.targetLevel + (s.targetIsLegendary ? " [LEG]" : "")
+                + " | active=" + battle.activePokemonName() + " HP=" + f(battle.activeHpPercent()) + "%"
+                + " | opp=" + battle.opponentPokemonName() + " HP=" + f(battle.opponentHpPercent()) + "% status=" + battle.opponentStatus()
+                + " | at1HP=" + s.targetAtOneHp + " twave=" + s.thunderWaveApplied
+                + " | fsCount=" + s.falseSwipeCount + " minFS=" + minFS + " prevHp=" + f(s.lastOppHpBeforeFalseSwipe) + "%"
+                + " | balls=" + s.totalBallsThrown + " ballsSinceTWave=" + s.ballsSinceLastTWave
+                + " cycleNext=" + (s.cycleNextIsBall ? "BALL" : "FS")
+                + " | forceSwitch=" + forceSwitch + " trapped=" + trapped
+                + " | switchAttempts=" + s.consecutiveSwitchAttempts);
+        AutoQiqiClient.log("Capture", "Decision: " + decision.action() + (decision.statusMessage() != null ? " — " + decision.statusMessage() : ""));
+        chatBall("Decide #" + s.decisionCount + ": " + formatDecisionChoice(decision.action()));
+
+        return actionToGeneralChoice(decision.action());
+    }
+
+    private static String formatDecisionChoice(CaptureAction action) {
+        if (action == CaptureAction.THROW_BALL) return "THROW_BALL (total=...)";
+        if (action == CaptureAction.SWITCH_MAROWAK || action == CaptureAction.SWITCH_DRAGONITE || action == CaptureAction.SWITCH_TANK) return "SWITCH (" + action + ")";
+        return action.toString();
+    }
+
+    private static GeneralChoice actionToGeneralChoice(CaptureAction action) {
+        return switch (action) {
+            case FALSE_SWIPE, THUNDER_WAVE -> GeneralChoice.FIGHT;
+            case SWITCH_MAROWAK, SWITCH_DRAGONITE, SWITCH_TANK -> GeneralChoice.SWITCH;
+            case THROW_BALL -> GeneralChoice.CAPTURE;
+        };
     }
 
     // ========================
@@ -1401,51 +1128,52 @@ public class CaptureEngine {
 
     /**
      * Called by the mixin after minimizing the battle.
-     * Sets up the pending ball throw to execute on the next ticks.
      */
     public void prepareBallThrow() {
-        if (pendingBallThrow) {
+        CaptureSession s = session;
+        if (s == null) return;
+        if (s.pendingBallThrow) {
             AutoQiqiClient.log("Capture", "Ball throw already pending, skipping");
             return;
         }
-        if (waitingForBallHit) {
+        if (s.waitingForBallHit) {
             AutoQiqiClient.log("Capture", "Still waiting for ball hit, skipping");
             return;
         }
-        long sinceLast = System.currentTimeMillis() - lastThrowTimeMs;
-        if (lastThrowTimeMs > 0 && sinceLast < THROW_COOLDOWN_MS) {
+        long sinceLast = System.currentTimeMillis() - s.lastThrowTimeMs;
+        if (s.lastThrowTimeMs > 0 && sinceLast < THROW_COOLDOWN_MS) {
             AutoQiqiClient.log("Capture", "Throw cooldown active (" + sinceLast + "ms/" + THROW_COOLDOWN_MS + "ms), skipping");
             return;
         }
-        pendingBallName = getNextBallName();
-        pendingBallThrow = true;
-        throwTicksRemaining = THROW_DELAY_TICKS;
-        AutoQiqiClient.log("Capture", "Ball throw prepared: " + pendingBallName);
+        s.pendingBallName = getNextBallName(s);
+        s.pendingBallThrow = true;
+        s.throwTicksRemaining = THROW_DELAY_TICKS;
+        AutoQiqiClient.log("Capture", "Ball throw prepared: " + s.pendingBallName);
     }
 
-    private String getNextBallName() {
-        // Legendaries (70+): ultra only, give up after LEGENDARY_GIVE_UP_AFTER_THROWS (handled in decideGeneralAction)
-        if (ballSequenceIndex >= activeBallSequence.length) {
-            statusMessage = "Ultra Ball #" + (ultraBallsThrown + 1);
-            ultraBallsThrown++;
-            totalBallsThrown++;
+    private String getNextBallName(CaptureSession s) {
+        if (s.activeBallSequence == null) return "ultra_ball";
+        if (s.ballSequenceIndex >= s.activeBallSequence.length) {
+            s.statusMessage = "Ultra Ball #" + (s.ultraBallsThrown + 1);
+            s.ultraBallsThrown++;
+            s.totalBallsThrown++;
             return "ultra_ball";
         }
 
-        BallEntry entry = activeBallSequence[ballSequenceIndex];
-        if (currentBallCount >= entry.count) {
-            ballSequenceIndex++;
-            currentBallCount = 0;
-            return getNextBallName();
+        BallEntry entry = s.activeBallSequence[s.ballSequenceIndex];
+        if (s.currentBallCount >= entry.count) {
+            s.ballSequenceIndex++;
+            s.currentBallCount = 0;
+            return getNextBallName(s);
         }
 
-        statusMessage = formatBallName(entry.name) + " (" + (currentBallCount + 1) + "/" + entry.count + ")";
-        AutoQiqiClient.log("Capture", "Throwing " + entry.name + " " + (currentBallCount + 1) + "/" + entry.count);
+        s.statusMessage = formatBallName(entry.name) + " (" + (s.currentBallCount + 1) + "/" + entry.count + ")";
+        AutoQiqiClient.log("Capture", "Throwing " + entry.name + " " + (s.currentBallCount + 1) + "/" + entry.count);
 
-        currentBallCount++;
-        totalBallsThrown++;
-        if (entry.name.equals("great_ball")) greatBallsThrown++;
-        if (entry.name.equals("ultra_ball")) ultraBallsThrown++;
+        s.currentBallCount++;
+        s.totalBallsThrown++;
+        if (entry.name.equals("great_ball")) s.greatBallsThrown++;
+        if (entry.name.equals("ultra_ball")) s.ultraBallsThrown++;
 
         return entry.name;
     }
@@ -1455,21 +1183,22 @@ public class CaptureEngine {
     // ========================
 
     public MoveTile chooseMoveFromTiles(List<MoveTile> selectableTiles) {
-        String target = (currentAction == CaptureAction.THUNDER_WAVE)
+        CaptureSession s = session;
+        if (s == null) return null;
+        String target = (s.currentAction == CaptureAction.THUNDER_WAVE)
                 ? "thunder wave" : "false swipe";
         for (MoveTile tile : selectableTiles) {
             String moveName = tile.getMove().getMove().toLowerCase();
             if (moveName.contains(target)) {
                 if (target.equals("false swipe") && (moveName.contains("false swipe") || moveName.contains("chage"))) {
-                    falseSwipeUsedThisBattle = true;
-                    falseSwipeCount++;
-                    AutoQiqiClient.log("Capture", "Selected False Swipe #" + falseSwipeCount + " (HP before=" + f(lastOppHpBeforeFalseSwipe) + "%)");
+                    s.falseSwipeUsedThisBattle = true;
+                    s.falseSwipeCount++;
+                    AutoQiqiClient.log("Capture", "Selected False Swipe #" + s.falseSwipeCount + " (HP before=" + f(s.lastOppHpBeforeFalseSwipe) + "%)");
                 }
                 AutoQiqiClient.log("Capture", "Selected move: " + moveName);
                 return tile;
             }
         }
-        // Fallback: pick safest non-damaging move to avoid killing
         for (MoveTile tile : selectableTiles) {
             String moveName = tile.getMove().getMove().toLowerCase();
             if (moveName.contains("wave") || moveName.contains("swipe")
@@ -1479,7 +1208,7 @@ public class CaptureEngine {
                 return tile;
             }
         }
-        if (consecutiveSwitchAttempts >= MAX_SWITCH_ATTEMPTS && !selectableTiles.isEmpty()) {
+        if (s.consecutiveSwitchAttempts >= MAX_SWITCH_ATTEMPTS && !selectableTiles.isEmpty()) {
             MoveTile fallback = selectableTiles.get(0);
             AutoQiqiClient.log("Capture", "WARNING: switch blocked, using fallback move: " + fallback.getMove().getMove());
             return fallback;
@@ -1490,15 +1219,13 @@ public class CaptureEngine {
         return null;
     }
 
-    // ========================
-    // Switch selection: called by BattleSwitchPokemonSelectionMixin
-    // ========================
-
     public SwitchTile chooseSwitchFromTiles(List<SwitchTile> availableTiles) {
-        if (currentAction == CaptureAction.SWITCH_MAROWAK) {
+        CaptureSession s = session;
+        if (s == null) return availableTiles.isEmpty() ? null : availableTiles.get(0);
+        if (s.currentAction == CaptureAction.SWITCH_MAROWAK) {
             return findTileBySpecies(availableTiles, "marowak");
         }
-        if (currentAction == CaptureAction.SWITCH_DRAGONITE) {
+        if (s.currentAction == CaptureAction.SWITCH_DRAGONITE) {
             return findTileBySpecies(availableTiles, "dragonite");
         }
         for (SwitchTile tile : availableTiles) {
@@ -1628,24 +1355,6 @@ public class CaptureEngine {
     // Helpers
     // ========================
 
-    private void trackSwitchAttempt(CaptureAction action) {
-        if (action == lastAttemptedSwitchAction) {
-            consecutiveSwitchAttempts++;
-        } else {
-            lastAttemptedSwitchAction = action;
-            consecutiveSwitchAttempts = 1;
-        }
-    }
-
-    private void resetSwitchAttempts() {
-        consecutiveSwitchAttempts = 0;
-        lastAttemptedSwitchAction = null;
-    }
-
-    private static boolean nameContains(String name, String fragment) {
-        return name != null && name.toLowerCase().contains(fragment);
-    }
-
     private static String f(float v) { return String.format("%.1f", v); }
 
     private static String fmtPos(net.minecraft.util.math.Vec3d v) {
@@ -1693,5 +1402,5 @@ public class CaptureEngine {
         }
     }
 
-    private record BallEntry(String name, int count) {}
+    public record BallEntry(String name, int count) {}
 }

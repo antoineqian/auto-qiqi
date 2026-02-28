@@ -21,68 +21,53 @@ import net.minecraft.world.World;
 public class AutoSwitchEngine {
     private static final AutoSwitchEngine INSTANCE = new AutoSwitchEngine();
 
-    private long tickCount = 0;
-    private long stateEnteredTick = 0;
-    private long nextActionAtTick = 0;
-
-    private enum State {
-        IDLE, OPENING_MENU, WAITING_AFTER_SWITCH, POLLING,
-        WAITING_FOR_POLL_RESPONSE, WAITING_AFTER_EVENT_SWITCH, PAUSED_FOR_CAPTURE
-    }
-
-    private enum SwitchPurpose { LEARNING, POLL, EVENT }
-
-    private State state = State.IDLE;
-    private SwitchPurpose switchPurpose = null;
-    private String currentPollWorld = null;
-    private String targetEventWorld = null;
-    private boolean screenCloseAttempted = false;
-    private boolean arrivalHomePending = false;
-    private boolean isHomeTeleport = false;
-    private String pendingHomeWorld = null;
-    private long eventTimerZeroTick = 0;
-    private boolean isEventRepoll = false;
-    private int eventRepollRetries = 0;
     private static final int MAX_EVENT_REPOLL_RETRIES = 5;
     private static final int FAST_WINDOW_SECONDS = 60;
-
-    private long pauseStartTick = 0;
-    private String pausedForPokemon = null;
-
-    private String pendingCommand = null;
-    private long commandExecuteAtTick = 0;
-
-    private int homeRetryCount = 0;
     private static final int MAX_HOME_RETRIES = 2;
-
-    private long bossYieldStartTick = 0;
     private static final int BOSS_YIELD_TIMEOUT_TICKS = 600; // 30 seconds
+
+    private long tickCount = 0;
+    /** Current run state; created when legendaryEnabled on first tick. */
+    private LegendaryRunState run = null;
 
     private AutoSwitchEngine() {}
 
     public static AutoSwitchEngine get() { return INSTANCE; }
 
-    public boolean isPaused() { return state == State.PAUSED_FOR_CAPTURE; }
+    /** Returns the current run state; null if legendary never enabled this session. */
+    public LegendaryRunState getCurrentRun() { return run; }
 
-    /** True when waiting for /home teleport to complete. Movement would cancel the teleport. */
+    /** Ensures a run exists when legendary is enabled; returns null otherwise. */
+    private LegendaryRunState getOrCreateRun() {
+        if (run == null) run = new LegendaryRunState();
+        return run;
+    }
+
+    public boolean isPaused() {
+        return run != null && run.state == LegendaryRunState.State.PAUSED_FOR_CAPTURE;
+    }
+
     public boolean isWaitingForHomeTeleport() {
-        return isHomeTeleport && (state == State.WAITING_AFTER_SWITCH || state == State.WAITING_AFTER_EVENT_SWITCH);
+        return run != null && run.isHomeTeleport
+                && (run.state == LegendaryRunState.State.WAITING_AFTER_SWITCH
+                || run.state == LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH);
     }
 
     public String getStateDisplay() {
         if (!AutoQiqiConfig.get().legendaryAutoSwitch) return "Inactif";
-        return switch (state) {
+        if (run == null) return "En attente";
+        return switch (run.state) {
             case IDLE -> "En attente";
-            case OPENING_MENU -> switch (switchPurpose) {
+            case OPENING_MENU -> switch (run.switchPurpose) {
                 case LEARNING -> "Apprentissage mondes...";
                 case EVENT -> "EVENT! Ouverture menu...";
-                case POLL -> "Changement -> " + currentPollWorld;
+                case POLL -> "Changement -> " + run.currentPollWorld;
             };
-            case WAITING_AFTER_SWITCH -> "Teleportation " + currentPollWorld + "...";
+            case WAITING_AFTER_SWITCH -> "Teleportation " + run.currentPollWorld + "...";
             case POLLING -> "Envoi /nextleg...";
-            case WAITING_FOR_POLL_RESPONSE -> "Lecture timer " + currentPollWorld + "...";
-            case WAITING_AFTER_EVENT_SWITCH -> "En position dans " + targetEventWorld;
-            case PAUSED_FOR_CAPTURE -> "PAUSE - Capture " + pausedForPokemon + " (" + getPauseRemainingDisplay() + ")";
+            case WAITING_FOR_POLL_RESPONSE -> "Lecture timer " + run.currentPollWorld + "...";
+            case WAITING_AFTER_EVENT_SWITCH -> "En position dans " + run.targetEventWorld;
+            case PAUSED_FOR_CAPTURE -> "PAUSE - Capture " + run.pausedForPokemon + " (" + getPauseRemainingDisplay() + ")";
         };
     }
 
@@ -99,9 +84,10 @@ public class AutoSwitchEngine {
     }
 
     private String getPauseRemainingDisplay() {
+        if (run == null) return "";
         AutoQiqiConfig config = AutoQiqiConfig.get();
         if (config.pauseDurationSeconds <= 0) return "reprendre: [J]";
-        long elapsed = (tickCount - pauseStartTick) / 20;
+        long elapsed = (tickCount - run.pauseStartTick) / 20;
         long remaining = config.pauseDurationSeconds - elapsed;
         if (remaining <= 0) return "reprise...";
         long min = remaining / 60;
@@ -126,41 +112,42 @@ public class AutoSwitchEngine {
                     Text.literal("§6[Auto-Qiqi]§r " + count + " mondes appris ! Mod actif."), false);
         }
 
-        if (state == State.OPENING_MENU && switchPurpose == SwitchPurpose.LEARNING) {
-            setState(State.IDLE, "worlds learned");
-            stateEnteredTick = 0;
-            nextActionAtTick = 0;
+        if (run != null && run.state == LegendaryRunState.State.OPENING_MENU && run.switchPurpose == LegendaryRunState.SwitchPurpose.LEARNING) {
+            setState(run, LegendaryRunState.State.IDLE, "worlds learned");
+            run.stateEnteredTick = 0;
+            run.nextActionAtTick = 0;
         }
     }
 
     public void onWorldSwitchComplete() {
         stopActiveEngines();
+        if (run == null) return;
 
-        if (state == State.OPENING_MENU) {
-            isHomeTeleport = false;
-            pendingHomeWorld = null;
-            if (switchPurpose == SwitchPurpose.EVENT) {
-                AutoQiqiClient.log("Legendary", "GUI switch complete (EVENT) -> " + targetEventWorld);
-                setState(State.WAITING_AFTER_EVENT_SWITCH, "gui event switch done");
-                stateEnteredTick = tickCount;
-                eventTimerZeroTick = 0;
-                isEventRepoll = false;
-                eventRepollRetries = 0;
+        if (run.state == LegendaryRunState.State.OPENING_MENU) {
+            run.isHomeTeleport = false;
+            run.pendingHomeWorld = null;
+            if (run.switchPurpose == LegendaryRunState.SwitchPurpose.EVENT) {
+                AutoQiqiClient.log("Legendary", "GUI switch complete (EVENT) -> " + run.targetEventWorld);
+                setState(run, LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH, "gui event switch done");
+                run.stateEnteredTick = tickCount;
+                run.eventTimerZeroTick = 0;
+                run.isEventRepoll = false;
+                run.eventRepollRetries = 0;
             } else {
-                AutoQiqiClient.log("Legendary", "GUI switch complete (POLL) -> " + currentPollWorld);
-                setState(State.WAITING_AFTER_SWITCH, "gui poll switch done");
-                stateEnteredTick = tickCount;
-                screenCloseAttempted = false;
-                arrivalHomePending = false;
+                AutoQiqiClient.log("Legendary", "GUI switch complete (POLL) -> " + run.currentPollWorld);
+                setState(run, LegendaryRunState.State.WAITING_AFTER_SWITCH, "gui poll switch done");
+                run.stateEnteredTick = tickCount;
+                run.screenCloseAttempted = false;
+                run.arrivalHomePending = false;
             }
         }
     }
 
     public void onGuiTimeout() {
-        if (state == State.OPENING_MENU) {
-            AutoQiqiClient.log("Legendary", "GUI timeout (purpose=" + switchPurpose + ", target=" + currentPollWorld + ")");
-            setState(State.IDLE, "gui timeout");
-            stateEnteredTick = tickCount;
+        if (run != null && run.state == LegendaryRunState.State.OPENING_MENU) {
+            AutoQiqiClient.log("Legendary", "GUI timeout (purpose=" + run.switchPurpose + ", target=" + run.currentPollWorld + ")");
+            setState(run, LegendaryRunState.State.IDLE, "gui timeout");
+            run.stateEnteredTick = tickCount;
         }
     }
 
@@ -169,20 +156,21 @@ public class AutoSwitchEngine {
     // ========================
 
     public void pauseForCapture(String pokemonName) {
-        AutoQiqiClient.log("Legendary", "PAUSING for capture: " + pokemonName + " (was " + state + ")");
-        this.pausedForPokemon = pokemonName;
-        this.pauseStartTick = tickCount;
-        setState(State.PAUSED_FOR_CAPTURE, "capture " + pokemonName);
-        this.stateEnteredTick = tickCount;
+        LegendaryRunState r = getOrCreateRun();
+        AutoQiqiClient.log("Legendary", "PAUSING for capture: " + pokemonName + " (was " + r.state + ")");
+        r.pausedForPokemon = pokemonName;
+        r.pauseStartTick = tickCount;
+        setState(r, LegendaryRunState.State.PAUSED_FOR_CAPTURE, "capture " + pokemonName);
+        r.stateEnteredTick = tickCount;
         GuiWorldSwitcher.get().cancelPending();
     }
 
     public void resumeFromPause() {
-        if (state == State.PAUSED_FOR_CAPTURE) {
-            AutoQiqiClient.log("Legendary", "RESUMING from capture pause (was paused for " + pausedForPokemon + ")");
-            pausedForPokemon = null;
-            setState(State.IDLE, "resume from pause");
-            stateEnteredTick = tickCount;
+        if (run != null && run.state == LegendaryRunState.State.PAUSED_FOR_CAPTURE) {
+            AutoQiqiClient.log("Legendary", "RESUMING from capture pause (was paused for " + run.pausedForPokemon + ")");
+            run.pausedForPokemon = null;
+            setState(run, LegendaryRunState.State.IDLE, "resume from pause");
+            run.stateEnteredTick = tickCount;
         }
     }
 
@@ -198,29 +186,30 @@ public class AutoSwitchEngine {
         if (!config.legendaryEnabled) return;
 
         tickCount++;
+        LegendaryRunState r = getOrCreateRun();
 
-        if (!config.legendaryAutoSwitch && state != State.IDLE) {
-            AutoQiqiClient.log("Legendary", "legendaryAutoSwitch OFF while in " + state + ", cancelling");
+        if (!config.legendaryAutoSwitch && r.state != LegendaryRunState.State.IDLE) {
+            AutoQiqiClient.log("Legendary", "legendaryAutoSwitch OFF while in " + r.state + ", cancelling");
             GuiWorldSwitcher.get().cancelPending();
-            pendingCommand = null;
-            pendingHomeWorld = null;
-            isHomeTeleport = false;
-            setState(State.IDLE, "autoSwitch disabled");
-            stateEnteredTick = tickCount;
+            r.pendingCommand = null;
+            r.pendingHomeWorld = null;
+            r.isHomeTeleport = false;
+            setState(r, LegendaryRunState.State.IDLE, "autoSwitch disabled");
+            r.stateEnteredTick = tickCount;
             return;
         }
 
-        tickPendingCommand(client);
-        if (pendingCommand != null) return;
+        tickPendingCommand(client, r);
+        if (r.pendingCommand != null) return;
 
-        switch (state) {
-            case IDLE -> handleIdle(client, config);
-            case OPENING_MENU -> handleOpeningMenu();
-            case WAITING_AFTER_SWITCH -> handleWaitingAfterSwitch(client);
-            case POLLING -> handlePolling(client, config);
-            case WAITING_FOR_POLL_RESPONSE -> handleWaitingForResponse();
-            case WAITING_AFTER_EVENT_SWITCH -> handleWaitingAfterEventSwitch(config);
-            case PAUSED_FOR_CAPTURE -> handlePausedForCapture(config);
+        switch (r.state) {
+            case IDLE -> handleIdle(client, config, r);
+            case OPENING_MENU -> handleOpeningMenu(r);
+            case WAITING_AFTER_SWITCH -> handleWaitingAfterSwitch(client, r);
+            case POLLING -> handlePolling(client, config, r);
+            case WAITING_FOR_POLL_RESPONSE -> handleWaitingForResponse(r);
+            case WAITING_AFTER_EVENT_SWITCH -> handleWaitingAfterEventSwitch(config, r);
+            case PAUSED_FOR_CAPTURE -> handlePausedForCapture(config, r);
         }
     }
 
@@ -240,20 +229,20 @@ public class AutoSwitchEngine {
         return battle.isBossNearby();
     }
 
-    private void handleIdle(MinecraftClient client, AutoQiqiConfig config) {
+    private void handleIdle(MinecraftClient client, AutoQiqiConfig config, LegendaryRunState r) {
         if (!config.legendaryAutoSwitch) return;
         if (client.currentScreen != null) return;
         if (isInBattle()) return;
 
         if (isBossActive()) {
-            if (bossYieldStartTick == 0) {
-                bossYieldStartTick = tickCount;
+            if (r.bossYieldStartTick == 0) {
+                r.bossYieldStartTick = tickCount;
                 AutoQiqiClient.log("Legendary", "IDLE: yielding to boss encounter");
             }
-            long waited = tickCount - bossYieldStartTick;
+            long waited = tickCount - r.bossYieldStartTick;
             if (waited >= BOSS_YIELD_TIMEOUT_TICKS) {
                 AutoQiqiClient.log("Legendary", "IDLE: boss yield timeout after " + (waited / 20) + "s, proceeding anyway");
-                bossYieldStartTick = 0;
+                r.bossYieldStartTick = 0;
             } else {
                 if (waited % 200 == 0 && waited > 0) {
                     AutoQiqiClient.log("Legendary", "IDLE: still yielding to boss (" + (waited / 20) + "s / " + (BOSS_YIELD_TIMEOUT_TICKS / 20) + "s)");
@@ -261,20 +250,20 @@ public class AutoSwitchEngine {
                 return;
             }
         } else {
-            bossYieldStartTick = 0;
+            r.bossYieldStartTick = 0;
         }
 
         GuiWorldSwitcher switcher = GuiWorldSwitcher.get();
         WorldTracker tracker = WorldTracker.get();
 
         if (!switcher.hasLearnedWorlds()) {
-            if (stateEnteredTick > 0 && (tickCount - stateEnteredTick) < 200) return;
+            if (r.stateEnteredTick > 0 && (tickCount - r.stateEnteredTick) < 200) return;
             AutoQiqiClient.log("Legendary", "IDLE: worlds not learned yet, opening /monde for learning");
             switcher.requestLearning();
-            sendCommand(client, config.mondeCommand);
-            switchPurpose = SwitchPurpose.LEARNING;
-            setState(State.OPENING_MENU, "learning");
-            stateEnteredTick = tickCount;
+            sendCommand(client, config.mondeCommand, r);
+            r.switchPurpose = LegendaryRunState.SwitchPurpose.LEARNING;
+            setState(r, LegendaryRunState.State.OPENING_MENU, "learning");
+            r.stateEnteredTick = tickCount;
             return;
         }
 
@@ -293,19 +282,19 @@ public class AutoSwitchEngine {
                             "§6[Auto-Qiqi]§r §eTimer " + currentWorldName
                                     + " expire ! Repoll en cours..."), false);
                 }
-                targetEventWorld = currentWorldName;
-                setState(State.WAITING_AFTER_EVENT_SWITCH, "camping timer expired");
-                stateEnteredTick = tickCount;
-                eventTimerZeroTick = tickCount;
-                isEventRepoll = false;
-                eventRepollRetries = 0;
+                r.targetEventWorld = currentWorldName;
+                setState(r, LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH, "camping timer expired");
+                r.stateEnteredTick = tickCount;
+                r.eventTimerZeroTick = tickCount;
+                r.isEventRepoll = false;
+                r.eventRepollRetries = 0;
                 return;
             }
         }
 
         String eventWorld = tracker.getWorldToSwitchTo();
         if (eventWorld != null) {
-            targetEventWorld = eventWorld;
+            r.targetEventWorld = eventWorld;
             WorldTimerData evtData = tracker.getTimer(eventWorld);
             String evtInfo = evtData != null ? (evtData.isEventActive() ? "EVENT_ACTIVE" : evtData.getFormattedTime()) : "?";
             AutoQiqiClient.log("Legendary", "IDLE: event switch needed -> " + eventWorld
@@ -315,33 +304,33 @@ public class AutoSwitchEngine {
                 AutoQiqiClient.log("Legendary", "EVENT! Home switch -> " + eventWorld + " via /home " + homeName);
                 stopActiveEngines();
                 releaseMovementKeys(client);
-                sendCommand(client, "/home " + homeName);
-                pendingHomeWorld = eventWorld;
-                isHomeTeleport = true;
-                homeRetryCount = 0;
-                setState(State.WAITING_AFTER_EVENT_SWITCH, "event /home " + eventWorld);
-                stateEnteredTick = tickCount;
-                eventTimerZeroTick = 0;
-                isEventRepoll = false;
-                eventRepollRetries = 0;
+                sendCommand(client, "/home " + homeName, r);
+                r.pendingHomeWorld = eventWorld;
+                r.isHomeTeleport = true;
+                r.homeRetryCount = 0;
+                setState(r, LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH, "event /home " + eventWorld);
+                r.stateEnteredTick = tickCount;
+                r.eventTimerZeroTick = 0;
+                r.isEventRepoll = false;
+                r.eventRepollRetries = 0;
             } else {
                 switcher.requestSwitch(eventWorld);
-                sendCommand(client, config.mondeCommand);
-                switchPurpose = SwitchPurpose.EVENT;
-                setState(State.OPENING_MENU, "event gui " + eventWorld);
-                stateEnteredTick = tickCount;
+                sendCommand(client, config.mondeCommand, r);
+                r.switchPurpose = LegendaryRunState.SwitchPurpose.EVENT;
+                setState(r, LegendaryRunState.State.OPENING_MENU, "event gui " + eventWorld);
+                r.stateEnteredTick = tickCount;
             }
             return;
         }
 
-        if (tickCount < nextActionAtTick) return;
+        if (tickCount < r.nextActionAtTick) return;
 
         String expiredWorld = tracker.getWorldWithExpiredTimer(config.repollCooldownSeconds);
         if (expiredWorld != null) {
             WorldTimerData expData = tracker.getTimer(expiredWorld);
             AutoQiqiClient.log("Legendary", "IDLE: repoll expired timer -> " + expiredWorld
                     + " (last update " + (expData != null ? expData.getSecondsSinceLastUpdate() + "s ago" : "?") + ")");
-            switchAndPoll(client, config, expiredWorld);
+            switchAndPoll(client, config, expiredWorld, r);
             return;
         }
 
@@ -349,7 +338,7 @@ public class AutoSwitchEngine {
         if (unknownWorld != null) {
             AutoQiqiClient.log("Legendary", "IDLE: discovering unknown timer -> " + unknownWorld
                     + " (" + tracker.getKnownTimerCount() + "/" + tracker.getTotalWorldCount() + " known)");
-            switchAndPoll(client, config, unknownWorld);
+            switchAndPoll(client, config, unknownWorld, r);
             return;
         }
 
@@ -358,43 +347,43 @@ public class AutoSwitchEngine {
             WorldTimerData soonData = tracker.getTimer(soonestWorld);
             AutoQiqiClient.log("Legendary", "IDLE: all timers known, camping soonest -> " + soonestWorld
                     + " (" + (soonData != null ? soonData.getFormattedTime() : "?") + "). " + dumpTimerSummary());
-            switchAndPoll(client, config, soonestWorld);
+            switchAndPoll(client, config, soonestWorld, r);
         }
     }
 
-    private void switchAndPoll(MinecraftClient client, AutoQiqiConfig config, String worldName) {
-        currentPollWorld = worldName;
+    private void switchAndPoll(MinecraftClient client, AutoQiqiConfig config, String worldName, LegendaryRunState r) {
+        r.currentPollWorld = worldName;
         String currentWorld = WorldTracker.get().getCurrentWorld();
 
         if (worldName.equalsIgnoreCase(currentWorld)) {
             AutoQiqiClient.log("Legendary", "switchAndPoll: already in " + worldName + ", polling directly");
-            setState(State.POLLING, "already in " + worldName);
+            setState(r, LegendaryRunState.State.POLLING, "already in " + worldName);
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logWorldSwitch(currentWorld, worldName);
-            stateEnteredTick = tickCount;
+            r.stateEnteredTick = tickCount;
         } else if (config.isHomeWorld(worldName)) {
             String homeName = config.getHomeCommand(worldName);
             AutoQiqiClient.log("Legendary", "switchAndPoll: " + currentWorld + " -> " + worldName + " via /home " + homeName);
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logWorldSwitch(currentWorld, worldName);
             stopActiveEngines();
             releaseMovementKeys(client);
-            sendCommand(client, "/home " + homeName);
-            pendingHomeWorld = worldName;
-            isHomeTeleport = true;
-            homeRetryCount = 0;
-            setState(State.WAITING_AFTER_SWITCH, "/home " + homeName);
-            stateEnteredTick = tickCount;
-            screenCloseAttempted = true;
-            arrivalHomePending = false;
+            sendCommand(client, "/home " + homeName, r);
+            r.pendingHomeWorld = worldName;
+            r.isHomeTeleport = true;
+            r.homeRetryCount = 0;
+            setState(r, LegendaryRunState.State.WAITING_AFTER_SWITCH, "/home " + homeName);
+            r.stateEnteredTick = tickCount;
+            r.screenCloseAttempted = true;
+            r.arrivalHomePending = false;
         } else {
             GuiWorldSwitcher switcher = GuiWorldSwitcher.get();
             if (switcher.hasLearnedWorlds()) {
                 AutoQiqiClient.log("Legendary", "switchAndPoll: " + currentWorld + " -> " + worldName + " via GUI");
                 com.cobblemoon.autoqiqi.common.SessionLogger.get().logWorldSwitch(currentWorld, worldName);
                 switcher.requestSwitch(worldName);
-                sendCommand(client, config.mondeCommand);
-                switchPurpose = SwitchPurpose.POLL;
-                setState(State.OPENING_MENU, "gui poll " + worldName);
-                stateEnteredTick = tickCount;
+                sendCommand(client, config.mondeCommand, r);
+                r.switchPurpose = LegendaryRunState.SwitchPurpose.POLL;
+                setState(r, LegendaryRunState.State.OPENING_MENU, "gui poll " + worldName);
+                r.stateEnteredTick = tickCount;
             } else {
                 AutoQiqiClient.log("Legendary", "switchAndPoll: can't switch to " + worldName + " - worlds not learned yet");
             }
@@ -422,164 +411,164 @@ public class AutoSwitchEngine {
         AutoBattleEngine.get().clearTarget();
     }
 
-    private void handleOpeningMenu() {
-        if ((tickCount - stateEnteredTick) > 400) {
-            AutoQiqiClient.log("Legendary", "OPENING_MENU timeout after 400 ticks (purpose=" + switchPurpose + ", target=" + currentPollWorld + ")");
+    private void handleOpeningMenu(LegendaryRunState r) {
+        if ((tickCount - r.stateEnteredTick) > 400) {
+            AutoQiqiClient.log("Legendary", "OPENING_MENU timeout after 400 ticks (purpose=" + r.switchPurpose + ", target=" + r.currentPollWorld + ")");
             GuiWorldSwitcher.get().cancelPending();
-            setState(State.IDLE, "menu timeout");
-            stateEnteredTick = tickCount;
+            setState(r, LegendaryRunState.State.IDLE, "menu timeout");
+            r.stateEnteredTick = tickCount;
         }
     }
 
-    private void handleWaitingAfterSwitch(MinecraftClient client) {
-        if (!screenCloseAttempted && client.currentScreen != null && (tickCount - stateEnteredTick) > 20) {
-            screenCloseAttempted = true;
+    private void handleWaitingAfterSwitch(MinecraftClient client, LegendaryRunState r) {
+        if (!r.screenCloseAttempted && client.currentScreen != null && (tickCount - r.stateEnteredTick) > 20) {
+            r.screenCloseAttempted = true;
             client.setScreen(null);
         }
 
-        if (isHomeTeleport) {
+        if (r.isHomeTeleport) {
             releaseMovementKeys(client);
         }
 
         int waitTicks;
-        if (isHomeTeleport) {
+        if (r.isHomeTeleport) {
             int warmupTicks = AutoQiqiConfig.get().homeTeleportWarmupSeconds * 20;
             waitTicks = warmupTicks + 40;
         } else {
             waitTicks = WorldTracker.get().hasOtherWorldWithinSeconds(FAST_WINDOW_SECONDS) ? 40 : 80;
         }
 
-        if ((tickCount - stateEnteredTick) > waitTicks) {
-            if (pendingHomeWorld != null) {
-                if (!verifyHomeDimension(client, pendingHomeWorld)) {
-                    if (homeRetryCount < MAX_HOME_RETRIES) {
-                        homeRetryCount++;
-                        String homeCmd = AutoQiqiConfig.get().getHomeCommand(pendingHomeWorld);
-                        AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: dimension mismatch (movement cancelled /home?), retrying /home " + homeCmd + " (" + homeRetryCount + "/" + MAX_HOME_RETRIES + ")");
+        if ((tickCount - r.stateEnteredTick) > waitTicks) {
+            if (r.pendingHomeWorld != null) {
+                if (!verifyHomeDimension(client, r.pendingHomeWorld)) {
+                    if (r.homeRetryCount < MAX_HOME_RETRIES) {
+                        r.homeRetryCount++;
+                        String homeCmd = AutoQiqiConfig.get().getHomeCommand(r.pendingHomeWorld);
+                        AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: dimension mismatch (movement cancelled /home?), retrying /home " + homeCmd + " (" + r.homeRetryCount + "/" + MAX_HOME_RETRIES + ")");
                         if (client.player != null) {
                             client.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cTeleport interrompu? Nouvelle tentative /home " + homeCmd + "..."), false);
                         }
-                        sendCommand(client, "/home " + homeCmd);
-                        stateEnteredTick = tickCount;
+                        sendCommand(client, "/home " + homeCmd, r);
+                        r.stateEnteredTick = tickCount;
                         return;
                     } else {
                         AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: dimension still wrong after " + MAX_HOME_RETRIES + " retries, aborting switch");
                         if (client.player != null) {
                             client.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cTeleport echoue apres " + MAX_HOME_RETRIES + " tentatives."), false);
                         }
-                        homeRetryCount = 0;
-                        pendingHomeWorld = null;
-                        isHomeTeleport = false;
-                        returnToIdle();
+                        r.homeRetryCount = 0;
+                        r.pendingHomeWorld = null;
+                        r.isHomeTeleport = false;
+                        returnToIdle(r);
                         return;
                     }
                 }
-                homeRetryCount = 0;
-                AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: /home warmup done, setting currentWorld=" + pendingHomeWorld);
-                WorldTracker.get().setCurrentWorld(pendingHomeWorld);
-                pendingHomeWorld = null;
-                isHomeTeleport = false;
+                r.homeRetryCount = 0;
+                AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: /home warmup done, setting currentWorld=" + r.pendingHomeWorld);
+                WorldTracker.get().setCurrentWorld(r.pendingHomeWorld);
+                r.pendingHomeWorld = null;
+                r.isHomeTeleport = false;
             }
 
             AutoQiqiConfig config = AutoQiqiConfig.get();
-            String arrivalHome = config.getArrivalHome(currentPollWorld);
-            if (arrivalHome != null && !arrivalHomePending) {
-                AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: arrival home -> /home " + arrivalHome + " for " + currentPollWorld);
-                arrivalHomePending = true;
-                isHomeTeleport = true;
-                pendingHomeWorld = null;
-                sendCommand(client, "/home " + arrivalHome);
-                stateEnteredTick = tickCount;
-                screenCloseAttempted = true;
+            String arrivalHome = config.getArrivalHome(r.currentPollWorld);
+            if (arrivalHome != null && !r.arrivalHomePending) {
+                AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: arrival home -> /home " + arrivalHome + " for " + r.currentPollWorld);
+                r.arrivalHomePending = true;
+                r.isHomeTeleport = true;
+                r.pendingHomeWorld = null;
+                sendCommand(client, "/home " + arrivalHome, r);
+                r.stateEnteredTick = tickCount;
+                r.screenCloseAttempted = true;
                 return;
             }
-            arrivalHomePending = false;
-            AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: switch to " + currentPollWorld + " complete (waited " + waitTicks + " ticks), now polling");
-            setState(State.POLLING, "switch wait done");
-            stateEnteredTick = tickCount;
+            r.arrivalHomePending = false;
+            AutoQiqiClient.log("Legendary", "WAITING_AFTER_SWITCH: switch to " + r.currentPollWorld + " complete (waited " + waitTicks + " ticks), now polling");
+            setState(r, LegendaryRunState.State.POLLING, "switch wait done");
+            r.stateEnteredTick = tickCount;
         }
     }
 
-    private void handlePolling(MinecraftClient client, AutoQiqiConfig config) {
+    private void handlePolling(MinecraftClient client, AutoQiqiConfig config, LegendaryRunState r) {
         if (client.currentScreen != null) return;
         if (isInBattle()) return;
-        AutoQiqiClient.log("Legendary", "POLLING: sending " + config.nextlegCommand + " for " + currentPollWorld);
-        ChatMessageHandler.get().setPendingPoll(currentPollWorld);
-        sendCommand(client, config.nextlegCommand);
-        setState(State.WAITING_FOR_POLL_RESPONSE, "poll " + currentPollWorld);
-        stateEnteredTick = tickCount;
+        AutoQiqiClient.log("Legendary", "POLLING: sending " + config.nextlegCommand + " for " + r.currentPollWorld);
+        ChatMessageHandler.get().setPendingPoll(r.currentPollWorld);
+        sendCommand(client, config.nextlegCommand, r);
+        setState(r, LegendaryRunState.State.WAITING_FOR_POLL_RESPONSE, "poll " + r.currentPollWorld);
+        r.stateEnteredTick = tickCount;
     }
 
-    private void handleWaitingForResponse() {
-        if ((tickCount - stateEnteredTick) > 400) {
-            AutoQiqiClient.log("Legendary", "WAITING_FOR_POLL_RESPONSE: timeout (400 ticks) for " + currentPollWorld
-                    + " (isEventRepoll=" + isEventRepoll + ")");
-            if (isEventRepoll && eventRepollRetries < MAX_EVENT_REPOLL_RETRIES) {
-                eventRepollRetries++;
+    private void handleWaitingForResponse(LegendaryRunState r) {
+        if ((tickCount - r.stateEnteredTick) > 400) {
+            AutoQiqiClient.log("Legendary", "WAITING_FOR_POLL_RESPONSE: timeout (400 ticks) for " + r.currentPollWorld
+                    + " (isEventRepoll=" + r.isEventRepoll + ")");
+            if (r.isEventRepoll && r.eventRepollRetries < MAX_EVENT_REPOLL_RETRIES) {
+                r.eventRepollRetries++;
                 AutoQiqiClient.log("Legendary", "Event repoll response timeout, retrying ("
-                        + eventRepollRetries + "/" + MAX_EVENT_REPOLL_RETRIES + ")");
-                setState(State.WAITING_AFTER_EVENT_SWITCH, "repoll retry #" + eventRepollRetries);
-                eventTimerZeroTick = tickCount;
-                stateEnteredTick = tickCount;
+                        + r.eventRepollRetries + "/" + MAX_EVENT_REPOLL_RETRIES + ")");
+                setState(r, LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH, "repoll retry #" + r.eventRepollRetries);
+                r.eventTimerZeroTick = tickCount;
+                r.stateEnteredTick = tickCount;
                 return;
             }
-            isEventRepoll = false;
-            returnToIdle();
+            r.isEventRepoll = false;
+            returnToIdle(r);
         }
     }
 
-    private void handleWaitingAfterEventSwitch(AutoQiqiConfig config) {
+    private void handleWaitingAfterEventSwitch(AutoQiqiConfig config, LegendaryRunState r) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        if (pendingHomeWorld != null) {
+        if (r.pendingHomeWorld != null) {
             int warmupTicks = config.homeTeleportWarmupSeconds * 20;
             if (mc != null) releaseMovementKeys(mc);
-            if ((tickCount - stateEnteredTick) < warmupTicks + 40) return;
-            if (!verifyHomeDimension(mc, pendingHomeWorld)) {
-                if (homeRetryCount < MAX_HOME_RETRIES) {
-                    homeRetryCount++;
-                    String homeCmd = config.getHomeCommand(pendingHomeWorld);
+            if ((tickCount - r.stateEnteredTick) < warmupTicks + 40) return;
+            if (!verifyHomeDimension(mc, r.pendingHomeWorld)) {
+                if (r.homeRetryCount < MAX_HOME_RETRIES) {
+                    r.homeRetryCount++;
+                    String homeCmd = config.getHomeCommand(r.pendingHomeWorld);
                     AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: dimension mismatch, retrying /home " + homeCmd);
                     if (mc != null && mc.player != null) {
                         mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cTeleport interrompu? Nouvelle tentative..."), false);
                     }
-                    sendCommand(mc, "/home " + homeCmd);
-                    stateEnteredTick = tickCount;
+                    sendCommand(mc, "/home " + homeCmd, r);
+                    r.stateEnteredTick = tickCount;
                     return;
                 }
-                homeRetryCount = 0;
-                pendingHomeWorld = null;
-                isHomeTeleport = false;
+                r.homeRetryCount = 0;
+                r.pendingHomeWorld = null;
+                r.isHomeTeleport = false;
                 return;
             }
-            homeRetryCount = 0;
-            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: /home warmup done, setting currentWorld=" + pendingHomeWorld);
-            WorldTracker.get().setCurrentWorld(pendingHomeWorld);
-            pendingHomeWorld = null;
-            isHomeTeleport = false;
-            stateEnteredTick = tickCount;
+            r.homeRetryCount = 0;
+            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: /home warmup done, setting currentWorld=" + r.pendingHomeWorld);
+            WorldTracker.get().setCurrentWorld(r.pendingHomeWorld);
+            r.pendingHomeWorld = null;
+            r.isHomeTeleport = false;
+            r.stateEnteredTick = tickCount;
         }
 
-        if ((tickCount - stateEnteredTick) > 6000) {
-            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: timeout (5min) for " + targetEventWorld + ", forcing repoll");
-            transitionToEventRepoll();
+        if ((tickCount - r.stateEnteredTick) > 6000) {
+            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: timeout (5min) for " + r.targetEventWorld + ", forcing repoll");
+            transitionToEventRepoll(r);
             return;
         }
 
         WorldTracker tracker = WorldTracker.get();
-        WorldTimerData currentTimer = tracker.getTimer(targetEventWorld);
+        WorldTimerData currentTimer = tracker.getTimer(r.targetEventWorld);
 
         if (currentTimer != null && currentTimer.isTimerKnown()) {
             long remaining = currentTimer.getEstimatedRemainingSeconds();
             if (remaining > 0) {
-                eventTimerZeroTick = 0;
+                r.eventTimerZeroTick = 0;
                 return;
             }
         }
 
-        if (eventTimerZeroTick == 0) {
-            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: timer reached 0 for " + targetEventWorld + ", playing bell");
-            eventTimerZeroTick = tickCount;
+        if (r.eventTimerZeroTick == 0) {
+            AutoQiqiClient.log("Legendary", "WAITING_AFTER_EVENT_SWITCH: timer reached 0 for " + r.targetEventWorld + ", playing bell");
+            r.eventTimerZeroTick = tickCount;
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player != null && client.world != null) {
                 client.world.playSound(
@@ -592,30 +581,30 @@ public class AutoSwitchEngine {
         int waitSeconds = WorldTracker.get().hasOtherWorldWithinSeconds(FAST_WINDOW_SECONDS)
                 ? 2
                 : (WorldTracker.get().hasOtherWorldsNeedingAttention() ? 5 : config.eventRepollWaitSeconds);
-        if ((tickCount - eventTimerZeroTick) < (waitSeconds * 20L)) return;
+        if ((tickCount - r.eventTimerZeroTick) < (waitSeconds * 20L)) return;
 
-        transitionToEventRepoll();
+        transitionToEventRepoll(r);
     }
 
-    private void transitionToEventRepoll() {
+    private void transitionToEventRepoll(LegendaryRunState r) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
         if (isInBattle()) return;
         if (client.currentScreen != null) {
-            if ((tickCount - eventTimerZeroTick) > 40) client.setScreen(null);
+            if ((tickCount - r.eventTimerZeroTick) > 40) client.setScreen(null);
             return;
         }
 
-        isEventRepoll = true;
-        currentPollWorld = targetEventWorld;
-        AutoQiqiClient.log("Legendary", "transitionToEventRepoll: " + targetEventWorld + " -> polling for new timer");
-        setState(State.POLLING, "event repoll " + targetEventWorld);
-        stateEnteredTick = tickCount;
+        r.isEventRepoll = true;
+        r.currentPollWorld = r.targetEventWorld;
+        AutoQiqiClient.log("Legendary", "transitionToEventRepoll: " + r.targetEventWorld + " -> polling for new timer");
+        setState(r, LegendaryRunState.State.POLLING, "event repoll " + r.targetEventWorld);
+        r.stateEnteredTick = tickCount;
     }
 
-    private void handlePausedForCapture(AutoQiqiConfig config) {
+    private void handlePausedForCapture(AutoQiqiConfig config, LegendaryRunState r) {
         if (config.pauseDurationSeconds > 0) {
-            long pausedTicks = tickCount - pauseStartTick;
+            long pausedTicks = tickCount - r.pauseStartTick;
             if (pausedTicks >= config.pauseDurationSeconds * 20L) {
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client.player != null) {
@@ -628,41 +617,41 @@ public class AutoSwitchEngine {
     }
 
     public void onTimerResponseReceived() {
-        if (state == State.WAITING_FOR_POLL_RESPONSE) {
-            WorldTimerData pollData = WorldTracker.get().getTimer(currentPollWorld);
-            AutoQiqiClient.log("Legendary", "Timer response received for " + currentPollWorld
-                    + ": " + (pollData != null ? pollData.getFormattedTime() + " (raw=" + pollData.getRawRemainingSeconds() + "s)" : "null"));
+        if (run == null || run.state != LegendaryRunState.State.WAITING_FOR_POLL_RESPONSE) return;
+        LegendaryRunState r = run;
+        WorldTimerData pollData = WorldTracker.get().getTimer(r.currentPollWorld);
+        AutoQiqiClient.log("Legendary", "Timer response received for " + r.currentPollWorld
+                + ": " + (pollData != null ? pollData.getFormattedTime() + " (raw=" + pollData.getRawRemainingSeconds() + "s)" : "null"));
 
-            if (isEventRepoll) {
-                long timerValue = (pollData != null && pollData.isTimerKnown())
-                        ? pollData.getRawRemainingSeconds() : -1;
+        if (r.isEventRepoll) {
+            long timerValue = (pollData != null && pollData.isTimerKnown())
+                    ? pollData.getRawRemainingSeconds() : -1;
 
-                if (timerValue <= 0 && eventRepollRetries < MAX_EVENT_REPOLL_RETRIES) {
-                    eventRepollRetries++;
-                    AutoQiqiClient.log("Legendary", "Event repoll: timer still 0, retry #" + eventRepollRetries);
-                    setState(State.WAITING_AFTER_EVENT_SWITCH, "repoll timer=0 retry");
-                    eventTimerZeroTick = tickCount;
-                    return;
-                }
-
-                AutoQiqiClient.log("Legendary", "Event repoll done for " + currentPollWorld
-                        + ": new timer=" + timerValue + "s");
-                MinecraftClient client = MinecraftClient.getInstance();
-                if (client.player != null && timerValue > 0) {
-                    long min = timerValue / 60;
-                    long sec = timerValue % 60;
-                    client.player.sendMessage(
-                            Text.literal("§6[Auto-Qiqi]§r §7Nouveau timer " + currentPollWorld
-                                    + ": §f" + String.format("%02dm%02ds", min, sec)), false);
-                }
-                isEventRepoll = false;
-                eventRepollRetries = 0;
+            if (timerValue <= 0 && r.eventRepollRetries < MAX_EVENT_REPOLL_RETRIES) {
+                r.eventRepollRetries++;
+                AutoQiqiClient.log("Legendary", "Event repoll: timer still 0, retry #" + r.eventRepollRetries);
+                setState(r, LegendaryRunState.State.WAITING_AFTER_EVENT_SWITCH, "repoll timer=0 retry");
+                r.eventTimerZeroTick = tickCount;
+                return;
             }
-            returnToIdle();
+
+            AutoQiqiClient.log("Legendary", "Event repoll done for " + r.currentPollWorld
+                    + ": new timer=" + timerValue + "s");
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.player != null && timerValue > 0) {
+                long min = timerValue / 60;
+                long sec = timerValue % 60;
+                client.player.sendMessage(
+                        Text.literal("§6[Auto-Qiqi]§r §7Nouveau timer " + r.currentPollWorld
+                                + ": §f" + String.format("%02dm%02ds", min, sec)), false);
+            }
+            r.isEventRepoll = false;
+            r.eventRepollRetries = 0;
         }
+        returnToIdle(r);
     }
 
-    private void returnToIdle() {
+    private void returnToIdle(LegendaryRunState r) {
         WorldTracker tracker = WorldTracker.get();
         String reason;
         long cooldownTicks;
@@ -676,42 +665,40 @@ public class AutoSwitchEngine {
             cooldownTicks = HumanDelay.actionCooldownTicks();
             reason = "normal";
         }
-        nextActionAtTick = tickCount + cooldownTicks;
+        r.nextActionAtTick = tickCount + cooldownTicks;
         AutoQiqiClient.log("Legendary", "returnToIdle: cooldown=" + cooldownTicks + " ticks (" + reason + "). " + dumpTimerSummary());
-        setState(State.IDLE, "return " + reason);
-        stateEnteredTick = tickCount;
+        setState(r, LegendaryRunState.State.IDLE, "return " + reason);
+        r.stateEnteredTick = tickCount;
     }
 
     public void forcePoll() {
+        LegendaryRunState r = getOrCreateRun();
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
             AutoQiqiClient.log("Legendary", "forcePoll: marking all timers for repoll");
             WorldTracker.get().markAllForRepoll();
-            setState(State.IDLE, "force poll");
-            stateEnteredTick = 0;
-            nextActionAtTick = 0;
+            setState(r, LegendaryRunState.State.IDLE, "force poll");
+            r.stateEnteredTick = 0;
+            r.nextActionAtTick = 0;
         }
     }
 
     public void relearnCommands() {
+        LegendaryRunState r = getOrCreateRun();
         AutoQiqiClient.log("Legendary", "relearnCommands: resetting GUI world map");
         GuiWorldSwitcher.get().reset();
-        setState(State.IDLE, "relearn");
-        stateEnteredTick = 0;
+        setState(r, LegendaryRunState.State.IDLE, "relearn");
+        r.stateEnteredTick = 0;
     }
 
-    /**
-     * Cancel any in-progress world switch and go to IDLE.
-     * Used when activating tower mode so tower and legendary hop are mutually exclusive.
-     */
     public void cancelToIdle() {
-        if (state == State.IDLE) return;
-        AutoQiqiClient.log("Legendary", "cancelToIdle: " + state + " -> IDLE (tower or manual)");
+        if (run == null || run.state == LegendaryRunState.State.IDLE) return;
+        AutoQiqiClient.log("Legendary", "cancelToIdle: " + run.state + " -> IDLE (tower or manual)");
         GuiWorldSwitcher.get().cancelPending();
-        pendingCommand = null;
-        pendingHomeWorld = null;
-        isHomeTeleport = false;
-        setState(State.IDLE, "tower / mutually exclusive");
+        run.pendingCommand = null;
+        run.pendingHomeWorld = null;
+        run.isHomeTeleport = false;
+        setState(run, LegendaryRunState.State.IDLE, "tower / mutually exclusive");
     }
 
     /**
@@ -733,7 +720,7 @@ public class AutoSwitchEngine {
         };
     }
 
-    private void sendCommand(MinecraftClient client, String command) {
+    private void sendCommand(MinecraftClient client, String command, LegendaryRunState r) {
         if (client.player == null) return;
         AutoQiqiConfig config = AutoQiqiConfig.get();
         int delayMs = HumanDelay.commandDelayMs(config.commandDelayMinMs, config.commandDelayMaxMs);
@@ -741,21 +728,20 @@ public class AutoSwitchEngine {
             delayMs = Math.min(delayMs, 1200);
         }
         int delayTicks = Math.max(1, delayMs / 50);
-        pendingCommand = command;
-        commandExecuteAtTick = tickCount + delayTicks;
+        r.pendingCommand = command;
+        r.commandExecuteAtTick = tickCount + delayTicks;
         AutoQiqiClient.log("Legendary", "Command queued: '" + command + "' (delay=" + delayTicks + " ticks / " + delayMs + "ms)");
     }
 
-    private void tickPendingCommand(MinecraftClient client) {
-        if (pendingCommand != null && tickCount >= commandExecuteAtTick) {
+    private void tickPendingCommand(MinecraftClient client, LegendaryRunState r) {
+        if (r.pendingCommand != null && tickCount >= r.commandExecuteAtTick) {
             if (client.player == null || !AutoQiqiClient.isConnected(client)) {
-                // Network down or not in game — retry in 2 seconds instead of dropping the command
-                commandExecuteAtTick = tickCount + 40;
-                AutoQiqiClient.log("Legendary", "Command deferred (no connection), retry in 2s: '" + pendingCommand + "'");
+                r.commandExecuteAtTick = tickCount + 40;
+                AutoQiqiClient.log("Legendary", "Command deferred (no connection), retry in 2s: '" + r.pendingCommand + "'");
                 return;
             }
-            String cmd = pendingCommand;
-            pendingCommand = null;
+            String cmd = r.pendingCommand;
+            r.pendingCommand = null;
 
             AutoQiqiConfig config = AutoQiqiConfig.get();
             if (cmd.equalsIgnoreCase(config.mondeCommand)) {
@@ -771,17 +757,17 @@ public class AutoSwitchEngine {
                 }
             } catch (Exception e) {
                 AutoQiqiClient.log("Legendary", "Command send failed (network?): " + e.getMessage() + " — re-queuing");
-                pendingCommand = cmd;
-                commandExecuteAtTick = tickCount + 40;
+                r.pendingCommand = cmd;
+                r.commandExecuteAtTick = tickCount + 40;
             }
         }
     }
 
-    private void setState(State newState, String reason) {
-        if (state != newState) {
-            AutoQiqiClient.log("Legendary", "State: " + state + " -> " + newState + " (" + reason + ")");
+    private void setState(LegendaryRunState r, LegendaryRunState.State newState, String reason) {
+        if (r.state != newState) {
+            AutoQiqiClient.log("Legendary", "State: " + r.state + " -> " + newState + " (" + reason + ")");
         }
-        state = newState;
+        r.state = newState;
     }
 
     private String dumpTimerSummary() {

@@ -18,6 +18,7 @@ import java.util.Collection;
 /**
  * Unified HUD rendering for all Auto-Qiqi features.
  * Top-left:    feature status lines (battle, walk)
+ * Top-center: battle advisor (opponent + type effectiveness), 10% below top
  * Bottom-right: legendary world timers
  */
 public class AutoQiqiHud {
@@ -114,7 +115,7 @@ public class AutoQiqiHud {
     }
 
     // ========================
-    // Top-right: battle advisor (any battle)
+    // Top-center: battle advisor (any battle), 10% below top
     // ========================
 
     private static void renderBattleAdvisor(DrawContext context, MinecraftClient client) {
@@ -123,30 +124,44 @@ public class AutoQiqiHud {
 
         TextRenderer tr = client.textRenderer;
         int screenWidth = client.getWindow().getScaledWidth();
-        int margin = 5;
+        int screenHeight = client.getWindow().getScaledHeight();
         int lineHeight = 12;
-        int y = 4;
+        int y = (int) (screenHeight * 0.10f);
 
         String line1 = "§7vs §f" + info.opponentName() + " §8(" + info.opponentTypesDisplay() + ")";
         int w1 = tr.getWidth(line1.replaceAll("§.", ""));
-        int x1 = screenWidth - w1 - margin;
-        drawBg(context, tr, line1, x1, y, 0xFFFFFFFF);
-        y += lineHeight;
 
+        String line2;
+        int line2Color;
         if (info.hasBetterOption()) {
             String effColor = info.bestEffectiveness() >= 2.0 ? "§a"
                     : info.bestEffectiveness() >= 1.0 ? "§e" : "§c";
-            String line2 = "§6>> §f" + info.bestName()
+            line2 = "§6>> §f" + info.bestName()
                     + " §7(" + info.bestTypesDisplay() + ") "
                     + effColor + info.bestEffectiveness() + "x";
-            int w2 = tr.getWidth(line2.replaceAll("§.", ""));
-            int x2 = screenWidth - w2 - margin;
-            drawBg(context, tr, line2, x2, y, 0xFFFFFF55);
+            line2Color = 0xFFFFFF55;
         } else {
-            String line2 = "§a" + info.currentName() + " §7- best matchup";
-            int w2 = tr.getWidth(line2.replaceAll("§.", ""));
-            int x2 = screenWidth - w2 - margin;
-            drawBg(context, tr, line2, x2, y, 0xFF55FF55);
+            line2 = "§a" + info.currentName() + " §7- best matchup";
+            line2Color = 0xFF55FF55;
+        }
+        int w2 = tr.getWidth(line2.replaceAll("§.", ""));
+
+        int maxW = Math.max(w1, w2);
+        String line3 = null;
+        int w3 = 0;
+        if (info.damageRangePercent() != null) {
+            line3 = "§7Dmg §f" + info.damageRangePercent() + " §7(of target HP)";
+            w3 = tr.getWidth(line3.replaceAll("§.", ""));
+            maxW = Math.max(maxW, w3);
+        }
+        int x = (screenWidth - maxW) / 2;
+
+        drawBg(context, tr, line1, x, y, 0xFFFFFFFF);
+        y += lineHeight;
+        drawBg(context, tr, line2, x, y, line2Color);
+        y += lineHeight;
+        if (line3 != null) {
+            drawBg(context, tr, line3, x, y, 0xFFAAAAAA);
         }
     }
 

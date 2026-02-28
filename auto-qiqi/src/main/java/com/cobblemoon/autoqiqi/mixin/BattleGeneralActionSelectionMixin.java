@@ -6,15 +6,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleGeneralActionSelection;
-import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
-import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
-import com.cobblemoon.autoqiqi.battle.TrainerBattleEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
-
-import net.minecraft.client.MinecraftClient;
 
 @Mixin(BattleGeneralActionSelection.class)
 public abstract class BattleGeneralActionSelectionMixin {
@@ -69,35 +65,7 @@ public abstract class BattleGeneralActionSelectionMixin {
                 if (self.getBattleGUI().getCurrentActionSelection() != self
                         || self.getRequest().getResponse() != null) return;
 
-                self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-
-                if (isTrainer) {
-                    boolean forceSwitch = self.getRequest().getForceSwitch();
-                    boolean trapped = self.getRequest().getMoveSet() != null
-                            && self.getRequest().getMoveSet().getTrapped();
-
-                    TrainerBattleEngine.GeneralChoice choice =
-                            TrainerBattleEngine.get().decideGeneralAction(forceSwitch, trapped);
-
-                    if (choice == TrainerBattleEngine.GeneralChoice.SWITCH) {
-                        self.getBattleGUI().changeActionSelection(
-                                new BattleSwitchPokemonSelection(self.getBattleGUI(), self.getRequest()));
-                    } else {
-                        self.getBattleGUI().changeActionSelection(
-                                new BattleMoveSelection(self.getBattleGUI(), self.getRequest()));
-                    }
-                } else {
-                    var forceMove = self.getRequest().getMoveSet() != null
-                            && self.getRequest().getMoveSet().getTrapped();
-
-                    if (forceMove || Math.random() >= config.battleSwitchChance) {
-                        self.getBattleGUI().changeActionSelection(
-                                new BattleMoveSelection(self.getBattleGUI(), self.getRequest()));
-                    } else {
-                        self.getBattleGUI().changeActionSelection(
-                                new BattleSwitchPokemonSelection(self.getBattleGUI(), self.getRequest()));
-                    }
-                }
+                BattleDecisionRouter.handleGeneralAction(self);
             }, config.battleSelectDelay);
         }
     }

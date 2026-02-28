@@ -86,8 +86,12 @@ public class AutoQiqiClient implements ClientModInitializer {
     private boolean wasInBattleScreen = false;
     private static final int MOD_ENGAGEMENT_WINDOW_TICKS = 100; // ~5 seconds to attribute battle to mod
 
+    /** Set in onInitializeClient so static warp callback can clear instance state. */
+    private static AutoQiqiClient instance;
+
     @Override
     public void onInitializeClient() {
+        instance = this;
         log("Init", "Initializing Auto-Qiqi...");
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logInfo("Auto-Qiqi initialized (new session)");
 
@@ -562,6 +566,38 @@ public class AutoQiqiClient implements ClientModInitializer {
         }
         msg(client, "§7Dump de §e" + PokemonScanner.getDisplayInfo(target) + "§7 dans les logs...");
         PokemonScanner.debugDumpEntity(target);
+    }
+
+    /**
+     * Called when the player sends a command starting with /warp.
+     * Turns off all automatic features (capture, walk, guide, battle, mining, legendary, hunt).
+     */
+    public static void stopAllAutomaticFeaturesForWarp() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        if (instance != null) {
+            instance.wasInCaptureBattle = false;
+            instance.battleNullTicks = 0;
+        }
+
+        CaptureEngine.get().stop();
+        PokemonWalker.get().stop();
+        DirectionGuide.get().stop();
+        AutoBattleEngine.get().setMode(BattleMode.OFF);
+        GoldMiningEngine.get().reset();
+
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        config.legendaryAutoSwitch = false;
+        AutoQiqiConfig.save();
+
+        if (isHuntActive()) {
+            instance.stopHunt(client, "Warp utilisé");
+        } else {
+            msg(client, "§7/warp détecté — toutes les automatiques arrêtées.");
+        }
+        log("Battle", "Warp command — all automatics stopped");
+        com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MANUAL",
+                "Warp command — all automatics stopped");
     }
 
     private void executeStop() {

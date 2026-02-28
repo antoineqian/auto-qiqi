@@ -29,10 +29,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Scans for nearby wild Pokemon, walks toward the closest one,
- * aims at it, and simulates Cobblemon's send-out key to start a battle.
- * Supports {@link BattleMode#BERSERK} (all wild) and
- * {@link BattleMode#ROAMING} (auto-capture uncaught, kill bosses + whitelist).
+ * Handles <strong>battle mode</strong> and <strong>overworld targeting</strong> only:
+ * scans for nearby wild Pokemon, walks toward the closest one, aims, and simulates
+ * Cobblemon's send-out key to start a battle. Also decides when to hand off to
+ * {@link CaptureEngine} for capture (e.g. in {@link BattleMode#ROAMING}).
+ * <p>
+ * This engine does <em>not</em> make in-battle decisions (which move, fight vs switch).
+ * Those are made by {@link TrainerBattleEngine} or {@link CaptureEngine}, and routed
+ * via {@link com.cobblemoon.autoqiqi.battle.BattleDecisionRouter} from the battle GUI mixins.
+ * <p>
+ * Supports {@link BattleMode#BERSERK} (all wild), {@link BattleMode#ROAMING}
+ * (auto-capture uncaught, kill bosses + whitelist), and {@link BattleMode#TRAINER}.
  */
 public class AutoBattleEngine {
     private static final AutoBattleEngine INSTANCE = new AutoBattleEngine();
@@ -795,7 +802,10 @@ public class AutoBattleEngine {
     private Entity findTarget(MinecraftClient client, ClientPlayerEntity player) {
         if (ChatMessageHandler.get().isEntityClearancePending()) return null;
 
-        Box box = player.getBoundingBox().expand(SCAN_RANGE);
+        double scanRange = (mode == BattleMode.BERSERK)
+                ? AutoQiqiConfig.get().berserkScanRange
+                : SCAN_RANGE;
+        Box box = player.getBoundingBox().expand(scanRange);
         boolean roaming = (mode == BattleMode.ROAMING);
         java.util.List<String> whitelist = AutoQiqiConfig.get().battleTargetWhitelist;
 

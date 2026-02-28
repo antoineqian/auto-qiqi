@@ -11,9 +11,8 @@ import com.cobblemon.mod.common.battles.SwitchActionResponse;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection.SwitchTile;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
-import com.cobblemoon.autoqiqi.battle.BattleMode;
+import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
-import com.cobblemoon.autoqiqi.battle.TrainerBattleEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 
 import net.minecraft.client.MinecraftClient;
@@ -62,7 +61,6 @@ public abstract class BattleSwitchPokemonSelectionMixin {
         }
 
         if (AutoQiqiClient.shouldAutoFight()) {
-            boolean isTrainer = AutoQiqiClient.getBattleMode() == BattleMode.TRAINER;
             AutoQiqiClient.runLater(() -> {
                 if (self.getBattleGUI().getCurrentActionSelection() != self
                         || self.getRequest().getResponse() != null) {
@@ -77,13 +75,7 @@ public abstract class BattleSwitchPokemonSelectionMixin {
                         .toList();
                 self.playDownSound(MinecraftClient.getInstance().getSoundManager());
 
-                SwitchTile chosen;
-                if (isTrainer) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: Trainer mode, " + tiles.size() + " available");
-                    chosen = TrainerBattleEngine.get().chooseBestSwitch(tiles);
-                } else {
-                    chosen = tiles.isEmpty() ? null : tiles.get((int) (Math.random() * tiles.size()));
-                }
+                SwitchTile chosen = BattleDecisionRouter.chooseSwitch(tiles);
 
                 if (chosen != null) {
                     AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
