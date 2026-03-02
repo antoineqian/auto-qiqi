@@ -218,9 +218,13 @@ public class AutoSwitchEngine {
                 || CaptureEngine.get().isActive();
     }
 
+    /** Minimum remaining time (seconds) on the soonest legendary timer to prioritize boss hunt. */
+    private static final int BOSS_PRIORITY_MIN_REMAINING_SECONDS = 90;
+
     /**
-     * Boss encounters take priority over legendary world switching.
-     * Returns true when battle mode is active and a boss is being engaged or is nearby.
+     * Boss encounters take priority over legendary world switching only when there is
+     * at least 1m30s (90s) or more on the soonest timer. With less time, we proceed with
+     * world switch so we don't miss the legendary.
      */
     private boolean isBossActive() {
         AutoBattleEngine battle = AutoBattleEngine.get();
@@ -229,15 +233,22 @@ public class AutoSwitchEngine {
         return battle.isBossNearby();
     }
 
+    /** True when we should yield to boss (i.e. timer has at least 90s so we can prioritize boss hunt). */
+    private boolean shouldPrioritizeBossOverLegendary() {
+        WorldTracker tracker = WorldTracker.get();
+        long soonest = tracker.getSoonestRemainingSeconds();
+        return soonest >= BOSS_PRIORITY_MIN_REMAINING_SECONDS;
+    }
+
     private void handleIdle(MinecraftClient client, AutoQiqiConfig config, LegendaryRunState r) {
         if (!config.legendaryAutoSwitch) return;
         if (client.currentScreen != null) return;
         if (isInBattle()) return;
 
-        if (isBossActive()) {
+        if (isBossActive() && shouldPrioritizeBossOverLegendary()) {
             if (r.bossYieldStartTick == 0) {
                 r.bossYieldStartTick = tickCount;
-                AutoQiqiClient.log("Legendary", "IDLE: yielding to boss encounter");
+                AutoQiqiClient.log("Legendary", "IDLE: yielding to boss encounter (timer >= " + BOSS_PRIORITY_MIN_REMAINING_SECONDS + "s)");
             }
             long waited = tickCount - r.bossYieldStartTick;
             if (waited >= BOSS_YIELD_TIMEOUT_TICKS) {
@@ -250,6 +261,9 @@ public class AutoSwitchEngine {
                 return;
             }
         } else {
+            if (isBossActive() && !shouldPrioritizeBossOverLegendary()) {
+                AutoQiqiClient.log("Legendary", "IDLE: boss nearby but timer < " + BOSS_PRIORITY_MIN_REMAINING_SECONDS + "s — proceeding with legendary switch");
+            }
             r.bossYieldStartTick = 0;
         }
 

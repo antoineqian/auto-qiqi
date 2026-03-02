@@ -86,6 +86,11 @@ public class CaptureSession {
     /** Ball sequence for this run (set by engine in start()). */
     public CaptureEngine.BallEntry[] activeBallSequence;
 
+    /** When true, target is in legendaryCaptureWhitelist: after 5 Ultra Balls (and setup done), we throw one Master Ball. */
+    public boolean targetInMasterBallWhitelist = false;
+    /** Set to true after we've thrown (or skipped) the Master Ball for this session, so we don't throw it again. */
+    public boolean masterBallThrownThisSession = false;
+
     /** Resets battle/ball state (e.g. after start or re-engage). Walking/engagement counters are set by caller. */
     public void resetBattleAndBallState() {
         targetAtOneHp = false;
@@ -120,6 +125,7 @@ public class CaptureSession {
         pickingUpBall = false;
         droppedBallEntity = null;
         pickupTicks = 0;
+        masterBallThrownThisSession = false;
         aimTicks = 0;
         keySent = false;
         engageAttempts = 0;

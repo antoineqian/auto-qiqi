@@ -120,8 +120,9 @@ public class CaptureEngine {
     private static final BallEntry[] LEGENDARY_BALLS = {
             new BallEntry("ultra_ball", Integer.MAX_VALUE),
     };
+    /** After this many Ultra Balls, whitelisted legendaries get one Master Ball (if in hotbar). */
+    private static final int ULTRA_BALLS_BEFORE_MASTER_WHITELIST = 5;
     private static final int LEGENDARY_LEVEL_THRESHOLD = 70;
-    private static final int LEGENDARY_GIVE_UP_AFTER_THROWS = 20;
 
     private CaptureEngine() {}
 
@@ -147,7 +148,13 @@ public class CaptureEngine {
         s.targetLevel = level;
         s.targetIsLegendary = isLegendary;
         s.targetEntity = entity;
-        s.activeBallSequence = level >= LEGENDARY_LEVEL_THRESHOLD ? LEGENDARY_BALLS : (level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS);
+        if (isLegendary && isInLegendaryCaptureWhitelist(name)) {
+            s.targetInMasterBallWhitelist = true;
+            s.activeBallSequence = LEGENDARY_BALLS;
+            AutoQiqiClient.log("Capture", "Whitelisted legendary: will use Master Ball after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra Balls (if in hotbar)");
+        } else {
+            s.activeBallSequence = level >= LEGENDARY_LEVEL_THRESHOLD ? LEGENDARY_BALLS : (level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS);
+        }
         s.phase = (entity != null) ? Phase.WALKING : Phase.IN_BATTLE;
         s.captureStartMs = System.currentTimeMillis();
         s.resetBattleAndBallState();
@@ -194,10 +201,28 @@ public class CaptureEngine {
         return true;
     }
 
+    private static boolean isInLegendaryCaptureWhitelist(String name) {
+        if (name == null || name.isBlank()) return false;
+        List<String> list = AutoQiqiConfig.get().legendaryCaptureWhitelist;
+        if (list == null || list.isEmpty()) return false;
+        String lower = name.toLowerCase();
+        for (String entry : list) {
+            if (entry != null && entry.trim().equalsIgnoreCase(lower)) return true;
+        }
+        return false;
+    }
+
     public boolean isActive() { return session != null; }
     public Phase getPhase() { return session != null ? session.phase : Phase.IDLE; }
     public String getStatusMessage() { return session != null ? session.statusMessage : ""; }
     public CaptureAction getCurrentAction() { return session != null ? session.currentAction : null; }
+
+    /** True when we've done enough False Swipes and should be throwing balls (used when move selection is shown without general action). */
+    public boolean hasEnoughFalseSwipesForCapture() {
+        CaptureSession s = session;
+        if (s == null) return false;
+        return s.falseSwipeCount >= CaptureStrategy.getMinFalseSwipes(s.targetLevel);
+    }
     public int getTargetLevel() { return session != null ? session.targetLevel : 0; }
     public boolean isTargetLegendary() { return session != null && session.targetIsLegendary; }
     public int getTotalBallsThrown() { return session != null ? session.totalBallsThrown : 0; }
@@ -664,6 +689,12 @@ public class CaptureEngine {
         if (!s.throwSlotSelected) {
             int slot = findBallInHotbar(client, s.pendingBallName);
             if (slot == -1) {
+                if ("master_ball".equals(s.pendingBallName) && s.targetInMasterBallWhitelist) {
+                    s.masterBallThrownThisSession = true;
+                    s.pendingBallName = getNextBallName(s);
+                    AutoQiqiClient.log("Capture", "Master Ball not in hotbar, falling back to: " + s.pendingBallName);
+                    return;
+                }
                 AutoQiqiClient.log("Capture", "Ball '" + s.pendingBallName + "' not in hotbar (seqIdx=" + s.ballSequenceIndex
                         + " count=" + s.currentBallCount + " total=" + s.totalBallsThrown + "), searching any ball...");
                 slot = findAnyBallInHotbar(client);
@@ -1042,12 +1073,19 @@ public class CaptureEngine {
         if (s == null) return GeneralChoice.FIGHT;
 
         s.decisionCount++;
+        String activeName = getActivePokemonName();
+        boolean hasFalseSwipe = activePokemonHasMove("falseswipe");
+        boolean hasThunderWave = activePokemonHasMove("thunderwave");
+        AutoQiqiClient.log("Capture", "Active=" + activeName
+                + " hasFalseSwipe=" + hasFalseSwipe + " hasThunderWave=" + hasThunderWave);
         BattleSnapshot battle = new BattleSnapshot(
-            getActivePokemonName(),
+            activeName,
             getActiveHpPercent(),
             getOpponentHpPercent(),
             getOpponentPokemonName(),
-            getOpponentStatus()
+            getOpponentStatus(),
+            hasFalseSwipe,
+            hasThunderWave
         );
         CaptureSessionSnapshot sessionSnapshot = new CaptureSessionSnapshot(
             s.targetName,
@@ -1109,15 +1147,15 @@ public class CaptureEngine {
     }
 
     private static String formatDecisionChoice(CaptureAction action) {
-        if (action == CaptureAction.THROW_BALL) return "THROW_BALL (total=...)";
-        if (action == CaptureAction.SWITCH_MAROWAK || action == CaptureAction.SWITCH_DRAGONITE || action == CaptureAction.SWITCH_TANK) return "SWITCH (" + action + ")";
+        if (action == CaptureAction.THROW_BALL) return "THROW_BALL";
+        if (action == CaptureAction.SWITCH_FOR_FALSE_SWIPE || action == CaptureAction.SWITCH_FOR_THUNDER_WAVE || action == CaptureAction.SWITCH_TANK) return "SWITCH (" + action + ")";
         return action.toString();
     }
 
     private static GeneralChoice actionToGeneralChoice(CaptureAction action) {
         return switch (action) {
             case FALSE_SWIPE, THUNDER_WAVE -> GeneralChoice.FIGHT;
-            case SWITCH_MAROWAK, SWITCH_DRAGONITE, SWITCH_TANK -> GeneralChoice.SWITCH;
+            case SWITCH_FOR_FALSE_SWIPE, SWITCH_FOR_THUNDER_WAVE, SWITCH_TANK -> GeneralChoice.SWITCH;
             case THROW_BALL -> GeneralChoice.CAPTURE;
         };
     }
@@ -1153,6 +1191,18 @@ public class CaptureEngine {
 
     private String getNextBallName(CaptureSession s) {
         if (s.activeBallSequence == null) return "ultra_ball";
+
+        // Whitelisted legendary: after 5 Ultra Balls (and setup done — we only get here when strategy says THROW_BALL), throw one Master Ball
+        if (s.targetInMasterBallWhitelist
+                && s.ultraBallsThrown >= ULTRA_BALLS_BEFORE_MASTER_WHITELIST
+                && !s.masterBallThrownThisSession) {
+            s.masterBallThrownThisSession = true;
+            s.totalBallsThrown++;
+            s.statusMessage = "Master Ball (after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra)";
+            AutoQiqiClient.log("Capture", "Whitelisted legendary: throwing Master Ball after " + s.ultraBallsThrown + " Ultra Balls");
+            return "master_ball";
+        }
+
         if (s.ballSequenceIndex >= s.activeBallSequence.length) {
             s.statusMessage = "Ultra Ball #" + (s.ultraBallsThrown + 1);
             s.ultraBallsThrown++;
@@ -1185,70 +1235,107 @@ public class CaptureEngine {
     public MoveTile chooseMoveFromTiles(List<MoveTile> selectableTiles) {
         CaptureSession s = session;
         if (s == null) return null;
+
+        java.util.List<String> availableMoves = selectableTiles.stream()
+                .map(t -> t.getMove().getMove()).toList();
+
+        if (s.currentAction == CaptureAction.THROW_BALL
+                || s.currentAction == CaptureAction.SWITCH_FOR_FALSE_SWIPE
+                || s.currentAction == CaptureAction.SWITCH_FOR_THUNDER_WAVE
+                || s.currentAction == CaptureAction.SWITCH_TANK) {
+            AutoQiqiClient.log("Capture", "MoveSelection: decided " + s.currentAction + ", not picking a move (back out). Available: " + availableMoves);
+            return null;
+        }
+
+        int minFS = CaptureStrategy.getMinFalseSwipes(s.targetLevel);
+        if (s.falseSwipeCount >= minFS) {
+            AutoQiqiClient.log("Capture", "MoveSelection: falseSwipeCount=" + s.falseSwipeCount + " >= minFS=" + minFS + ", backing out to throw ball");
+            return null;
+        }
+
         String target = (s.currentAction == CaptureAction.THUNDER_WAVE)
                 ? "thunder wave" : "false swipe";
+        AutoQiqiClient.log("Capture", "MoveSelection: looking for '" + target + "' among " + availableMoves);
+
         for (MoveTile tile : selectableTiles) {
             String moveName = tile.getMove().getMove().toLowerCase();
             if (moveName.contains(target)) {
                 if (target.equals("false swipe") && (moveName.contains("false swipe") || moveName.contains("chage"))) {
                     s.falseSwipeUsedThisBattle = true;
                     s.falseSwipeCount++;
-                    AutoQiqiClient.log("Capture", "Selected False Swipe #" + s.falseSwipeCount + " (HP before=" + f(s.lastOppHpBeforeFalseSwipe) + "%)");
                 }
-                AutoQiqiClient.log("Capture", "Selected move: " + moveName);
+                AutoQiqiClient.log("Capture", "Using move: " + tile.getMove().getMove()
+                        + (target.equals("false swipe") ? " (#" + s.falseSwipeCount + ", HP before=" + f(s.lastOppHpBeforeFalseSwipe) + "%)" : ""));
                 return tile;
             }
         }
-        for (MoveTile tile : selectableTiles) {
-            String moveName = tile.getMove().getMove().toLowerCase();
-            if (moveName.contains("wave") || moveName.contains("swipe")
-                    || moveName.contains("spore") || moveName.contains("sleep")
-                    || moveName.contains("stun") || moveName.contains("paralyze")) {
-                AutoQiqiClient.log("Capture", "Fallback safe move: " + moveName);
-                return tile;
-            }
-        }
-        if (s.consecutiveSwitchAttempts >= MAX_SWITCH_ATTEMPTS && !selectableTiles.isEmpty()) {
-            MoveTile fallback = selectableTiles.get(0);
-            AutoQiqiClient.log("Capture", "WARNING: switch blocked, using fallback move: " + fallback.getMove().getMove());
-            return fallback;
-        }
-        AutoQiqiClient.log("Capture", "WARNING: target move '" + target + "' not found! Moves: "
-                + selectableTiles.stream().map(t -> t.getMove().getMove()).toList()
-                + " — aborting move to avoid killing");
+
+        AutoQiqiClient.log("Capture", "No valid move: '" + target + "' not found in " + availableMoves
+                + " — doing nothing (user intervention needed)");
         return null;
     }
 
+    private static final java.util.List<String> FALSE_SWIPE_PREFERENCE = java.util.List.of("gallade", "marowak");
+
     public SwitchTile chooseSwitchFromTiles(List<SwitchTile> availableTiles) {
         CaptureSession s = session;
-        if (s == null) return availableTiles.isEmpty() ? null : availableTiles.get(0);
-        if (s.currentAction == CaptureAction.SWITCH_MAROWAK) {
-            return findTileBySpecies(availableTiles, "marowak");
+        if (s == null) {
+            AutoQiqiClient.log("Capture", "SwitchFromTiles: no session — doing nothing");
+            return null;
         }
-        if (s.currentAction == CaptureAction.SWITCH_DRAGONITE) {
-            return findTileBySpecies(availableTiles, "dragonite");
+
+        java.util.List<String> allSpecies = availableTiles.stream().map(t -> tileSpecies(t)).toList();
+        AutoQiqiClient.log("Capture", "SwitchFromTiles: action=" + s.currentAction + " available=" + allSpecies);
+
+        if (s.currentAction == CaptureAction.SWITCH_FOR_FALSE_SWIPE) {
+            return findTileWithMove(availableTiles, "falseswipe", FALSE_SWIPE_PREFERENCE, "False Swipe");
         }
+        if (s.currentAction == CaptureAction.SWITCH_FOR_THUNDER_WAVE) {
+            return findTileWithMove(availableTiles, "thunderwave", java.util.List.of(), "Thunder Wave");
+        }
+
+        // SWITCH_TANK: pick a Pokemon that has neither False Swipe nor Thunder Wave
         for (SwitchTile tile : availableTiles) {
-            String species = tileSpecies(tile);
-            if (!species.contains("marowak") && !species.contains("dragonite")) {
-                AutoQiqiClient.log("Capture", "Switching to tank: " + species);
+            if (!pokemonHasMove(tile.getPokemon(), "falseswipe") && !pokemonHasMove(tile.getPokemon(), "thunderwave")) {
+                String species = tileSpecies(tile);
+                AutoQiqiClient.log("Capture", "Switching to tank: " + species + " (has neither False Swipe nor Thunder Wave)");
                 return tile;
             }
         }
-        return availableTiles.isEmpty() ? null : availableTiles.get(0);
+        AutoQiqiClient.log("Capture", "No valid tank: all available Pokemon have False Swipe or Thunder Wave — doing nothing. Available: " + allSpecies);
+        return null;
     }
 
-    private SwitchTile findTileBySpecies(List<SwitchTile> tiles, String speciesFragment) {
+    private SwitchTile findTileWithMove(List<SwitchTile> tiles, String moveNameNormalized, java.util.List<String> speciesPreference, String moveDisplayName) {
+        java.util.List<SwitchTile> candidates = new java.util.ArrayList<>();
         for (SwitchTile tile : tiles) {
-            String species = tileSpecies(tile);
-            if (species.contains(speciesFragment)) {
-                AutoQiqiClient.log("Capture", "Switching to " + species);
-                return tile;
+            if (pokemonHasMove(tile.getPokemon(), moveNameNormalized)) {
+                candidates.add(tile);
             }
         }
-        AutoQiqiClient.log("Capture", "'" + speciesFragment + "' not found! Available: "
-                + tiles.stream().map(t -> tileSpecies(t)).toList());
-        return tiles.isEmpty() ? null : tiles.get(0);
+
+        java.util.List<String> candidateNames = candidates.stream().map(t -> tileSpecies(t)).toList();
+        AutoQiqiClient.log("Capture", "Choices for " + moveDisplayName + ": " + candidateNames
+                + (speciesPreference.isEmpty() ? "" : " (preference: " + speciesPreference + ")"));
+
+        if (candidates.isEmpty()) {
+            AutoQiqiClient.log("Capture", "No Pokemon with " + moveDisplayName + " found — doing nothing");
+            return null;
+        }
+
+        // Apply species preference
+        for (String preferred : speciesPreference) {
+            for (SwitchTile tile : candidates) {
+                if (tileSpecies(tile).contains(preferred)) {
+                    AutoQiqiClient.log("Capture", "Switching to " + tileSpecies(tile) + " (preferred for " + moveDisplayName + ")");
+                    return tile;
+                }
+            }
+        }
+
+        SwitchTile chosen = candidates.get(0);
+        AutoQiqiClient.log("Capture", "Switching to " + tileSpecies(chosen) + " (first with " + moveDisplayName + ")");
+        return chosen;
     }
 
     private static String tileSpecies(SwitchTile tile) {
@@ -1257,6 +1344,60 @@ public class CaptureEngine {
         } catch (Exception e) {
             return tile.getPokemon().getDisplayName(false).getString().toLowerCase();
         }
+    }
+
+    // ========================
+    // Move detection helpers (reflection to bypass Kotlin KMappedMarker)
+    // ========================
+
+    /**
+     * Checks if a Pokemon has a move whose normalized name contains the given fragment.
+     * Move names are normalized: lowercased and non-alphanumeric chars removed.
+     */
+    @SuppressWarnings("unchecked")
+    static boolean pokemonHasMove(com.cobblemon.mod.common.pokemon.Pokemon pokemon, String moveNameNormalized) {
+        try {
+            Object moveSetObj = pokemon.getClass().getMethod("getMoveSet").invoke(pokemon);
+            java.util.List<?> moves = (java.util.List<?>) moveSetObj.getClass()
+                    .getMethod("getMoves").invoke(moveSetObj);
+            for (Object moveObj : moves) {
+                if (moveObj == null) continue;
+                try {
+                    var tpl = moveObj.getClass().getMethod("getTemplate").invoke(moveObj);
+                    String name = ((String) tpl.getClass().getMethod("getName").invoke(tpl))
+                            .toLowerCase().replaceAll("[^a-z0-9]", "");
+                    if (name.contains(moveNameNormalized)) return true;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception e) {
+            AutoQiqiClient.log("Capture", "pokemonHasMove: reflection failed for " + pokemon.getSpecies().getName() + ": " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Checks if the current active battle Pokemon has a move (by looking up from party).
+     */
+    private boolean activePokemonHasMove(String moveNameNormalized) {
+        try {
+            String activeName = getActivePokemonName();
+            if (activeName == null) return false;
+            var party = CobblemonClient.INSTANCE.getStorage().getParty();
+            if (party == null) return false;
+            Object partyObj = (Object) party;
+            @SuppressWarnings("unchecked")
+            java.util.List<com.cobblemon.mod.common.pokemon.Pokemon> slots =
+                    (java.util.List<com.cobblemon.mod.common.pokemon.Pokemon>) partyObj.getClass().getMethod("getSlots").invoke(partyObj);
+            for (com.cobblemon.mod.common.pokemon.Pokemon p : slots) {
+                if (p != null && p.getCurrentHealth() > 0
+                        && activeName.equalsIgnoreCase(p.getSpecies().getName())) {
+                    return pokemonHasMove(p, moveNameNormalized);
+                }
+            }
+        } catch (Exception e) {
+            AutoQiqiClient.log("Capture", "activePokemonHasMove: failed: " + e.getMessage());
+        }
+        return false;
     }
 
     // ========================

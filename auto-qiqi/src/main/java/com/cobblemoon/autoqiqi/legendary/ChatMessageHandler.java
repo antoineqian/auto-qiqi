@@ -194,7 +194,7 @@ public class ChatMessageHandler {
         boolean isDuplicate = pokemonName.equalsIgnoreCase(lastLegendaryHandled)
                 && (now - lastLegendaryHandledAt) < LEGENDARY_DEDUP_MS;
 
-        if (isNearUs && !isSelfReference) {
+        if (isNearUs) {
             if (isDuplicate) {
                 AutoQiqiClient.log("Legendary", "Dedup: skipping second spawn message for " + pokemonName);
                 return;
@@ -235,7 +235,8 @@ public class ChatMessageHandler {
             }, "AutoQiqi-Sound").start();
         }
 
-        if (isNearUs && !isSelfReference) {
+        // Pause and auto-engage when legendary is near us — including "pres de vous" (isSelfReference) and "pres de [playerName]".
+        if (isNearUs) {
             AutoSwitchEngine.get().pauseForCapture(pokemonName);
 
             double[] effectiveCoords = coords != null ? coords : pendingLegendaryCoords;
@@ -276,7 +277,7 @@ public class ChatMessageHandler {
                             false);
                 }
             });
-        } else if (!isNearUs) {
+        } else {
             client.execute(() -> {
                 if (client.player != null) {
                     client.player.sendMessage(

@@ -29,16 +29,20 @@ public abstract class BattleSwitchPokemonSelectionMixin {
         if (CaptureEngine.get().isActive()) {
             AutoQiqiClient.log("Mixin", "SwitchSelection: CaptureEngine active, isReviving=" + self.isReviving());
             AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: stale request, skipping");
+                var current = self.getBattleGUI().getCurrentActionSelection();
+                if (!(current instanceof BattleSwitchPokemonSelection currentSelection)) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: no longer on switch screen, skipping");
+                    return;
+                }
+                if (currentSelection.getRequest().getResponse() != null) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: response already set, skipping");
                     return;
                 }
 
-                self.playDownSound(MinecraftClient.getInstance().getSoundManager());
+                currentSelection.playDownSound(MinecraftClient.getInstance().getSoundManager());
 
-                List<SwitchTile> available = self.getTiles().stream()
-                        .filter(t -> self.isReviving()
+                List<SwitchTile> available = currentSelection.getTiles().stream()
+                        .filter(t -> currentSelection.isReviving()
                                 ? t.isFainted()
                                 : (!t.isFainted() && !t.isCurrentlyInBattle()))
                         .toList();
@@ -49,12 +53,11 @@ public abstract class BattleSwitchPokemonSelectionMixin {
                 SwitchTile chosen = CaptureEngine.get().chooseSwitchFromTiles(available);
                 if (chosen != null) {
                     AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
-                    self.getBattleGUI().selectAction(
-                            self.getRequest(),
+                    currentSelection.getBattleGUI().selectAction(
+                            currentSelection.getRequest(),
                             new SwitchActionResponse(chosen.getPokemon().getUuid()));
                 } else {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target, backing out");
-                    self.getBattleGUI().changeActionSelection(null);
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target — doing nothing (user intervention needed)");
                 }
             }, config.battleSelectDelay);
             return;
@@ -62,29 +65,32 @@ public abstract class BattleSwitchPokemonSelectionMixin {
 
         if (AutoQiqiClient.shouldAutoFight()) {
             AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: stale request (autofight), skipping");
+                var current = self.getBattleGUI().getCurrentActionSelection();
+                if (!(current instanceof BattleSwitchPokemonSelection currentSelection)) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: no longer on switch screen (autofight), skipping");
+                    return;
+                }
+                if (currentSelection.getRequest().getResponse() != null) {
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: response already set (autofight), skipping");
                     return;
                 }
 
-                List<SwitchTile> tiles = self.getTiles().stream()
-                        .filter(t -> self.isReviving()
+                List<SwitchTile> tiles = currentSelection.getTiles().stream()
+                        .filter(t -> currentSelection.isReviving()
                                 ? t.isFainted()
                                 : (!t.isFainted() && !t.isCurrentlyInBattle()))
                         .toList();
-                self.playDownSound(MinecraftClient.getInstance().getSoundManager());
+                currentSelection.playDownSound(MinecraftClient.getInstance().getSoundManager());
 
                 SwitchTile chosen = BattleDecisionRouter.chooseSwitch(tiles);
 
                 if (chosen != null) {
                     AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
-                    self.getBattleGUI().selectAction(
-                            self.getRequest(),
+                    currentSelection.getBattleGUI().selectAction(
+                            currentSelection.getRequest(),
                             new SwitchActionResponse(chosen.getPokemon().getUuid()));
                 } else {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target (autofight)");
-                    self.getBattleGUI().changeActionSelection(null);
+                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target (autofight) — doing nothing (user intervention needed)");
                 }
             }, config.battleSelectDelay + 800);
         }

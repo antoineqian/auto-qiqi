@@ -46,11 +46,11 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static KeyBinding forcePollKey;
     private static KeyBinding toggleModKey;
     private static KeyBinding towerStartKey;
+    private static KeyBinding stopAllKey;
 
     private static final int PERIODIC_SCAN_INTERVAL = 600; // 30 seconds
 
     // Feature state
-    private static boolean walkEnabled = false;
     private int periodicScanTicks = 0;
 
 
@@ -120,7 +120,6 @@ public class AutoQiqiClient implements ClientModInitializer {
             if (!firstTickDone && client.player != null) {
                 firstTickDone = true;
                 // Ensure everything starts disabled: no walking, hopping, or capture
-                walkEnabled = false;
                 PokemonWalker.get().stop();
                 CaptureEngine.get().stop();
                 MovementHelper.releaseMovementKeys(client);
@@ -215,13 +214,6 @@ public class AutoQiqiClient implements ClientModInitializer {
             PokemonWalker.get().tick();
             TowerNpcEngine.get().tick();
 
-            // Walk (circle walk feature removed; G key no longer used for this)
-            if (walkEnabled) {
-                if (client.player == null || client.currentScreen != null) {
-                    disableWalk(client);
-                }
-            }
-
             // Hunt timer
             if (huntActive && System.currentTimeMillis() >= huntEndTimeMs) {
                 stopHunt(client, "duree ecoulee");
@@ -253,6 +245,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         forcePollKey = reg("key.autoqiqi.force_poll", GLFW.GLFW_KEY_U);
         toggleModKey = reg("key.autoqiqi.toggle_mod", GLFW.GLFW_KEY_L);
         towerStartKey = reg("key.autoqiqi.tower_start", GLFW.GLFW_KEY_I);
+        stopAllKey = reg("key.autoqiqi.stop_all", GLFW.GLFW_KEY_O);
     }
 
     private static KeyBinding reg(String translationKey, int key) {
@@ -261,7 +254,13 @@ public class AutoQiqiClient implements ClientModInitializer {
     }
 
     private void handleKeybindings(MinecraftClient client) {
-        if (client.player == null || client.currentScreen != null) return;
+        if (client.player == null) return;
+        // Stop-all works even when a screen is open (world switch GUI, battle, etc.) so automation is always cancelable
+        if (stopAllKey.wasPressed()) {
+            executeStop();
+            return;
+        }
+        if (client.currentScreen != null) return;
 
         if (toggleBattleKey.wasPressed()) {
             client.setScreen(new AutoQiqiConfigScreen());
@@ -320,11 +319,6 @@ public class AutoQiqiClient implements ClientModInitializer {
                 msg(client, "§c[Tower]§r Aucun NPC de tour trouvé (Directeur ou combat).");
             }
         }
-    }
-
-    private void disableWalk(MinecraftClient client) {
-        walkEnabled = false;
-        MovementHelper.releaseMovementKeys(client);
     }
 
     // ========================
@@ -586,9 +580,13 @@ public class AutoQiqiClient implements ClientModInitializer {
         AutoBattleEngine.get().setMode(BattleMode.OFF);
         GoldMiningEngine.get().reset();
 
+        AutoSwitchEngine.get().cancelToIdle();
         AutoQiqiConfig config = AutoQiqiConfig.get();
         config.legendaryAutoSwitch = false;
         AutoQiqiConfig.save();
+        if (client.currentScreen != null) {
+            client.setScreen(null);
+        }
 
         if (isHuntActive()) {
             instance.stopHunt(client, "Warp utilisé");
@@ -606,6 +604,19 @@ public class AutoQiqiClient implements ClientModInitializer {
 
         wasInCaptureBattle = false;
         battleNullTicks = 0;
+
+        // If hunt is active, stop it first (it will clear legendary and other engines)
+        if (huntActive) {
+            stopHunt(client, "arrete par /pk stop");
+            return;
+        }
+
+        // Only close screen when we were in menu/teleport flow (not when paused for capture — that screen is the battle GUI)
+        boolean wasInLegendaryMenuFlow = false;
+        var run = AutoSwitchEngine.get().getCurrentRun();
+        if (run != null && run.state != LegendaryRunState.State.IDLE && run.state != LegendaryRunState.State.PAUSED_FOR_CAPTURE) {
+            wasInLegendaryMenuFlow = true;
+        }
 
         boolean stopped = false;
         if (CaptureEngine.get().isActive()) {
@@ -633,6 +644,21 @@ public class AutoQiqiClient implements ClientModInitializer {
             GoldMiningEngine.get().reset();
             msg(client, "§7Mining arrete." + (mined > 0 ? " §6" + mined + " ores mined." : ""));
             stopped = true;
+        }
+        // Legendary: cancel world-switch flow and disable auto-switch so it stays cancelable in any situation
+        AutoSwitchEngine.get().cancelToIdle();
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (config.legendaryAutoSwitch) {
+            config.legendaryAutoSwitch = false;
+            AutoQiqiConfig.save();
+            msg(client, "§7Legendary auto-switch OFF.");
+            stopped = true;
+        }
+        if (wasInLegendaryMenuFlow) {
+            stopped = true;
+            if (client.currentScreen != null) {
+                client.setScreen(null);
+            }
         }
         if (stopped) {
             log("Battle", "User executed /pk stop — all engines stopped");
@@ -723,9 +749,15 @@ public class AutoQiqiClient implements ClientModInitializer {
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MANUAL",
                 "Hunt stopped: " + reason);
 
+        boolean wasInLegendaryFlow = AutoSwitchEngine.get().getCurrentRun() != null
+                && AutoSwitchEngine.get().getCurrentRun().state != LegendaryRunState.State.IDLE;
+        AutoSwitchEngine.get().cancelToIdle();
         AutoQiqiConfig config = AutoQiqiConfig.get();
         config.legendaryAutoSwitch = false;
         AutoQiqiConfig.save();
+        if (wasInLegendaryFlow && client.currentScreen != null) {
+            client.setScreen(null);
+        }
 
         AutoBattleEngine engine = AutoBattleEngine.get();
         java.util.List<String> summary = engine.getSessionSummaryAndReset();
@@ -1016,7 +1048,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     // ========================
 
     public static BattleMode getBattleMode() { return AutoBattleEngine.get().getMode(); }
-    public static boolean isWalkEnabled() { return walkEnabled; }
 
     /**
      * True when the client is in-game and has a network handler (can send commands).

@@ -17,7 +17,7 @@ import java.util.Optional;
 
 /**
  * Shared rotation, aiming, and movement-key utilities used by
- * AutoBattle, PokemonWalker, and CircleWalkEngine.
+ * AutoBattle and PokemonWalker.
  */
 public final class MovementHelper {
     private MovementHelper() {}

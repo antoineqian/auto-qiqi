@@ -30,7 +30,7 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 **`AutoQiqiClient.java`** is the main client initializer. It:
 
 - Loads config, sets initial battle mode and world list, optionally enables `AutoReconnectEngine`.
-- Registers **keybinds** (K = config/battle screen, H = legendary HUD, J = legendary auto-switch, U = force poll, L = legendary on/off, I = tower start).
+- Registers **keybinds** (K = config/battle screen, H = legendary HUD, J = legendary auto-switch, U = force poll, L = legendary on/off, I = tower start, **O = stop all**).
 - Registers **screen events** for legendary GUI world switching and tower GUI handling.
 - Registers **client commands** under `/pk` (see below).
 - Registers a **client tick callback** that drives all engines in a fixed order.
@@ -40,7 +40,7 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 1. Blocked-state tracking (disconnect / open screen).
 2. `AutoReconnectEngine` (reconnect flow if enabled).
 3. First-tick init: disable walk/capture, release movement keys, schedule session recap in chat.
-4. **Keybind handling** (opens config screen, toggles HUD/legendary/poll/mod/tower).
+4. **Keybind handling** (opens config screen, toggles HUD/legendary/poll/mod/tower; **Stop All** key works even with a screen open so automation is always cancelable).
 5. **CaptureEngine** (if active): tick walk/engage/ball, ball throw/wait, and battle-end detection (debounced when `getBattle()` becomes null).
 6. **AutoBattleEngine** (if battle mode ≠ OFF and capture not active): roam, engage wild, fight or hand off to capture.
 7. **Legendary:** If paused for capture, optionally auto-resume after capture finishes and min pause time.
@@ -62,7 +62,7 @@ So: **capture has priority over roaming battle**; legendary and tower run in par
 
 | Class | Role |
 |-------|------|
-| **CaptureEngine** | Full capture flow: walk to target, aim, simulate send-out key, then in-battle sequence (False Swipe, Thunder Wave, ball throws, switch to tank if needed). Holds a single **CaptureSession**; state is in the session, engine ticks it. Phases: `IDLE`, `WALKING`, `ENGAGING`, `IN_BATTLE`. |
+| **CaptureEngine** | Full capture flow: walk to target, aim, simulate send-out key, then in-battle sequence (False Swipe, Thunder Wave, ball throws, switch to tank if needed). **Move-based team selection:** the engine picks Pokemon by checking their move set (via reflection on Cobblemon's `MoveSet`), not by species name. For False Swipe, **Gallade** is preferred over **Marowak** over any other Pokemon that knows the move. For Thunder Wave, any Pokemon with the move is chosen. If no valid choice is found, the mod **does nothing** and logs the reason (user intervention needed). For **whitelisted legendaries** (config `legendaryCaptureWhitelist`): after applying False Swipe/Thunder Wave (or when unable to), the mod throws 5 Ultra Balls, then one **Master Ball** (if in hotbar); if Master Ball is not in hotbar, it continues with Ultra Balls. Holds a single **CaptureSession**; state is in the session, engine ticks it. Phases: `IDLE`, `WALKING`, `ENGAGING`, `IN_BATTLE`. |
 | **CaptureSession** | Holds all mutable state for one capture run (target, phase, walking/engagement/ball counts, etc.). Created on start, cleared on stop/success/fail. |
 | **AutoBattleEngine** | Roaming wild battles: scan for Pokemon, walk/aim, simulate send-out. Modes: **OFF**, **BERSERK**, **ROAMING**, **TRAINER**. Loot pickup; engage blacklist. When not in capture mode, battle decisions go through **BattleDecisionRouter**. |
 | **BattleDecisionRouter** | Central router for in-battle decisions when not in capture mode: general action (FIGHT/SWITCH), move, switch. TRAINER/BERSERK use TrainerBattleEngine; ROAMING uses random. Called from battle GUI mixins. |
@@ -80,7 +80,7 @@ Battle **decisions** (Fight / Switch / Capture, move, switch target) are **injec
 |-------|------|
 | **AutoSwitchEngine** | State machine for legendary lifecycle: IDLE → open menu → switch world (GUI or `/home`) → poll timer (`/nextleg`) → wait for response. On “legendary appeared” event, switches to event world. Can pause for capture (`PAUSED_FOR_CAPTURE`) and auto-resume after capture + min pause time. |
 | **GuiWorldSwitcher** | Learns world list from `/monde` (or configured command) GUI and performs world switches by clicking buttons. Used for “GUI” worlds; “home” worlds use `/home` + optional dimension check. |
-| **WorldTracker** | Tracks current world name and per-world timer state (from chat). |
+| **WorldTracker** | Tracks current world name and per-world timer state (from chat). `getSoonestRemainingSeconds()` returns the soonest event time across all worlds (used for boss-priority rule). |
 | **WorldTimerData** | Holds timer state for a world (e.g. minutes/seconds until next legendary). |
 | **ChatMessageHandler** | Parses chat for: timer lines (regex from config), “legendary appeared” events, spawn messages (pokemon + location). Updates WorldTracker and triggers AutoSwitchEngine. |
 | **PokemonWalker** | A* pathfinding (using common `PathFinder`) to walk to an entity (e.g. after `/pk walk <index>`). Uses `MovementHelper` for rotation; waypoint reach, stuck detection, timeout. |
@@ -88,6 +88,8 @@ Battle **decisions** (Fight / Switch / Capture, move, switch target) are **injec
 | **AutoReconnectEngine** | On disconnect, clicks “Rejoindre” (or configured button) after a delay and optionally retries; can click “Back to server list” if configured. |
 
 ---
+
+**Boss vs legendary:** Boss hunt is prioritized over world switching only when the soonest legendary timer has **≥ 1m30s** remaining; with less time, the engine proceeds with the switch so the legendary is not missed.
 
 ### 4.3 NPC / Tower (`npc/`)
 
@@ -123,15 +125,7 @@ Paused when AutoBattleEngine starts a battle (`pausedFishingForBattle`).
 
 ---
 
-### 4.6 Walk (`walk/`)
-
-| Class | Role |
-|-------|------|
-| **CircleWalkEngine** | Simple circle walking (config: `walkEnabled`). Used when enabled from config; keybind G no longer used for this in current code. |
-
----
-
-### 4.7 Common (`common/`)
+### 4.6 Common (`common/`)
 
 | Class | Role |
 |-------|------|
@@ -144,11 +138,11 @@ Paused when AutoBattleEngine starts a battle (`pausedFishingForBattle`).
 
 ---
 
-### 4.8 Config & HUD
+### 4.7 Config & HUD
 
 | Class | Role |
 |-------|------|
-| **AutoQiqiConfig** | All options (battle, legendary, reconnect, mining, walk, fish, tower, etc.). JSON in `config/auto-qiqi.json`. |
+| **AutoQiqiConfig** | All options (battle, legendary, reconnect, mining, fish, tower, etc.). JSON in `config/auto-qiqi.json`. **Legendary capture:** `legendaryCaptureWhitelist` — list of Pokémon names; when a legendary is in this list, after setup (False Swipe/Thunder Wave) and 5 Ultra Balls, the mod throws one Master Ball (if in hotbar); otherwise it continues with Ultra Balls. |
 | **AutoQiqiConfigScreen** | In-game config screen (opened by K key). |
 | **AutoQiqiHud** | Renders legendary HUD (timer, state, world list, etc.) via `HudRenderCallback`. |
 
@@ -187,7 +181,7 @@ Paths are under the game dir (Modrinth profile: `~/Library/Application Support/M
 - **`/pk scan`** — Run PokemonScanner manual scan; results used by `/pk capture <index>` and `/pk walk <index>`.
 - **`/pk walk <index>`** — Start PokemonWalker toward the `<index>`-th entity from last manual scan.
 - **`/pk guide [stop]`** — Start or stop direction guide toward scan index.
-- **`/pk stop`** — Stop capture, walk, guide, and release movement keys.
+- **`/pk stop`** — Stop all automation: capture, walk, guide, legendary world-switch, auto-battle, mining. Closes the world-switch menu if open. Automation is **always cancelable** (walking, in battle, or during world switching) via `/pk stop` or the **Stop All** keybind (O), which works even when a screen is open.
 - **`/pk debug <index>`** — Debug entity at index from last scan.
 - **`/pk capture [stop]`** — In battle: trigger capture flow; with index: start capture on that scan target. `capture stop` stops CaptureEngine.
 - **`/pk hunt [stop]`** — Start hunt timer (hours) to enable legendary + roaming for a duration; `hunt stop` or status.
@@ -247,7 +241,7 @@ The structure is **good for feature locality and navigation**: each package owns
 **Problem:** “What to do next” in capture (False Swipe count, Thunder Wave cadence, ball cycle, switch decisions) and battle (move/switch choice) is embedded inside engine `tick()` and mixin code. Domain rules are mixed with orchestration and I/O.
 
 **Refactor:** Extract **domain services** (or strategy types) that depend only on domain inputs and return decisions:
-- **Capture:** e.g. `CaptureStrategy.nextAction(sessionSnapshot, battleSnapshot)` → `CaptureAction` (and update session). Rules like “min False Swipes for level”, “re-apply TW every 8 balls”, “cycle ball/FS” live here. No Minecraft/Cobblemon references.
+- **Capture:** `CaptureStrategy.decide(sessionSnapshot, battleSnapshot)` → `CaptureAction` (and update session). Rules like “min False Swipes for level”, “re-apply TW every 8 balls”, “cycle ball/FS” live here. No Minecraft/Cobblemon references.
 - **Battle:** Move selection and switch selection already partly in `TrainerBattleEngine`/`TypeChart`; ensure capture and roaming both use a single, testable decision layer.
 
 Engines then only: read current state (from session + Cobblemon adapter), call domain service, apply the chosen action via existing mixins/key simulation.
@@ -320,8 +314,8 @@ So **refactor 1 (session/context objects)** from §10 is **done** for Capture an
 
 ### P0 critical steps (in order)
 
-1. **Extract capture domain logic (P0)**  
-   "What to do next" in capture (False Swipe count, Thunder Wave cadence, ball cycle, switch decisions) is still inside `CaptureEngine`. Extract it into a **CaptureStrategy** (or similar) that takes session snapshot + battle snapshot and returns `CaptureAction` (and updates session). No Minecraft/Cobblemon in the strategy. This is the single step that would make capture testable and complete the separation implied by having `CaptureSession`.
+1. ~~**Extract capture domain logic (P0)**~~  
+   **Done.** `CaptureStrategy.decide()` is now the pure domain service. It uses `BattleSnapshot.activeHasFalseSwipe()` / `activeHasThunderWave()` (move-based, not species-based). `CaptureEngine` builds the snapshot and applies decisions. Switch targets are chosen by move set (Gallade preferred for False Swipe). When no valid option is found, the mod does nothing and logs the reason.
 
 2. **Keep README and design docs in sync**  
    When adding new session types, domain services, or intent types, update §4 (Modules), §10, and §11 so agents and reviewers see the current design.

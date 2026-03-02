@@ -183,6 +183,23 @@ public class WorldTracker {
     }
 
     /**
+     * Returns the soonest remaining time (seconds) until a legendary event in any world.
+     * Used to decide whether to prioritize boss hunt: if >= 90s we have time to do boss first.
+     * @return remaining seconds for the soonest world, or -1 if no timer is known
+     */
+    public long getSoonestRemainingSeconds() {
+        long soonest = -1;
+        for (WorldTimerData data : worldTimers.values()) {
+            if (!data.isTimerKnown()) continue;
+            long remaining = data.getEstimatedRemainingSeconds();
+            if (remaining >= 0 && (soonest < 0 || remaining < soonest)) {
+                soonest = remaining;
+            }
+        }
+        return soonest;
+    }
+
+    /**
      * When all timers are known, returns the world with the soonest event timer
      * (excluding the current world). Used for proactive camping.
      */

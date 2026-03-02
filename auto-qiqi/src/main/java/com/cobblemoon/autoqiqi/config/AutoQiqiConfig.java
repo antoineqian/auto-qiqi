@@ -55,6 +55,12 @@ public class AutoQiqiConfig {
     public String nextlegCommand = "/nextleg";
     public String mondeCommand = "/monde";
 
+    /** Legendary Pokemon in this list get one Master Ball after 5 Ultra Balls (and after False Swipe/Thunder Wave setup). If Master Ball is not in hotbar, Ultra Balls continue. Empty = no Master Ball. Names must match the game language; comparison is case-insensitive. */
+    public List<String> legendaryCaptureWhitelist = new ArrayList<>(List.of(
+            "Mewtwo", "Rayquaza", "Groudon", "Ethernatos", "Giratina", "Koraidon", "Miraidon",
+            "Lugia", "Kyogre", "Latios", "Dialga", "Palkia", "Zekrom", "Kyurem", "Yveltal", "Nécrozma"
+    ));
+
     public List<String> worldNames = new ArrayList<>(List.of(
             "Monde Construction (Lune)",
             "Monde Construction (Soleil)",
@@ -124,12 +130,6 @@ public class AutoQiqiConfig {
     public int goldMiningDurabilitySafetyMargin = 10;
     public long goldMiningRepairCooldownMs = 21_600_000L; // 6 hours
     public long goldMiningLastRepairTimeMs = 0L;
-
-    // ========================
-    // Walk (circle)
-    // ========================
-
-    public boolean walkEnabled = false;
 
     // ========================
     // Fish

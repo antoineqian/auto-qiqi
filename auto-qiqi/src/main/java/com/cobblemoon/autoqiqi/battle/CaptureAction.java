@@ -8,8 +8,8 @@ package com.cobblemoon.autoqiqi.battle;
 public enum CaptureAction {
     FALSE_SWIPE,
     THUNDER_WAVE,
-    SWITCH_MAROWAK,
-    SWITCH_DRAGONITE,
+    SWITCH_FOR_FALSE_SWIPE,
+    SWITCH_FOR_THUNDER_WAVE,
     SWITCH_TANK,
     THROW_BALL
 }

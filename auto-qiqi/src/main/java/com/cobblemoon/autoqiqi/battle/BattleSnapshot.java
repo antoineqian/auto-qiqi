@@ -9,7 +9,9 @@ public record BattleSnapshot(
     float activeHpPercent,
     float opponentHpPercent,
     String opponentPokemonName,
-    String opponentStatus
+    String opponentStatus,
+    boolean activeHasFalseSwipe,
+    boolean activeHasThunderWave
 ) {
     /** Unknown/missing value for HP. */
     public static final float HP_UNKNOWN = -1f;

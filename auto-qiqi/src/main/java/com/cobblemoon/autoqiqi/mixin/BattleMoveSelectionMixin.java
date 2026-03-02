@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection.MoveTile;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleTargetSelection;
@@ -55,9 +56,20 @@ public abstract class BattleMoveSelectionMixin {
                                         chosen.getMove(), null, null));
                     }
                 } else {
-                    AutoQiqiClient.log("Mixin", "MoveSelection: no valid move found, backing out");
-                    self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-                    self.getBattleGUI().changeActionSelection(null);
+                    // Backed out because we should throw a ball (enough False Swipes or decision was THROW_BALL)
+                    var engine = CaptureEngine.get();
+                    var battle = CobblemonClient.INSTANCE.getBattle();
+                    boolean shouldThrow = (engine.getCurrentAction() == com.cobblemoon.autoqiqi.battle.CaptureAction.THROW_BALL
+                            || engine.hasEnoughFalseSwipesForCapture());
+                    if (battle != null && shouldThrow) {
+                        AutoQiqiClient.log("Mixin", "MoveSelection: switching to ball throw (minimize + prepare)");
+                        battle.setMinimised(true);
+                        engine.prepareBallThrow();
+                    } else {
+                        AutoQiqiClient.log("Mixin", "MoveSelection: no valid move found, backing out");
+                        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
+                        self.getBattleGUI().changeActionSelection(null);
+                    }
                 }
             }, config.battleSelectDelay);
             return;
