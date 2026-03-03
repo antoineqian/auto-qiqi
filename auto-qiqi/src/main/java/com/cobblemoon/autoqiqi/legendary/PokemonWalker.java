@@ -57,6 +57,10 @@ public class PokemonWalker {
     private int lastWalkTargetGraceTicks = 0;
     private static final int MANUAL_WALK_GRACE_TICKS = 400; // ~20 seconds
 
+    /** Throttle for movement-decision status log (so we can see mode, target movement, collision). */
+    private long lastStatusLogMs = 0;
+    private static final long STATUS_LOG_INTERVAL_MS = 2000;
+
     private PokemonWalker() {}
 
     public static PokemonWalker get() { return INSTANCE; }
@@ -144,6 +148,19 @@ public class PokemonWalker {
 
         double distToTarget = player.distanceTo(target);
 
+        // Periodic movement-decision log (every 2s) so we can see mode, target movement, collision
+        long now = System.currentTimeMillis();
+        if (now - lastStatusLogMs >= STATUS_LOG_INTERVAL_MS) {
+            lastStatusLogMs = now;
+            String mode = (path != null && waypointIndex < path.size()) ? "A*" : "beeline";
+            String wpInfo = (path != null && path.size() > 0) ? " wp=" + waypointIndex + "/" + path.size() : "";
+            double targetMoved = lastTargetPos != null ? Math.sqrt(target.getPos().squaredDistanceTo(lastTargetPos)) : 0;
+            AutoQiqiClient.log("Walker", "move: " + mode + wpInfo
+                    + " dist=" + String.format("%.1f", distToTarget)
+                    + " collision=" + player.horizontalCollision
+                    + " targetMoved=" + String.format("%.1f", targetMoved) + "m");
+        }
+
         if (distToTarget <= ARRIVAL_DISTANCE) {
             String name = PokemonScanner.getPokemonName(target);
             AutoQiqiClient.log("Walker", "Arrived near " + name + " (dist=" + String.format("%.1f", distToTarget) + ")");
@@ -230,7 +247,8 @@ public class PokemonWalker {
 
     private boolean shouldRepath() {
         if (lastTargetPos != null && target.getPos().squaredDistanceTo(lastTargetPos) > REPATH_TARGET_MOVED * REPATH_TARGET_MOVED) {
-            AutoQiqiClient.log("Walker", "Target moved, repathing");
+            double moved = Math.sqrt(target.getPos().squaredDistanceTo(lastTargetPos));
+            AutoQiqiClient.log("Walker", "Target moved " + String.format("%.1f", moved) + "m (was " + fmtPos(lastTargetPos) + "), repathing");
             recalcCount = Math.max(0, recalcCount - 1);
             return true;
         }
@@ -274,6 +292,8 @@ public class PokemonWalker {
             // Commit to one sideways direction for longer to actually clear obstacles
             if (stuckTicks % JIGGLE_COMMIT_TICKS == 0) {
                 jiggleDirection = -jiggleDirection;
+                double d = player.distanceTo(target);
+                AutoQiqiClient.log("Walker", "stuck recovery (A*): strafe " + (jiggleDirection > 0 ? "left" : "right") + " wp=" + waypointIndex + " dist=" + String.format("%.1f", d) + " collision=true");
             }
             // Walk sideways + forward + jump to get around
             client.options.forwardKey.setPressed(true);
@@ -320,6 +340,8 @@ public class PokemonWalker {
             // Commit to one direction for JIGGLE_COMMIT_TICKS before switching
             if (stuckTicks % JIGGLE_COMMIT_TICKS == 0) {
                 jiggleDirection = -jiggleDirection;
+                double d = player.distanceTo(target);
+                AutoQiqiClient.log("Walker", "stuck recovery: strafe " + (jiggleDirection > 0 ? "left" : "right") + " dist=" + String.format("%.1f", d) + " collision=true");
             }
 
             // Walk mostly sideways with some forward to go around the obstacle

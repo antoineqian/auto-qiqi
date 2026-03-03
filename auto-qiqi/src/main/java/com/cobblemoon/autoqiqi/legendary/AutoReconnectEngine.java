@@ -126,6 +126,12 @@ public class AutoReconnectEngine {
             AutoQiqiClient.log("Reconnect", "Error/disconnect screen with 'Retour à la liste des serveurs' detected, clicking it");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Error screen (back to server list) detected");
             transition(Phase.CLICK_BACK_TO_SERVER_LIST);
+        } else if (client.player == null && screen != null) {
+            // Unknown screen when disconnected (e.g. ConnectScreen, custom login, or obfuscated class)
+            AutoQiqiClient.log("Reconnect", "Disconnected with unknown screen: " + screen.getClass().getSimpleName()
+                    + ", will force title after delay");
+            SessionLogger.get().logEvent("AUTO_RECONNECT", "Unknown disconnect screen: " + screen.getClass().getSimpleName());
+            transition(Phase.WAIT_BEFORE_DISMISS);
         }
     }
 

@@ -103,7 +103,7 @@ class AutoQiqiConfigTest {
 
     @Test
     void defaultSwitchJitter() {
-        assertEquals(15, config.switchBeforeJitterSeconds);
+        assertEquals(10, config.switchBeforeJitterSeconds);
     }
 
     // ── get() returns the injected instance ──

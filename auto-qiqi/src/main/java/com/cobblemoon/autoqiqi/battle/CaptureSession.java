@@ -36,6 +36,8 @@ public class CaptureSession {
     public int losStrafeTicks = 0;
     public int losStrafeDir = 1;
     public int entityObstructionStrafeTicks = 0;
+    /** When true, blocker is our Pokemon; we strafe in computed direction and do not reverse. */
+    public boolean entityObstructionIsOurPokemon = false;
 
     // Battle strategy
     public boolean targetAtOneHp = false;
@@ -117,6 +119,7 @@ public class CaptureSession {
         backingUp = false;
         backupTicks = 0;
         entityObstructionStrafeTicks = 0;
+        entityObstructionIsOurPokemon = false;
         waitingForBallHit = false;
         throwWaitTicks = 0;
         missCount = 0;

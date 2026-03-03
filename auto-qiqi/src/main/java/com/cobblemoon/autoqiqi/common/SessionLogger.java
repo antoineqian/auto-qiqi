@@ -112,11 +112,6 @@ public final class SessionLogger {
         logEvent("BALL", ballType + " #" + throwNumber + " at " + pokemonName);
     }
 
-    public void logError(String message) {
-        logEvent("ERROR", message);
-        incrementStat("errors", 1);
-    }
-
     public void logInfo(String message) {
         logEvent("INFO", message);
     }
@@ -252,11 +247,5 @@ public final class SessionLogger {
         Object v = map.get(key);
         if (v instanceof List) return new ArrayList<>((List<String>) v);
         return new ArrayList<>();
-    }
-
-    /** Path to the log directory, for display purposes. */
-    public Path getLogDir() {
-        ensureInit();
-        return dir;
     }
 }

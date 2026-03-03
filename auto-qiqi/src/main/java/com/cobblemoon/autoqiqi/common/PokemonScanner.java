@@ -84,6 +84,22 @@ public class PokemonScanner {
         }
     }
 
+    /**
+     * True if the entity is a Pokemon owned by a player (e.g. our active Pokemon in battle).
+     * Used to detect when our own Pokemon is blocking the ball throw line.
+     */
+    public static boolean isPlayerOwned(Entity entity) {
+        if (!(entity instanceof PokemonEntity pe)) return false;
+        try {
+            var pokemon = pe.getPokemon();
+            return pokemon.isPlayerOwned()
+                    || pokemon.getOwnerUUID() != null
+                    || pe.getOwner() != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     // ========================
     // Display helpers
     // ========================

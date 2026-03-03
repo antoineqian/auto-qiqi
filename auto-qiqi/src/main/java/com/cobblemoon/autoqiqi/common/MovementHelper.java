@@ -105,6 +105,29 @@ public final class MovementHelper {
     }
 
     /**
+     * Preferred strafe direction so the player moves to a position where the line
+     * from player to target does not pass through the blocker (e.g. our Pokemon).
+     * Uses horizontal (x,z) cross product: blocker on left of player->target => strafe left (+1).
+     *
+     * @return +1 for strafe left, -1 for strafe right
+     */
+    public static int getPreferredStrafeDirectionToAvoidBlocker(ClientPlayerEntity player,
+                                                                Entity target, Entity blocker) {
+        if (player == null || target == null || blocker == null) return 1;
+        Vec3d p = player.getPos();
+        Vec3d t = target.getPos().add(0, target.getHeight() / 2.0, 0);
+        Vec3d o = blocker.getPos().add(0, blocker.getHeight() / 2.0, 0);
+        double ptx = t.x - p.x;
+        double ptz = t.z - p.z;
+        double pox = o.x - p.x;
+        double poz = o.z - p.z;
+        double cross = ptx * poz - ptz * pox;
+        if (cross > 0) return 1;   // blocker left of P->T => strafe left
+        if (cross < 0) return -1;  // blocker right => strafe right
+        return 1;
+    }
+
+    /**
      * Strafe sideways to find line of sight. Call each tick when LOS is blocked.
      */
     public static void strafeSideways(MinecraftClient client, Entity target,

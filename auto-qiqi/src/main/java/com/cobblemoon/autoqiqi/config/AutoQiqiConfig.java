@@ -50,7 +50,7 @@ public class AutoQiqiConfig {
     public boolean legendaryHudVisible = true;
 
     public int switchBeforeSeconds = 90;
-    public int switchBeforeJitterSeconds = 15;
+    public int switchBeforeJitterSeconds = 10;
     public int pollIntervalSeconds = 60;
     public String nextlegCommand = "/nextleg";
     public String mondeCommand = "/monde";

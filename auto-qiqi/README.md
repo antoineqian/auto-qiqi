@@ -131,7 +131,7 @@ Paused when AutoBattleEngine starts a battle (`pausedFishingForBattle`).
 |-------|------|
 | **PokemonScanner** | Scans for wild Pokemon entities in range (80 blocks). `scan()` for periodic/quick scan; `manualScan()` for `/pk scan` (results kept for `/pk capture <index>`). Helpers: boss/legendary/uncaught detection, `countUncaught()`, `getFromLastScan(index)`. |
 | **SessionLogger** | Writes session log (`session-YYYY-MM-DD.log`) and `session-stats.json`. Events: CAPTURE, CAPTURE_FAIL, KILL, LEGENDARY_SPAWN, WORLD_SWITCH, BALL, BATTLE, ERROR, INFO. On next launch, recap is read and shown in chat, then stats reset. |
-| **MovementHelper** | Shared movement: forward/back/strafe, release keys, rotation (yaw/pitch) toward target. Used by CaptureEngine, AutoBattleEngine, PokemonWalker, TowerNpcEngine. |
+| **MovementHelper** | Shared movement: forward/back/strafe, release keys, rotation (yaw/pitch) toward target. **Ball throw:** detects entity blocking the throw line; when the blocker is our own Pokemon, computes preferred strafe direction from player/target/blocker positions so we move to clear the line (avoids "pas un pokémon sauvage" errors). Used by CaptureEngine, AutoBattleEngine, PokemonWalker, TowerNpcEngine. |
 | **PathFinder** | A* pathfinding in the world (block collision). Used by PokemonWalker and GoldMiningEngine. |
 | **HumanDelay** | Random delay in a range (ms) for “human-like” timing (e.g. command delays). |
 | **TimerParser** | Parses timer strings (e.g. “X minutes and Y seconds”) from config regex. |

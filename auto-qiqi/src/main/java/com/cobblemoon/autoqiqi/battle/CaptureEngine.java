@@ -646,12 +646,24 @@ public class CaptureEngine {
             if (blocker != null && s.entityObstructionStrafeTicks < ENTITY_OBSTRUCTION_MAX_STRAFE) {
                 if (s.entityObstructionStrafeTicks == 0) {
                     String blockerName = PokemonScanner.getPokemonName(blocker);
-                    AutoQiqiClient.log("Capture", "Entity blocking throw path: " + blockerName
-                            + " at dist=" + String.format("%.1f", client.player.distanceTo(blocker))
-                            + ", strafing quarter-circle " + (s.losStrafeDir > 0 ? "left" : "right"));
+                    AutoQiqiClient.log("Capture", "getEntityBlockingThrow: " + blockerName
+                            + " (dist=" + String.format("%.1f", client.player.distanceTo(blocker)) + ")");
+                    s.entityObstructionIsOurPokemon = PokemonScanner.isPlayerOwned(blocker);
+                    if (s.entityObstructionIsOurPokemon) {
+                        s.losStrafeDir = MovementHelper.getPreferredStrafeDirectionToAvoidBlocker(
+                                client.player, s.targetEntity, blocker);
+                        AutoQiqiClient.log("Capture", "Our Pokemon blocking throw: " + blockerName
+                                + ", strafing " + (s.losStrafeDir > 0 ? "left" : "right")
+                                + " to clear line to target");
+                    } else {
+                        AutoQiqiClient.log("Capture", "Entity blocking throw path: " + blockerName
+                                + " at dist=" + String.format("%.1f", client.player.distanceTo(blocker))
+                                + ", strafing quarter-circle " + (s.losStrafeDir > 0 ? "left" : "right"));
+                    }
                 }
                 s.entityObstructionStrafeTicks++;
-                if (s.entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
+                if (!s.entityObstructionIsOurPokemon
+                        && s.entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
                     s.losStrafeDir = -s.losStrafeDir;
                     AutoQiqiClient.log("Capture", "Quarter-circle blocked, reversing to "
                             + (s.losStrafeDir > 0 ? "left" : "right"));
@@ -664,6 +676,7 @@ public class CaptureEngine {
                 AutoQiqiClient.log("Capture", "Entity obstruction cleared after " + s.entityObstructionStrafeTicks + " ticks");
                 MovementHelper.stopStrafe(client);
                 s.entityObstructionStrafeTicks = 0;
+                s.entityObstructionIsOurPokemon = false;
             }
         }
 
