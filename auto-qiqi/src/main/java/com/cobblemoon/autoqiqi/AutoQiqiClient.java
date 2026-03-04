@@ -92,8 +92,8 @@ public class AutoQiqiClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         instance = this;
-        log("Init", "Initializing Auto-Qiqi...");
-        com.cobblemoon.autoqiqi.common.SessionLogger.get().logInfo("Auto-Qiqi initialized (new session)");
+        log("Init", "Initializing Auto-Qiqi v" + BuildConstants.VERSION + "...");
+        com.cobblemoon.autoqiqi.common.SessionLogger.get().logInfo("Auto-Qiqi v" + BuildConstants.VERSION + " initialized (new session)");
 
         AutoQiqiConfig.load();
         AutoBattleEngine.get().setMode(BattleMode.fromString(AutoQiqiConfig.get().battleMode));
@@ -230,7 +230,7 @@ public class AutoQiqiClient implements ClientModInitializer {
             AutoQiqiHud.render(context, renderTickCounter.getTickDelta(true));
         });
 
-        log("Init", "Auto-Qiqi initialized!");
+        log("Init", "Auto-Qiqi v" + BuildConstants.VERSION + " initialized!");
         log("Init", "Keybinds: K=battle, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
     }
 
@@ -432,6 +432,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                                             }))))
                     .then(ClientCommandManager.literal("reconnect")
                             .executes(context -> { executeReconnectToggle(); return 1; }))
+                    .then(ClientCommandManager.literal("version")
+                            .executes(context -> { executeVersion(); return 1; }))
             );
         });
     }
@@ -939,6 +941,16 @@ public class AutoQiqiClient implements ClientModInitializer {
                 msg(client, "§7[Reconnect]§r OFF");
             }
         }
+    }
+
+    // ========================
+    // Version command
+    // ========================
+
+    private void executeVersion() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        msg(client, "§fAuto-Qiqi §av" + BuildConstants.VERSION);
     }
 
     // ========================

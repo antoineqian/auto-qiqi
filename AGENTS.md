@@ -41,6 +41,18 @@ Log paths are **not fixed**: they depend on the Minecraft launcher, profile, and
 4. Identify which code path actually executed (look for "Target acquired", "Decide #", mixin logs, scan results, etc.).
 5. Only then propose a fix that addresses the **actual root cause** seen in logs, not a hypothetical one.
 
+## Versioning
+
+The mod version lives in **`auto-qiqi/gradle.properties`** (`mod_version=X.Y.Z`). This is the single source of truth — `build.gradle` reads it, and a build-time task generates `BuildConstants.VERSION` so Java code can reference it at runtime.
+
+**When an agent ships a feature, bug fix, or behavioral change**, it must bump the version in `gradle.properties`:
+
+- **Patch** (Z): bug fixes, logging improvements, config tweaks
+- **Minor** (Y): new features, new commands, new config options, behavioral changes
+- **Major** (X): breaking changes, large refactors, architecture overhauls
+
+The user can check the running version in-game with `/pk version`.
+
 ## Documentation: Keep README Up to Date
 
 **The [auto-qiqi/README.md](auto-qiqi/README.md) should always be up to date.** When adding features, changing behavior, adding config options, or refactoring modules, update the README to reflect the current state of the mod (commands, keybinds, config, modules, build/run instructions). Do not leave the README stale after code changes.

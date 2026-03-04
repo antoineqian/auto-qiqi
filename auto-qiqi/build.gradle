@@ -3,7 +3,7 @@ plugins {
     id 'java'
 }
 
-version = "1.0.0"
+version = project.mod_version
 group = "com.cobblemoon"
 
 base {
@@ -40,6 +40,30 @@ processResources {
     }
 }
 
+def generatedSrcDir = layout.buildDirectory.dir("generated/sources/version/java/main")
+
+tasks.register('generateVersionSource') {
+    inputs.property("version", project.version)
+    outputs.dir(generatedSrcDir)
+    doLast {
+        def dir = generatedSrcDir.get().asFile.toPath()
+                .resolve("com/cobblemoon/autoqiqi")
+        dir.toFile().mkdirs()
+        dir.resolve("BuildConstants.java").toFile().text = """\
+package com.cobblemoon.autoqiqi;
+
+/** Auto-generated at build time from gradle.properties mod_version. */
+public final class BuildConstants {
+    public static final String VERSION = "${project.version}";
+    private BuildConstants() {}
+}
+"""
+    }
+}
+
+sourceSets.main.java.srcDir(generatedSrcDir)
+compileJava.dependsOn(generateVersionSource)
+
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 21
     options.encoding = "UTF-8"
@@ -60,9 +84,9 @@ jar {
 tasks.register('deploy', Copy) {
     dependsOn remapJar
     from remapJar.archiveFile
-    into file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/mods")
+    into file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.6 (1)/mods")
     doFirst {
-        delete fileTree("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/mods") {
+        delete fileTree("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.6 (1)/mods") {
             include "auto-qiqi-*.jar"
         }
     }

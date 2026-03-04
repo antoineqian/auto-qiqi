@@ -16,8 +16,9 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 ## 2. Build & run
 
 - **Java:** 21.
+- **Version:** Defined in `auto-qiqi/gradle.properties` (`mod_version=X.Y.Z`). Injected at build time into `BuildConstants.VERSION` (Java) and `fabric.mod.json`. Check in-game with `/pk version`.
 - **Build:** From `auto-qiqi/`: `./gradlew build`.
-- **Deploy:** The `build` task copies the remapped JAR into the Modrinth profile `Cobblemoon1.1.8` (`deploy` task). Set `JAVA_HOME` to Java 21 if needed:  
+- **Deploy:** The `build` task copies the remapped JAR into the Modrinth profile `Cobblemoon1.1.6 (1)` (`deploy` task). Set `JAVA_HOME` to Java 21 if needed:  
   `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`.
 - **Dependencies:** Fabric API, Fabric Loader; **Cobblemon** is `modCompileOnly` (optional at runtime but required for full functionality).
 
@@ -187,6 +188,7 @@ Paths are under the game dir (Modrinth profile: `~/Library/Application Support/M
 - **`/pk hunt [stop]`** — Start hunt timer (hours) to enable legendary + roaming for a duration; `hunt stop` or status.
 - **`/pk tp`** — Show TP status; `tp default <last|random>`; `tp <worldIndex> <last|random>` for world teleport mode.
 - **`/pk reconnect`** — Toggle auto-reconnect on/off.
+- **`/pk version`** — Show the current mod version in chat.
 
 ---
 
