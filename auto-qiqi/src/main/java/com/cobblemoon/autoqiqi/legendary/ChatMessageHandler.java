@@ -251,15 +251,24 @@ public class ChatMessageHandler {
                     String dexStatus = PokemonScanner.getPokedexStatus(legendaryEntity);
                     boolean alreadyCaught = "CAUGHT".equals(dexStatus);
 
+                    boolean inKillWhitelist = isInLegendaryKillWhitelist(name);
+                    String action = alreadyCaught ? "KILL" : (inKillWhitelist ? "KILL (kill whitelist)" : "CAPTURE");
                     AutoQiqiClient.log("Legendary", "Auto-engage: " + name + " Lv." + level
                             + " dex=" + dexStatus + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
-                            + " -> " + (alreadyCaught ? "KILL" : "CAPTURE"));
+                            + " -> " + action);
 
-                    if (alreadyCaught) {
-                        client.player.sendMessage(
-                                Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                        + " §e§ldetecte ! §7[DEX] Deja capture — combat pour tuer."),
-                                false);
+                    if (alreadyCaught || inKillWhitelist) {
+                        if (alreadyCaught) {
+                            client.player.sendMessage(
+                                    Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                            + " §e§ldetecte ! §7[DEX] Deja capture — combat pour tuer."),
+                                    false);
+                        } else {
+                            client.player.sendMessage(
+                                    Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                            + " §e§ldetecte ! §7[Liste kill] Combat pour tuer."),
+                                    false);
+                        }
                         AutoBattleEngine.get().forceTarget(legendaryEntity, false);
                     } else {
                         client.player.sendMessage(
@@ -303,6 +312,16 @@ public class ChatMessageHandler {
             }
         }
         return null;
+    }
+
+    private static boolean isInLegendaryKillWhitelist(String pokemonName) {
+        List<String> list = AutoQiqiConfig.get().legendaryKillWhitelist;
+        if (list == null || list.isEmpty()) return false;
+        String name = pokemonName.toLowerCase();
+        for (String entry : list) {
+            if (name.contains(entry.toLowerCase())) return true;
+        }
+        return false;
     }
 
     private Entity findLegendaryEntity(MinecraftClient client, String pokemonName, double[] coords) {

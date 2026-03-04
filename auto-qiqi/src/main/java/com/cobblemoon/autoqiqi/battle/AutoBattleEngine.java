@@ -39,7 +39,7 @@ import java.util.Map;
  * via {@link com.cobblemoon.autoqiqi.battle.BattleDecisionRouter} from the battle GUI mixins.
  * <p>
  * Supports {@link BattleMode#BERSERK} (all wild), {@link BattleMode#ROAMING}
- * (auto-capture uncaught, kill bosses + whitelist), and {@link BattleMode#TRAINER}.
+ * (auto-capture uncaught, recapture caught legendaries not in whitelist, kill bosses + whitelist), and {@link BattleMode#TRAINER}.
  */
 public class AutoBattleEngine {
     private static final AutoBattleEngine INSTANCE = new AutoBattleEngine();
@@ -895,25 +895,30 @@ public class AutoBattleEngine {
     }
 
     /**
-     * ROAMING priority: boss (kill) > uncaught non-boss (capture) > uncaught legendary (capture) > caught legendary (kill) > whitelisted (kill).
+     * ROAMING priority: boss (kill) > uncaught non-boss (capture) > uncaught legendary in legendaryKillWhitelist (kill) > uncaught legendary (capture) > caught legendary in whitelist (kill) > caught legendary not in whitelist (recapture) > whitelisted (kill).
      * Bosses are ALWAYS targeted for kill (they cannot be captured in Cobblemon).
      * Non-boss uncaught Pokemon are targeted for capture when canCapture is true.
-     * Uncaught legendaries are always targeted for capture (even when canCapture is false) so wild legendaries are never skipped.
+     * Uncaught legendaries in legendaryKillWhitelist are killed; other uncaught legendaries are captured.
+     * Caught legendaries in battleTargetWhitelist are killed; caught legendaries not in the whitelist are recaptured.
      */
     private Entity findRoamingTarget(java.util.List<Entity> sortedCandidates, java.util.List<String> whitelist) {
         boolean canCapture = AutoQiqiClient.canRoamCapture();
+        java.util.List<String> legendaryKillList = AutoQiqiConfig.get().legendaryKillWhitelist;
         Entity bestUncaught = null;
         Entity bestUncaughtLegendary = null;
+        Entity bestUncaughtLegendaryKill = null;  // uncaught legendary in legendaryKillWhitelist
         Entity bestBoss = null;
         Entity bestWhitelisted = null;
-        Entity bestCaughtLegendary = null;
-        int uncaughtCount = 0, bossCount = 0, whitelistedCount = 0, caughtCount = 0, caughtLegCount = 0;
+        Entity bestCaughtLegendaryKill = null;   // caught legendary in whitelist
+        Entity bestCaughtLegendaryRecapture = null;  // caught legendary not in whitelist
+        int uncaughtCount = 0, bossCount = 0, whitelistedCount = 0, caughtCount = 0, caughtLegKillCount = 0, caughtLegRecapCount = 0, uncaughtLegKillCount = 0;
 
         for (Entity e : sortedCandidates) {
             boolean uncaught = !PokemonScanner.isSpeciesCaught(e);
             boolean boss = PokemonScanner.isBoss(e);
             boolean whitelisted = isWhitelisted(e, whitelist);
             boolean legendary = PokemonScanner.isLegendary(e);
+            boolean inLegendaryKillList = isInLegendaryKillWhitelist(e, legendaryKillList);
 
             if (uncaught) uncaughtCount++;
             else caughtCount++;
@@ -926,12 +931,22 @@ public class AutoBattleEngine {
             if (canCapture && uncaught && !boss && bestUncaught == null) {
                 bestUncaught = e;
             }
-            if (uncaught && !boss && legendary && bestUncaughtLegendary == null) {
-                bestUncaughtLegendary = e;
+            if (uncaught && !boss && legendary) {
+                if (inLegendaryKillList && bestUncaughtLegendaryKill == null) {
+                    uncaughtLegKillCount++;
+                    bestUncaughtLegendaryKill = e;
+                } else if (!inLegendaryKillList && bestUncaughtLegendary == null) {
+                    bestUncaughtLegendary = e;
+                }
             }
-            if (!uncaught && legendary && bestCaughtLegendary == null) {
-                caughtLegCount++;
-                bestCaughtLegendary = e;
+            if (!uncaught && legendary) {
+                if (whitelisted && bestCaughtLegendaryKill == null) {
+                    caughtLegKillCount++;
+                    bestCaughtLegendaryKill = e;
+                } else if (!whitelisted && bestCaughtLegendaryRecapture == null) {
+                    caughtLegRecapCount++;
+                    bestCaughtLegendaryRecapture = e;
+                }
             }
             if (whitelisted && bestWhitelisted == null && !uncaught) {
                 bestWhitelisted = e;
@@ -944,7 +959,8 @@ public class AutoBattleEngine {
         AutoQiqiClient.log("Battle", "Roaming scan: " + sortedCandidates.size() + " candidates"
                 + " (uncaught=" + uncaughtCount + " caught=" + caughtCount
                 + " boss=" + bossCount + " whitelisted=" + whitelistedCount
-                + " caughtLeg=" + caughtLegCount
+                + " uncaughtLegKill=" + uncaughtLegKillCount
+                + " caughtLegKill=" + caughtLegKillCount + " caughtLegRecap=" + caughtLegRecapCount
                 + " canCapture=" + canCapture + ")");
 
         if (bestBoss != null) {
@@ -957,15 +973,25 @@ public class AutoBattleEngine {
             AutoQiqiClient.log("Battle", "Roaming: -> uncaught (capture) " + PokemonScanner.getDisplayInfo(bestUncaught));
             return bestUncaught;
         }
+        if (bestUncaughtLegendaryKill != null) {
+            targetForCapture = false;
+            AutoQiqiClient.log("Battle", "Roaming: -> uncaught legendary in kill whitelist (kill) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendaryKill));
+            return bestUncaughtLegendaryKill;
+        }
         if (bestUncaughtLegendary != null) {
             targetForCapture = true;
             AutoQiqiClient.log("Battle", "Roaming: -> uncaught legendary (capture) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
             return bestUncaughtLegendary;
         }
-        if (bestCaughtLegendary != null) {
+        if (bestCaughtLegendaryKill != null) {
             targetForCapture = false;
-            AutoQiqiClient.log("Battle", "Roaming: -> caught legendary (kill) " + PokemonScanner.getDisplayInfo(bestCaughtLegendary));
-            return bestCaughtLegendary;
+            AutoQiqiClient.log("Battle", "Roaming: -> caught legendary in whitelist (kill) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryKill));
+            return bestCaughtLegendaryKill;
+        }
+        if (bestCaughtLegendaryRecapture != null) {
+            targetForCapture = true;
+            AutoQiqiClient.log("Battle", "Roaming: -> caught legendary not in whitelist (recapture) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryRecapture));
+            return bestCaughtLegendaryRecapture;
         }
         if (bestWhitelisted != null) {
             targetForCapture = false;
@@ -981,6 +1007,15 @@ public class AutoBattleEngine {
         if (whitelist == null || whitelist.isEmpty()) return false;
         String name = PokemonScanner.getPokemonName(entity).toLowerCase();
         for (String entry : whitelist) {
+            if (name.contains(entry.toLowerCase())) return true;
+        }
+        return false;
+    }
+
+    private boolean isInLegendaryKillWhitelist(Entity entity, java.util.List<String> legendaryKillWhitelist) {
+        if (legendaryKillWhitelist == null || legendaryKillWhitelist.isEmpty()) return false;
+        String name = PokemonScanner.getPokemonName(entity).toLowerCase();
+        for (String entry : legendaryKillWhitelist) {
             if (name.contains(entry.toLowerCase())) return true;
         }
         return false;

@@ -61,6 +61,13 @@ public class AutoQiqiConfig {
             "Lugia", "Kyogre", "Latios", "Dialga", "Palkia", "Zekrom", "Kyurem", "Yveltal", "Nécrozma"
     ));
 
+    /** Legendaries in this list are always targeted for kill (never capture), even when uncaught. Used in ROAMING and when a legendary spawns near the player. Names match game language; comparison is case-insensitive. */
+    public List<String> legendaryKillWhitelist = new ArrayList<>(List.of(
+            "Yveltal", "Groudon", "Koraidon", "Heatran", "Kyurem", "Genesect", "Registeel",
+            "Ogerpon", "Tokopiyon", "Amovénus", "Boréas", "Kyogre", "Giratina", "Pêchaminus",
+            "Regieleki", "Terrakium", "Rayquaza"
+    ));
+
     public List<String> worldNames = new ArrayList<>(List.of(
             "Monde Construction (Lune)",
             "Monde Construction (Soleil)",
