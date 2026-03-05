@@ -47,7 +47,7 @@ public class AutoBattleEngine {
     private static final AutoBattleEngine INSTANCE = new AutoBattleEngine();
 
     private static final double SCAN_RANGE = 24.0;
-    private static final double ENGAGE_RANGE = 6.0;
+    private static final double ENGAGE_RANGE = 4.0;
     private static final int SCAN_INTERVAL = 10;
     private static final int POST_BATTLE_COOLDOWN = 80;
     private static final int ENGAGE_COOLDOWN = 60;
@@ -108,6 +108,10 @@ public class AutoBattleEngine {
     private int bossEngageRetries = 0;
     private static final int MAX_BOSS_ENGAGE_RETRIES = 5;
     private long globalTickCounter = 0;
+
+    // Berserk engage timeout: skip target if we can't reach it within 5 seconds
+    private int berserkEngageTicks = 0;
+    private static final int BERSERK_ENGAGE_TIMEOUT = 100; // 5 seconds at 20 tps
 
     // Grace period after mode switch (prevents intermediate modes from starting battles while user cycles K)
     private int modeSwitchGraceTicks = 0;
@@ -219,6 +223,7 @@ public class AutoBattleEngine {
         lootTarget = null;
         lootTicks = 0;
         lastEngagedEntityId = -1;
+        berserkEngageTicks = 0;
         engageBlacklist.clear();
     }
 
@@ -619,6 +624,7 @@ public class AutoBattleEngine {
 
             String action = targetForCapture ? "capture" : "fight";
             lastTargetName = PokemonScanner.getDisplayInfo(target);
+            berserkEngageTicks = 0;
             AutoQiqiClient.log("Battle", "Target acquired: " + lastTargetName
                     + " (action=" + action + ")");
         }
@@ -632,6 +638,7 @@ public class AutoBattleEngine {
 
         if (dist <= ENGAGE_RANGE) {
             if (walking) stopWalking();
+            berserkEngageTicks = 0;
 
             if (targetForCapture) {
                 MovementHelper.stopStrafe(client);
@@ -689,6 +696,22 @@ public class AutoBattleEngine {
             aimTicks = 0;
             keySimulated = false;
             losStrafeTicks = 0;
+
+            if (mode == BattleMode.BERSERK) {
+                berserkEngageTicks++;
+                if (berserkEngageTicks >= BERSERK_ENGAGE_TIMEOUT) {
+                    AutoQiqiClient.log("Battle", "Berserk engage timeout (" + (BERSERK_ENGAGE_TIMEOUT / 20)
+                            + "s) — skipping " + PokemonScanner.getDisplayInfo(target));
+                    engageBlacklist.put(target.getId(), Long.MAX_VALUE);
+                    if (walking) stopWalking();
+                    target = null;
+                    targetForCapture = false;
+                    berserkEngageTicks = 0;
+                    scanTimer = 0;
+                    return;
+                }
+            }
+
             walkToward(client, player, target);
         }
         } finally {

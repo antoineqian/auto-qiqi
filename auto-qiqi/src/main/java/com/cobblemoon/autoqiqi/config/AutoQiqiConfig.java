@@ -35,8 +35,8 @@ public class AutoQiqiConfig {
     public double battleSwitchChance = 0.0;
     public int battleHealEveryN = 3;
     public int postBattlePartyUpPresses = 1;
-    /** In Berserk mode: scan radius (blocks) for finding wild Pokemon to fight. Default 24. */
-    public double berserkScanRange = 24.0;
+    /** In Berserk mode: scan radius (blocks) for finding wild Pokemon to fight. Default 12. */
+    public double berserkScanRange = 12.0;
     public List<String> battleTargetWhitelist = new ArrayList<>(List.of(
             "Combee", "Vespiquen", "Cutiefly", "Ribombee"
     ));
