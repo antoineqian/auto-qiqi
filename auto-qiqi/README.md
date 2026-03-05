@@ -168,12 +168,14 @@ Defined in `auto-qiqi.mixins.json`; package `com.cobblemoon.autoqiqi.mixin`. The
 
 ## 6. Logs & paths
 
+Paths are under the game dir. **Log folders:** `logs/` (game stdout), `auto-qiqi/` (session log and session stats).
+
 - **Game log (stdout):** `logs/latest.log`. All `AutoQiqiClient.log("Module", "message")` appear as `[Auto-Qiqi/Module] message`. Rotated on each launch.
 - **Session log:** `auto-qiqi/session-YYYY-MM-DD.log` — timestamped events (CAPTURE, KILL, WORLD_SWITCH, etc.). Primary for reviewing AFK sessions.
 - **Session stats:** `auto-qiqi/session-stats.json` — counters and lists; read on launch for recap, then reset.
 - **Config:** `config/auto-qiqi.json`.
 
-Paths are under the game dir (Modrinth profile: `~/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/`).
+Example full path (Modrinth profile): `~/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/` — so logs live in `.../profiles/Cobblemoon1.1.8/logs/` and `.../profiles/Cobblemoon1.1.8/auto-qiqi/`.
 
 ---
 
