@@ -320,12 +320,14 @@ public class AutoBattleEngine {
      * and move camera shortly before timer expiry to disable AFK and become eligible for legendary spawn.
      * Runs in addition to normal roaming: the same tick still does findTarget/engage/capture for uncaught;
      * when we return from a capture we resume sending /afk (go back into AFK mode).
+     *
+     * IMPORTANT: /afk is suppressed when the timer is within the camera threshold so that the
+     * camera-move un-AFK is not immediately undone. /afk resumes once the timer resets (new cycle).
      */
     private void tickRoamingNextlegAfk(MinecraftClient client, ClientPlayerEntity player) {
         AutoQiqiConfig config = AutoQiqiConfig.get();
         if (!AutoQiqiClient.isConnected(client)) return;
 
-        // Just returned from a capture: resume AFK by sending /afk again on next opportunity
         if (wasCaptureActiveLastTick) {
             lastAfkSentTick = 0;
             AutoQiqiClient.log("Battle", "Roaming: returned from capture, resuming AFK mode");
@@ -336,7 +338,10 @@ public class AutoBattleEngine {
         int afkIntervalTicks = Math.max(20, config.roamingAfkIntervalSeconds * 20);
         int cameraThresholdSec = Math.max(1, config.roamingCameraMoveSecondsBefore);
 
-        // 1) Poll /nextleg at most every pollIntervalTicks (avoids infinite command spam on connect when timer unknown)
+        long remaining = tracker.getGlobalRemainingSeconds();
+        boolean timerImminent = remaining >= 0 && remaining <= cameraThresholdSec;
+
+        // 1) Poll /nextleg
         boolean pollCooldownElapsed = lastNextlegPollTick == 0 || (globalTickCounter - lastNextlegPollTick) >= pollIntervalTicks;
         boolean sentNextleg = false;
         if (pollCooldownElapsed) {
@@ -346,35 +351,39 @@ public class AutoBattleEngine {
                 ChatMessageHandler.get().setPendingPollGlobal();
                 lastNextlegPollTick = globalTickCounter;
                 sentNextleg = true;
-                AutoQiqiClient.log("Battle", "Roaming: sent /nextleg for global timer");
+                AutoQiqiClient.log("Battle", "Roaming: sent /nextleg (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
             } catch (Exception e) {
                 AutoQiqiClient.log("Battle", "Roaming: /nextleg failed: " + e.getMessage());
             }
         }
 
-        // 2) Send /afk periodically (skip same tick as /nextleg to avoid command spam)
-        if (!sentNextleg && (lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks)) {
-            String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
-            try {
-                player.networkHandler.sendChatCommand(afkCmd);
-                lastAfkSentTick = globalTickCounter;
-                AutoQiqiClient.log("Battle", "Roaming: sent " + config.roamingAfkCommand);
-            } catch (Exception e) {
-                AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
+        // 2) Send /afk periodically — but NOT when timer is imminent (camera already un-AFKed us)
+        boolean afkCooldownElapsed = lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks;
+        if (!sentNextleg && afkCooldownElapsed) {
+            if (timerImminent) {
+                AutoQiqiClient.log("Battle", "Roaming: /afk SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
+            } else {
+                String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
+                try {
+                    player.networkHandler.sendChatCommand(afkCmd);
+                    lastAfkSentTick = globalTickCounter;
+                    AutoQiqiClient.log("Battle", "Roaming: sent /afk (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
+                } catch (Exception e) {
+                    AutoQiqiClient.log("Battle", "Roaming: /afk failed: " + e.getMessage());
+                }
             }
         }
 
-        // 3) When timer is within threshold, move camera once to disable AFK and stay eligible for spawn
-        long remaining = tracker.getGlobalRemainingSeconds();
+        // 3) Camera move to disable AFK before spawn
         if (remaining > cameraThresholdSec) {
             roamingCameraMoveDone = false;
-        } else if (remaining >= 0 && remaining <= cameraThresholdSec && !roamingCameraMoveDone) {
+        } else if (timerImminent && !roamingCameraMoveDone) {
             float yaw = player.getYaw();
             float pitch = player.getPitch();
             player.setYaw(yaw + 8.0f);
             player.setPitch(net.minecraft.util.math.MathHelper.clamp(pitch + 4.0f, -90.0f, 90.0f));
             roamingCameraMoveDone = true;
-            AutoQiqiClient.log("Battle", "Roaming: camera moved (timer " + remaining + "s left) to disable AFK for legendary eligibility");
+            AutoQiqiClient.log("Battle", "Roaming: CAMERA MOVED (timer=" + remaining + "s) — un-AFK for legendary eligibility, /afk suppressed until timer resets");
         }
     }
 
@@ -1133,6 +1142,10 @@ public class AutoBattleEngine {
     }
 
     private void walkToward(MinecraftClient client, ClientPlayerEntity player, Entity target) {
+        if (!walking) {
+            String name = PokemonScanner.getPokemonName(target);
+            AutoQiqiClient.log("Battle", "MOVE: walking toward " + name + " (dist=" + String.format("%.1f", player.distanceTo(target)) + ")");
+        }
         walking = true;
         MovementHelper.lookAtEntity(player, target, WALK_YAW_SPEED, WALK_PITCH_SPEED);
 
@@ -1149,6 +1162,9 @@ public class AutoBattleEngine {
     }
 
     private void stopWalking() {
+        if (walking) {
+            AutoQiqiClient.log("Battle", "MOVE: stopped walking");
+        }
         walking = false;
         MovementHelper.releaseMovementKeys(MinecraftClient.getInstance());
     }
