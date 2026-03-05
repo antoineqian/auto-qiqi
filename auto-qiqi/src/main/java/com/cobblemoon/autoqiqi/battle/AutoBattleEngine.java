@@ -9,6 +9,8 @@ import com.cobblemoon.autoqiqi.fish.AutofishEngine;
 import com.cobblemoon.autoqiqi.legendary.AutoSwitchEngine;
 import com.cobblemoon.autoqiqi.legendary.ChatMessageHandler;
 import com.cobblemoon.autoqiqi.legendary.PokemonWalker;
+import com.cobblemoon.autoqiqi.legendary.WorldTracker;
+import com.cobblemon.mod.common.client.CobblemonClient;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -118,6 +120,13 @@ public class AutoBattleEngine {
     private boolean lastFightWasBoss = false;
     private String lastTargetName = "Unknown";
 
+    // Roaming nextleg/afk: single timer from /nextleg, /afk for points, camera move before expiry
+    private long lastNextlegPollTick = 0;
+    private long lastAfkSentTick = 0;
+    private boolean roamingCameraMoveDone = false;
+    /** True when capture was active last tick; used to resume /afk right after returning from a capture. */
+    private boolean wasCaptureActiveLastTick = false;
+
     private AutoBattleEngine() {}
 
     public static AutoBattleEngine get() { return INSTANCE; }
@@ -129,6 +138,11 @@ public class AutoBattleEngine {
         if (this.mode != mode) {
             AutoQiqiClient.log("Battle", "Mode changed: " + this.mode + " -> " + mode);
             modeSwitchGraceTicks = MODE_SWITCH_GRACE;
+            if (mode == BattleMode.ROAMING) {
+                lastNextlegPollTick = 0;
+                lastAfkSentTick = 0;
+                roamingCameraMoveDone = false;
+            }
             if (mode != BattleMode.OFF && this.mode == BattleMode.OFF) {
                 sessionBossKills = 0;
                 sessionPokemonKills = 0;
@@ -296,6 +310,69 @@ public class AutoBattleEngine {
         cooldown = POST_BATTLE_COOLDOWN;
     }
 
+    /**
+     * Roaming nextleg flow: poll /nextleg for single global timer, send /afk for points,
+     * and move camera shortly before timer expiry to disable AFK and become eligible for legendary spawn.
+     * Runs in addition to normal roaming: the same tick still does findTarget/engage/capture for uncaught;
+     * when we return from a capture we resume sending /afk (go back into AFK mode).
+     */
+    private void tickRoamingNextlegAfk(MinecraftClient client, ClientPlayerEntity player) {
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (!AutoQiqiClient.isConnected(client)) return;
+
+        // Just returned from a capture: resume AFK by sending /afk again on next opportunity
+        if (wasCaptureActiveLastTick) {
+            lastAfkSentTick = 0;
+            AutoQiqiClient.log("Battle", "Roaming: returned from capture, resuming AFK mode");
+        }
+
+        WorldTracker tracker = WorldTracker.get();
+        int pollIntervalTicks = Math.max(20, config.roamingNextlegPollIntervalSeconds * 20);
+        int afkIntervalTicks = Math.max(20, config.roamingAfkIntervalSeconds * 20);
+        int cameraThresholdSec = Math.max(1, config.roamingCameraMoveSecondsBefore);
+
+        // 1) Poll /nextleg at most every pollIntervalTicks (avoids infinite command spam on connect when timer unknown)
+        boolean pollCooldownElapsed = lastNextlegPollTick == 0 || (globalTickCounter - lastNextlegPollTick) >= pollIntervalTicks;
+        boolean sentNextleg = false;
+        if (pollCooldownElapsed) {
+            String cmd = config.nextlegCommand.startsWith("/") ? config.nextlegCommand.substring(1) : config.nextlegCommand;
+            try {
+                player.networkHandler.sendChatCommand(cmd);
+                ChatMessageHandler.get().setPendingPollGlobal();
+                lastNextlegPollTick = globalTickCounter;
+                sentNextleg = true;
+                AutoQiqiClient.log("Battle", "Roaming: sent /nextleg for global timer");
+            } catch (Exception e) {
+                AutoQiqiClient.log("Battle", "Roaming: /nextleg failed: " + e.getMessage());
+            }
+        }
+
+        // 2) Send /afk periodically (skip same tick as /nextleg to avoid command spam)
+        if (!sentNextleg && (lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks)) {
+            String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
+            try {
+                player.networkHandler.sendChatCommand(afkCmd);
+                lastAfkSentTick = globalTickCounter;
+                AutoQiqiClient.log("Battle", "Roaming: sent " + config.roamingAfkCommand);
+            } catch (Exception e) {
+                AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
+            }
+        }
+
+        // 3) When timer is within threshold, move camera once to disable AFK and stay eligible for spawn
+        long remaining = tracker.getGlobalRemainingSeconds();
+        if (remaining > cameraThresholdSec) {
+            roamingCameraMoveDone = false;
+        } else if (remaining >= 0 && remaining <= cameraThresholdSec && !roamingCameraMoveDone) {
+            float yaw = player.getYaw();
+            float pitch = player.getPitch();
+            player.setYaw(yaw + 8.0f);
+            player.setPitch(net.minecraft.util.math.MathHelper.clamp(pitch + 4.0f, -90.0f, 90.0f));
+            roamingCameraMoveDone = true;
+            AutoQiqiClient.log("Battle", "Roaming: camera moved (timer " + remaining + "s left) to disable AFK for legendary eligibility");
+        }
+    }
+
     private Entity findNearbyLoot(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) return null;
         Entity closest = null;
@@ -368,6 +445,7 @@ public class AutoBattleEngine {
     }
 
     public void tick() {
+        try {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
 
@@ -491,6 +569,13 @@ public class AutoBattleEngine {
 
         if (mode == BattleMode.TRAINER) return;
 
+        // Roaming: single timer from /nextleg, /afk for points, camera move before expiry to stay eligible for legendary.
+        // This runs in addition to normal roaming: we still scan for uncaught, capture them, then resume AFK (see tickRoamingNextlegAfk).
+        if (mode == BattleMode.ROAMING && AutoQiqiConfig.get().roamingNextlegAfkEnabled
+                && CobblemonClient.INSTANCE.getBattle() == null && !CaptureEngine.get().isActive()) {
+            tickRoamingNextlegAfk(client, player);
+        }
+
         if (target != null && (!target.isAlive() || target.isRemoved())) {
             target = null;
             targetForCapture = false;
@@ -605,6 +690,9 @@ public class AutoBattleEngine {
             keySimulated = false;
             losStrafeTicks = 0;
             walkToward(client, player, target);
+        }
+        } finally {
+        wasCaptureActiveLastTick = CaptureEngine.get().isActive();
         }
     }
 

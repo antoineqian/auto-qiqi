@@ -55,6 +55,17 @@ public class AutoQiqiConfig {
     public String nextlegCommand = "/nextleg";
     public String mondeCommand = "/monde";
 
+    /** In ROAMING: poll /nextleg for single global timer, send /afk, move camera before expiry to stay eligible for legendary spawn. */
+    public boolean roamingNextlegAfkEnabled = true;
+    /** Command to gain AFK points in roaming (e.g. /afk). */
+    public String roamingAfkCommand = "/afk";
+    /** Seconds between /afk sends in roaming. */
+    public int roamingAfkIntervalSeconds = 60;
+    /** Seconds between /nextleg polls in roaming when using single global timer. */
+    public int roamingNextlegPollIntervalSeconds = 60;
+    /** Move camera this many seconds before timer expiry to disable AFK and become eligible for legendary spawn. */
+    public int roamingCameraMoveSecondsBefore = 30;
+
     /** Legendary Pokemon in this list get one Master Ball after 5 Ultra Balls (and after False Swipe/Thunder Wave setup). If Master Ball is not in hotbar, Ultra Balls continue. Empty = no Master Ball. Names must match the game language; comparison is case-insensitive. */
     public List<String> legendaryCaptureWhitelist = new ArrayList<>(List.of(
             "Mewtwo", "Rayquaza", "Groudon", "Ethernatos", "Giratina", "Koraidon", "Miraidon",
@@ -128,6 +139,8 @@ public class AutoQiqiConfig {
     public String reconnectButtonText = "Rejoindre";
     /** Button text to click to leave the disconnect/error screen (FR: "Retour à la liste des serveurs", EN: "Back to server list"). */
     public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
+    /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). Same idea as legendary homeWorlds. */
+    public String reconnectHome = "end";
 
     // ========================
     // Mining (Nether Gold Ore)

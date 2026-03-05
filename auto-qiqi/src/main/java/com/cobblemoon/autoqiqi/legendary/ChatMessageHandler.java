@@ -39,6 +39,9 @@ public class ChatMessageHandler {
     private long pendingPollTimestamp = 0;
     private static final long POLL_TIMEOUT_MS = 25000; // 25s — server can be slow (dimension load, randomized time)
 
+    /** When true, next timer parse updates the global (single) timer instead of a world. */
+    private boolean pendingPollGlobal = false;
+
     private boolean suppressNextChatMessages = false;
     private long suppressUntil = 0;
 
@@ -72,6 +75,15 @@ public class ChatMessageHandler {
     public void setPendingPoll(String worldName) {
         AutoQiqiClient.log("Chat", "setPendingPoll: waiting for timer response for '" + worldName + "'");
         this.pendingPollWorld = worldName;
+        this.pendingPollGlobal = false;
+        this.pendingPollTimestamp = System.currentTimeMillis();
+    }
+
+    /** Wait for the next timer message and apply it to the global (single) timer. */
+    public void setPendingPollGlobal() {
+        AutoQiqiClient.log("Chat", "setPendingPollGlobal: waiting for global timer response");
+        this.pendingPollWorld = null;
+        this.pendingPollGlobal = true;
         this.pendingPollTimestamp = System.currentTimeMillis();
     }
 
@@ -138,6 +150,18 @@ public class ChatMessageHandler {
             String currentWorld = mondeMatcher.group(1).toLowerCase();
             WorldTracker.get().setCurrentWorld(currentWorld);
             AutoQiqiClient.log("Legendary", "Detected current world: " + currentWorld);
+        }
+
+        if (pendingPollGlobal
+                && (System.currentTimeMillis() - pendingPollTimestamp) < POLL_TIMEOUT_MS) {
+            Long seconds = tryParseTimer(stripped);
+            if (seconds != null) {
+                WorldTracker.get().updateGlobalTimer(seconds);
+                long waitMs = System.currentTimeMillis() - pendingPollTimestamp;
+                AutoQiqiClient.log("Chat", "Global timer parsed: " + seconds + "s (response took " + waitMs + "ms)");
+                pendingPollGlobal = false;
+                return isSuppressing();
+            }
         }
 
         if (pendingPollWorld != null

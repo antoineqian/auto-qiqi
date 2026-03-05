@@ -13,8 +13,14 @@ import java.util.Map;
 public class WorldTracker {
     private static final WorldTracker INSTANCE = new WorldTracker();
 
+    /** Synthetic key for the single global timer (no world hop). Used when the server has one timer for all. */
+    public static final String GLOBAL_TIMER_KEY = "__global__";
+
     private final Map<String, WorldTimerData> worldTimers = new LinkedHashMap<>();
     private String currentWorld = null;
+
+    /** Single global timer from /nextleg when world does not matter (nextleg system). */
+    private final WorldTimerData globalTimer = new WorldTimerData(GLOBAL_TIMER_KEY);
 
     private WorldTracker() {}
 
@@ -58,6 +64,23 @@ public class WorldTracker {
         } else {
             AutoQiqiClient.log("WorldTracker", "Timer update IGNORED: no entry for '" + worldName + "' (resolved: '" + resolved + "')");
         }
+    }
+
+    /** Updates the single global timer (from /nextleg when world does not matter). */
+    public void updateGlobalTimer(long remainingSeconds) {
+        long oldRemaining = globalTimer.isTimerKnown() ? globalTimer.getEstimatedRemainingSeconds() : -1;
+        globalTimer.updateTimer(remainingSeconds);
+        AutoQiqiClient.log("WorldTracker", "Global timer: " + oldRemaining + "s -> " + remainingSeconds + "s"
+                + (remainingSeconds <= 0 ? " [EVENT/EXPIRED]" : ""));
+    }
+
+    public WorldTimerData getGlobalTimer() {
+        return globalTimer;
+    }
+
+    /** Soonest remaining seconds for the global timer; -1 if unknown. */
+    public long getGlobalRemainingSeconds() {
+        return globalTimer.getEstimatedRemainingSeconds();
     }
 
     public void setEventActive(String worldName, boolean active) {
