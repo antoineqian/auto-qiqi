@@ -199,6 +199,19 @@ public class AutoSwitchEngine {
             return;
         }
 
+        // If we entered battle while in a switch flow, abort so we never teleport mid-fight.
+        if (r.state != LegendaryRunState.State.IDLE && r.state != LegendaryRunState.State.PAUSED_FOR_CAPTURE
+                && isInBattle()) {
+            AutoQiqiClient.log("Legendary", "In battle during " + r.state + " — aborting to IDLE (no teleport)");
+            GuiWorldSwitcher.get().cancelPending();
+            r.pendingCommand = null;
+            r.pendingHomeWorld = null;
+            r.isHomeTeleport = false;
+            setState(r, LegendaryRunState.State.IDLE, "in battle");
+            r.stateEnteredTick = tickCount;
+            return;
+        }
+
         tickPendingCommand(client, r);
         if (r.pendingCommand != null) return;
 
@@ -752,6 +765,14 @@ public class AutoSwitchEngine {
             if (client.player == null || !AutoQiqiClient.isConnected(client)) {
                 r.commandExecuteAtTick = tickCount + 40;
                 AutoQiqiClient.log("Legendary", "Command deferred (no connection), retry in 2s: '" + r.pendingCommand + "'");
+                return;
+            }
+            if (isInBattle()) {
+                AutoQiqiClient.log("Legendary", "Command cancelled (in battle): '" + r.pendingCommand + "' — no teleport");
+                r.pendingCommand = null;
+                GuiWorldSwitcher.get().cancelPending();
+                setState(r, LegendaryRunState.State.IDLE, "in battle before command");
+                r.stateEnteredTick = tickCount;
                 return;
             }
             String cmd = r.pendingCommand;

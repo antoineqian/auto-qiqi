@@ -11,14 +11,16 @@ public final class CaptureStrategy {
     private static final int MAX_SWITCH_ATTEMPTS = 3;
     private static final int THUNDER_WAVE_REAPPLY_EVERY_BALLS = 8;
     private static final int LEGENDARY_LEVEL_THRESHOLD = 50;
+    /** Level above which we apply status (Hypnosis/Thunder Wave). Use status when target level > 40. */
+    private static final int STATUS_LEVEL_THRESHOLD = 41;
     private static final int LEGENDARY_GIVE_UP_AFTER_THROWS = 20;
 
     private CaptureStrategy() {}
 
-    /** Level-dependent minimum False Swipe count before considering 1HP confirmed. */
+    /** Level-dependent minimum False Swipe count before considering 1HP confirmed (one less than previous formula). */
     public static int getMinFalseSwipes(int level) {
         if (level < 30) return 1;
-        return Math.max(1, (level - 10) / 10);
+        return Math.max(1, (level - 20) / 10);
     }
 
     /**
@@ -108,7 +110,7 @@ public final class CaptureStrategy {
         }
 
         // --- Need Thunder Wave (Lv50+, before first ball or every 8 balls)
-        boolean needTWave = session.targetLevel() >= LEGENDARY_LEVEL_THRESHOLD
+        boolean needTWave = session.targetLevel() >= STATUS_LEVEL_THRESHOLD
             && (!thunderWaveApplied || ballsSinceLastTWave >= THUNDER_WAVE_REAPPLY_EVERY_BALLS);
         if (needTWave) {
             if (!hasThunderWave && !switchBlocked) {

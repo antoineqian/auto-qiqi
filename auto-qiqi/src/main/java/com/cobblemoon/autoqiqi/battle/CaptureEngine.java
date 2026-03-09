@@ -121,7 +121,7 @@ public class CaptureEngine {
             new BallEntry("ultra_ball", Integer.MAX_VALUE),
     };
     /** After this many Ultra Balls, whitelisted legendaries get one Master Ball (if in hotbar). */
-    private static final int ULTRA_BALLS_BEFORE_MASTER_WHITELIST = 5;
+    private static final int ULTRA_BALLS_BEFORE_MASTER_WHITELIST = 0;
     private static final int LEGENDARY_LEVEL_THRESHOLD = 70;
 
     private CaptureEngine() {}
@@ -165,8 +165,14 @@ public class CaptureEngine {
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logBattleStart(name, level, "capture");
     }
 
-    public void stop() {
+    /** Stops the capture session. If logToSession is true, writes CAPTURE_FAIL to the session log (e.g. "stopped manually"). */
+    public void stop(boolean logToSession) {
         if (session != null) {
+            if (logToSession && session.targetName != null) {
+                SessionLogger.get().logCaptureFailed(
+                        session.targetName, session.targetLevel, session.targetIsLegendary,
+                        session.totalBallsThrown, "stopped manually");
+            }
             AutoQiqiClient.log("Capture", "Stopped");
             PokemonWalker.get().stop();
             MinecraftClient client = MinecraftClient.getInstance();
@@ -180,6 +186,10 @@ public class CaptureEngine {
             }
             session = null;
         }
+    }
+
+    public void stop() {
+        stop(true);
     }
 
     /** Records that a capture failed (Pokemon escaped). Blocks re-capture for failedCaptureCooldownSeconds. */
@@ -371,6 +381,7 @@ public class CaptureEngine {
                 s.phase = Phase.IN_BATTLE;
                 s.statusMessage = "In battle - " + s.targetName;
                 AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (battle screen detected)");
+                SessionLogger.get().logEvent("BATTLE", "Engaged: " + s.targetName + " Lv." + s.targetLevel);
                 s.aimTicks = 0;
                 s.keySent = false;
             }
@@ -384,6 +395,7 @@ public class CaptureEngine {
             s.phase = Phase.IN_BATTLE;
             s.statusMessage = "In battle - " + s.targetName;
             AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
+            SessionLogger.get().logEvent("BATTLE", "Engaged: " + s.targetName + " Lv." + s.targetLevel);
             s.aimTicks = 0;
             s.keySent = false;
             return;
@@ -839,9 +851,7 @@ public class CaptureEngine {
                 AutoQiqiClient.log("Capture", "Too many misses (" + MAX_MISSES + "), switching to kill");
                 String target = s.targetName != null ? s.targetName : "Pokemon";
                 SessionLogger.get().logCaptureFailed(target, s.targetLevel, s.targetIsLegendary, s.totalBallsThrown, "too many misses (" + MAX_MISSES + "), switching to kill");
-                client.player.sendMessage(
-                        Text.literal("§6[Capture]§r §cTrop de balls ratees (" + MAX_MISSES + "). Abandon capture — passage en combat pour tuer §e" + target + "§c."), false);
-                stop();
+                stop(false);
                 return;
             }
 
@@ -1127,7 +1137,7 @@ public class CaptureEngine {
                         Text.literal("§6[Capture]§r §c" + s.totalBallsThrown + " balls, abandon capture — passage en combat pour tuer §e" + s.targetName + "§c."), false);
             }
             SessionLogger.get().logCaptureFailed(s.targetName, s.targetLevel, true, s.totalBallsThrown, "gave up after " + s.totalBallsThrown + " balls");
-            stop();
+            stop(false);
             return GeneralChoice.FIGHT;
         }
 

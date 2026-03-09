@@ -113,6 +113,10 @@ public class AutoBattleEngine {
     private int berserkEngageTicks = 0;
     private static final int BERSERK_ENGAGE_TIMEOUT = 100; // 5 seconds at 20 tps
 
+    // Roaming engage timeout: abort if we can't reach target within 30 seconds
+    private int roamingEngageTicks = 0;
+    private static final int ROAMING_ENGAGE_TIMEOUT = 600; // 30 seconds at 20 tps
+
     // Grace period after mode switch (prevents intermediate modes from starting battles while user cycles K)
     private int modeSwitchGraceTicks = 0;
     private static final int MODE_SWITCH_GRACE = 15; // ~0.75s
@@ -130,6 +134,9 @@ public class AutoBattleEngine {
     private boolean roamingCameraMoveDone = false;
     /** True when capture was active last tick; used to resume /afk right after returning from a capture. */
     private boolean wasCaptureActiveLastTick = false;
+    /** Throttle: log at most once per 5 min when nextleg/afk is skipped (battle or capture active). */
+    private long lastRoamingSkipLogTick = 0;
+    private static final int ROAMING_SKIP_LOG_INTERVAL = 6000; // 5 min
 
     private AutoBattleEngine() {}
 
@@ -351,9 +358,9 @@ public class AutoBattleEngine {
                 ChatMessageHandler.get().setPendingPollGlobal();
                 lastNextlegPollTick = globalTickCounter;
                 sentNextleg = true;
-                AutoQiqiClient.log("Battle", "Roaming: sent /nextleg (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
+                AutoQiqiClient.log("Battle", "Roaming: sent " + config.nextlegCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
             } catch (Exception e) {
-                AutoQiqiClient.log("Battle", "Roaming: /nextleg failed: " + e.getMessage());
+                AutoQiqiClient.log("Battle", "Roaming: " + config.nextlegCommand + " failed: " + e.getMessage());
             }
         }
 
@@ -361,15 +368,15 @@ public class AutoBattleEngine {
         boolean afkCooldownElapsed = lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks;
         if (!sentNextleg && afkCooldownElapsed) {
             if (timerImminent) {
-                AutoQiqiClient.log("Battle", "Roaming: /afk SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
+                AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
             } else {
                 String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
                 try {
                     player.networkHandler.sendChatCommand(afkCmd);
                     lastAfkSentTick = globalTickCounter;
-                    AutoQiqiClient.log("Battle", "Roaming: sent /afk (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
+                    AutoQiqiClient.log("Battle", "Roaming: sent " + config.roamingAfkCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
                 } catch (Exception e) {
-                    AutoQiqiClient.log("Battle", "Roaming: /afk failed: " + e.getMessage());
+                    AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
                 }
             }
         }
@@ -585,9 +592,17 @@ public class AutoBattleEngine {
 
         // Roaming: single timer from /nextleg, /afk for points, camera move before expiry to stay eligible for legendary.
         // This runs in addition to normal roaming: we still scan for uncaught, capture them, then resume AFK (see tickRoamingNextlegAfk).
-        if (mode == BattleMode.ROAMING && AutoQiqiConfig.get().roamingNextlegAfkEnabled
-                && CobblemonClient.INSTANCE.getBattle() == null && !CaptureEngine.get().isActive()) {
-            tickRoamingNextlegAfk(client, player);
+        if (mode == BattleMode.ROAMING && AutoQiqiConfig.get().roamingNextlegAfkEnabled) {
+            boolean inBattle = CobblemonClient.INSTANCE.getBattle() != null;
+            boolean captureActive = CaptureEngine.get().isActive();
+            if (!inBattle && !captureActive) {
+                tickRoamingNextlegAfk(client, player);
+            } else {
+                if (globalTickCounter - lastRoamingSkipLogTick >= ROAMING_SKIP_LOG_INTERVAL) {
+                    lastRoamingSkipLogTick = globalTickCounter;
+                    AutoQiqiClient.log("Battle", "Roaming nextleg/afk: skipped (" + (inBattle ? "in battle" : "capture active") + ") — check launcher_log when idle to see /nextleg, /afk, camera move");
+                }
+            }
         }
 
         if (target != null && (!target.isAlive() || target.isRemoved())) {
@@ -634,6 +649,7 @@ public class AutoBattleEngine {
             String action = targetForCapture ? "capture" : "fight";
             lastTargetName = PokemonScanner.getDisplayInfo(target);
             berserkEngageTicks = 0;
+            roamingEngageTicks = 0;
             AutoQiqiClient.log("Battle", "Target acquired: " + lastTargetName
                     + " (action=" + action + ")");
         }
@@ -648,6 +664,7 @@ public class AutoBattleEngine {
         if (dist <= ENGAGE_RANGE) {
             if (walking) stopWalking();
             berserkEngageTicks = 0;
+            roamingEngageTicks = 0;
 
             if (targetForCapture) {
                 MovementHelper.stopStrafe(client);
@@ -716,6 +733,22 @@ public class AutoBattleEngine {
                     target = null;
                     targetForCapture = false;
                     berserkEngageTicks = 0;
+                    scanTimer = 0;
+                    return;
+                }
+            }
+
+            if (mode == BattleMode.ROAMING) {
+                roamingEngageTicks++;
+                if (roamingEngageTicks >= ROAMING_ENGAGE_TIMEOUT) {
+                    AutoQiqiClient.log("Battle", "Roaming engage timeout (" + (ROAMING_ENGAGE_TIMEOUT / 20)
+                            + "s) — cannot reach " + PokemonScanner.getDisplayInfo(target) + ", aborting");
+                    player.sendMessage(Text.literal("§6[Roaming]§r §cImpossible d'atteindre la cible en 30s. Abandon."), false);
+                    engageBlacklist.put(target.getId(), globalTickCounter + BLACKLIST_DURATION_TICKS);
+                    if (walking) stopWalking();
+                    target = null;
+                    targetForCapture = false;
+                    roamingEngageTicks = 0;
                     scanTimer = 0;
                     return;
                 }

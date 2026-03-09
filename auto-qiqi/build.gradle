@@ -83,12 +83,13 @@ jar {
     }
 }
 
+def autoQiqiModsDir = file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/mods")
 tasks.register('deploy', Copy) {
     dependsOn remapJar
     from remapJar.archiveFile
-    into file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.6 (1)/mods")
+    into autoQiqiModsDir
     doFirst {
-        delete fileTree("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.6 (1)/mods") {
+        delete fileTree(autoQiqiModsDir) {
             include "auto-qiqi-*.jar"
         }
     }

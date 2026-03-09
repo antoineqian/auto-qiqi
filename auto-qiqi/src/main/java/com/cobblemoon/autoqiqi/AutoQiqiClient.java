@@ -274,15 +274,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         }
 
         if (toggleLegendaryKey.wasPressed()) {
-            if (AutoSwitchEngine.get().isPaused()) {
-                AutoSwitchEngine.get().resumeFromPause();
-                msg(client, "Reprise ! Capture terminee.");
-            } else {
-                AutoQiqiConfig config = AutoQiqiConfig.get();
-                config.legendaryAutoSwitch = !config.legendaryAutoSwitch;
-                AutoQiqiConfig.save();
-                msg(client, "Legendary Auto-switch: " + (config.legendaryAutoSwitch ? "ON" : "OFF"));
-            }
+            invokeNextlegOneMinuteAction(client);
         }
 
         if (forcePollKey.wasPressed()) {
@@ -317,6 +309,38 @@ public class AutoQiqiClient implements ClientModInitializer {
                 msg(client, "§a[Tower]§r Tour démarrée. Appuyez sur I pour arrêter.");
             } else {
                 msg(client, "§c[Tower]§r Aucun NPC de tour trouvé (Directeur ou combat).");
+            }
+        }
+    }
+
+    /**
+     * Runs when 1 min is left on the nextleg timer: same as pressing J (resume or toggle legendary),
+     * and optionally opens the world menu (e.g. /monde) so the user can switch world.
+     * Does nothing (no toggle, no /monde) while in a Cobblemon battle to avoid teleporting mid-fight.
+     */
+    public static void invokeNextlegOneMinuteAction(MinecraftClient client) {
+        if (com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
+                || CaptureEngine.get().isActive()) {
+            log("Battle", "1-min action skipped (in battle) — no toggle, no /monde");
+            return;
+        }
+        if (AutoSwitchEngine.get().isPaused()) {
+            AutoSwitchEngine.get().resumeFromPause();
+            msg(client, "Reprise ! Capture terminee.");
+        } else {
+            AutoQiqiConfig config = AutoQiqiConfig.get();
+            config.legendaryAutoSwitch = !config.legendaryAutoSwitch;
+            AutoQiqiConfig.save();
+            msg(client, "Legendary Auto-switch: " + (config.legendaryAutoSwitch ? "ON" : "OFF"));
+        }
+        if (client.player != null && AutoQiqiConfig.get().roamingNextlegOpenMondeAt1Min) {
+            String mondeCmd = AutoQiqiConfig.get().mondeCommand;
+            String cmd = mondeCmd.startsWith("/") ? mondeCmd.substring(1) : mondeCmd;
+            try {
+                client.player.networkHandler.sendChatCommand(cmd);
+                log("Battle", "Roaming: sent " + mondeCmd + " (1 min left — open world menu)");
+            } catch (Exception e) {
+                log("Battle", "Roaming: " + mondeCmd + " failed at 1min: " + e.getMessage());
             }
         }
     }
@@ -796,6 +820,15 @@ public class AutoQiqiClient implements ClientModInitializer {
             log("Idle", "DISCONNECTED from server (screen=" + screenName + ")");
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("DISCONNECT",
                     "Disconnected (screen=" + screenName + ")");
+            if (CaptureEngine.get().isActive()) {
+                String name = CaptureEngine.get().getTargetName();
+                if (name != null) {
+                    com.cobblemoon.autoqiqi.common.SessionLogger.get().logCaptureFailed(
+                            name, CaptureEngine.get().getTargetLevel(), CaptureEngine.get().isTargetLegendary(),
+                            CaptureEngine.get().getTotalBallsThrown(), "disconnected");
+                }
+                CaptureEngine.get().stop(false);
+            }
         } else if (!wasConnected && connected) {
             if (blockedSinceMs > 0) {
                 long blockedSec = (now - blockedSinceMs) / 1000;

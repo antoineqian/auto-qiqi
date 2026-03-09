@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.cobblemoon.qiqitimer.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "ChatHudMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -65,6 +65,8 @@ public class AutoQiqiConfig {
     public int roamingNextlegPollIntervalSeconds = 60;
     /** Move camera this many seconds before timer expiry to disable AFK and become eligible for legendary spawn. */
     public int roamingCameraMoveSecondsBefore = 30;
+    /** When true, at 1 min left on nextleg timer also send the world menu command (e.g. /monde) so the world selection GUI opens. */
+    public boolean roamingNextlegOpenMondeAt1Min = true;
 
     /** Legendary Pokemon in this list get one Master Ball after 5 Ultra Balls (and after False Swipe/Thunder Wave setup). If Master Ball is not in hotbar, Ultra Balls continue. Empty = no Master Ball. Names must match the game language; comparison is case-insensitive. */
     public List<String> legendaryCaptureWhitelist = new ArrayList<>(List.of(
