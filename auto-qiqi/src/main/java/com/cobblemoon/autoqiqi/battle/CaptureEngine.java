@@ -394,13 +394,17 @@ public class CaptureEngine {
                 s.aimTicks = 0;
                 s.keySent = false;
             }
-            return;
+            // When re-engaging after breakout, another GUI (e.g. class_433) may be open.
+            // Don't block forever: fall through to getBattle() check so we can transition
+            // to IN_BATTLE once the battle is still there (minimized) and resume.
+            if (!s.reengagePending) {
+                return;
+            }
         }
 
-        // Also check if CobblemonClient reports a battle (screen may lag).
-        if (!s.reengagePending
-                && CobblemonClient.INSTANCE.getBattle() != null
-                && s.phase != Phase.IN_BATTLE) {
+        // Also check if CobblemonClient reports a battle (screen may lag, or re-engage with another GUI open).
+        if (CobblemonClient.INSTANCE.getBattle() != null && s.phase != Phase.IN_BATTLE) {
+            s.reengagePending = false;
             s.phase = Phase.IN_BATTLE;
             s.statusMessage = "In battle - " + s.targetName;
             AutoQiqiClient.logDebug("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
