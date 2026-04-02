@@ -3,6 +3,7 @@ package com.cobblemoon.autoqiqi.npc;
 import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
+import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -38,18 +39,17 @@ public class TowerNpcEngine {
 
     /**
      * EasyNPC entity class name used on this server.
-     * Floor combat trainers are Humanoid entities with personal names (Léo, Ethan, Kai, etc.),
-     * so we detect them by entity type rather than name keywords.
      */
     private static final String EASYNPC_CLASS_NAME = "Humanoid";
 
-    /** NPCs to skip during floor combat search (case-insensitive substring match).
-     *  Ground-floor NPCs (Strat, Joyaux, etc.) are never reached because
-     *  "Directeur de la tour" is found first on the ground floor. */
-    private static final String[] NPC_EXCLUSIONS = {
-            "retour au spawn",
-            "directeur de la tour"
+    /** Whitelist of tower trainer names (case-insensitive exact match on display name). */
+    private static final String[] TRAINER_NAMES = {
+            "léo", "ethan", "kai", "aris", "tarek",
+            "silas", "kyle", "jenna", "nolan", "dante"
     };
+
+    /** Max Y-level difference to consider an NPC on the same floor. */
+    private static final double MAX_Y_DIFF = 5.0;
 
     /** Wide scan radius to find NPCs after teleport */
     private static final double SEARCH_RANGE = 30.0;
@@ -102,11 +102,30 @@ public class TowerNpcEngine {
     /** When true, the tower loop is active and will auto-restart after battles. */
     private boolean towerLoopEnabled = false;
 
+    /** Watchdog: last time the tower loop was actively doing something (ms). */
+    private long lastActivityMs = 0;
+    /** How long (ms) the loop can be idle before the watchdog warps and restarts. */
+    private static final long WATCHDOG_IDLE_TIMEOUT_MS = 30_000;
+    /** Prevents the watchdog from firing multiple warps in quick succession. */
+    private boolean watchdogWarpPending = false;
+
     private TowerNpcEngine() {}
 
     public static TowerNpcEngine get() { return INSTANCE; }
     public boolean isActive() { return state != State.IDLE; }
     public boolean isLoopEnabled() { return towerLoopEnabled; }
+
+    /** Mark that the tower loop is actively doing something (resets the watchdog timer). */
+    private void markActivity() { lastActivityMs = System.currentTimeMillis(); }
+
+    /** True when the tower loop is busy (fighting, walking, healing, GUI interaction). */
+    private boolean isBusy() {
+        if (state != State.IDLE) return true;
+        if (towerFloorBattleActive) return true;
+        if (CobblemonClient.INSTANCE.getBattle() != null) return true;
+        if (TowerGuiHandler.get().isHandlingScreen()) return true;
+        return false;
+    }
 
     /** Stops the tower loop — no restart after the current battle ends. */
     public void stopLoop() {
@@ -114,8 +133,10 @@ public class TowerNpcEngine {
         towerFloorBattleActive = false;
         towerBattleConfirmed = false;
         battleEndNullTicks = 0;
+        lastActivityMs = 0;
+        watchdogWarpPending = false;
         cancelWalk("tower loop stopped");
-        AutoQiqiClient.log("Tower", "Tower loop stopped by user");
+        AutoQiqiClient.logDebug("Tower", "Tower loop stopped by user");
     }
 
     /**
@@ -129,16 +150,17 @@ public class TowerNpcEngine {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null || client.interactionManager == null) {
-            AutoQiqiClient.log("Tower", "tryStartTower: no player/world/interactionManager");
+            AutoQiqiClient.logDebug("Tower", "tryStartTower: no player/world/interactionManager");
             return false;
         }
 
         if (client.currentScreen != null) {
-            AutoQiqiClient.log("Tower", "tryStartTower: screen already open, skipping");
+            AutoQiqiClient.logDebug("Tower", "tryStartTower: screen already open, skipping");
             return false;
         }
 
         towerLoopEnabled = true;
+        markActivity();
 
         // Entrance first: if "Directeur de la tour" is nearby, we're on the ground floor.
         // Only search for floor combat NPCs if no entrance NPC exists (= we're on a tower floor).
@@ -149,14 +171,14 @@ public class TowerNpcEngine {
         }
 
         if (npc == null) {
-            AutoQiqiClient.log("Tower", "tryStartTower: no tower NPC found within " + SEARCH_RANGE + " blocks");
+            AutoQiqiClient.logDebug("Tower", "tryStartTower: no tower NPC found within " + SEARCH_RANGE + " blocks");
             return false;
         }
 
         double dist = player.distanceTo(npc);
         if (dist > INTERACT_RANGE) {
             startWalkingTo(npc, isEntrance ? State.WALKING_TO_ENTRANCE : State.WALKING_TO_FLOOR_NPC);
-            AutoQiqiClient.log("Tower", "tryStartTower: NPC '" + getEntityName(npc) + "' found at " + String.format("%.1f", dist)
+            AutoQiqiClient.logDebug("Tower", "tryStartTower: NPC '" + getEntityName(npc) + "' found at " + String.format("%.1f", dist)
                     + "m — walking closer (need <" + INTERACT_RANGE + "m)");
             return true;
         }
@@ -174,17 +196,20 @@ public class TowerNpcEngine {
             if (inBattle) {
                 towerBattleConfirmed = true;
                 battleEndNullTicks = 0;
+                TowerLogger.get().trackOpponent();
             } else if (towerBattleConfirmed) {
                 battleEndNullTicks++;
                 if (battleEndNullTicks >= BATTLE_END_DEBOUNCE) {
                     towerFloorBattleActive = false;
                     towerBattleConfirmed = false;
                     battleEndNullTicks = 0;
+                    TowerLogger.get().onBattleEnd(true);
                     if (towerLoopEnabled) {
-                        AutoQiqiClient.log("Tower", "Tower battle ended — scheduling heal then restart");
+                        AutoQiqiClient.logDebug("Tower", "Tower battle ended — scheduling heal then restart");
+                        markActivity();
                         AutoQiqiClient.runLater(this::tryHealBeforeRestart, TOWER_RESTART_DELAY_MS);
                     } else {
-                        AutoQiqiClient.log("Tower", "Tower battle ended — loop disabled, stopping");
+                        AutoQiqiClient.logDebug("Tower", "Tower battle ended — loop disabled, stopping");
                         MinecraftClient mc = MinecraftClient.getInstance();
                         if (mc.player != null) {
                             mc.player.sendMessage(Text.literal("§e[Tower]§r Tour arrêtée."), false);
@@ -199,7 +224,7 @@ public class TowerNpcEngine {
             MinecraftClient mc = MinecraftClient.getInstance();
             long elapsed = mc.world != null ? mc.world.getTime() - interactionTick : 0;
             if (mc.currentScreen == null && elapsed >= NO_DIALOG_TIMEOUT_TICKS) {
-                AutoQiqiClient.log("Tower", "No dialog opened after " + NO_DIALOG_TIMEOUT_TICKS
+                AutoQiqiClient.logDebug("Tower", "No dialog opened after " + NO_DIALOG_TIMEOUT_TICKS
                         + " ticks — blacklisting entity #" + lastInteractedNpcId);
                 TowerGuiHandler.get().setExpectingTowerDialog(false);
                 interactionTick = -1;
@@ -208,6 +233,36 @@ public class TowerNpcEngine {
                     lastInteractedNpcId = -1;
                 }
                 AutoQiqiClient.runLater(this::tryEngageFloorCombat, 500);
+            }
+        }
+
+        // Watchdog: track activity and warp+restart if idle too long
+        if (towerLoopEnabled) {
+            if (isBusy()) {
+                markActivity();
+                watchdogWarpPending = false;
+            } else if (!watchdogWarpPending && lastActivityMs > 0) {
+                long idleMs = System.currentTimeMillis() - lastActivityMs;
+                if (idleMs >= WATCHDOG_IDLE_TIMEOUT_MS) {
+                    MinecraftClient mc = MinecraftClient.getInstance();
+                    AutoQiqiConfig config = AutoQiqiConfig.get();
+                    String warpCmd = config.reconnectTowerWarp;
+                    if (warpCmd != null && !warpCmd.isBlank()
+                            && mc.player != null && mc.player.networkHandler != null) {
+                        watchdogWarpPending = true;
+                        String cmd = warpCmd.startsWith("/") ? warpCmd.substring(1) : warpCmd;
+                        mc.player.networkHandler.sendChatCommand(cmd);
+                        AutoQiqiClient.logDebug("Tower", "Watchdog: idle for " + (idleMs / 1000)
+                                + "s — sent " + warpCmd + ", scheduling tower restart");
+                        mc.player.sendMessage(Text.literal("§e[Tower]§r Watchdog: idle détecté, warp + relance..."), false);
+                        AutoQiqiClient.runLater(() -> {
+                            watchdogWarpPending = false;
+                            markActivity();
+                            npcBlacklist.clear();
+                            tryStartTower();
+                        }, config.reconnectTowerWarpDelayMs);
+                    }
+                }
             }
         }
 
@@ -226,7 +281,7 @@ public class TowerNpcEngine {
                         (wasHealer ? "impossible d'atteindre la machine de soin." : "impossible d'atteindre le NPC.")), false);
             }
             if (wasHealer) {
-                AutoQiqiClient.log("Tower", "Healer walk timeout — skipping heal, restarting tower");
+                AutoQiqiClient.logDebug("Tower", "Healer walk timeout — skipping heal, restarting tower");
                 tryRestartTower();
             }
             return;
@@ -239,7 +294,7 @@ public class TowerNpcEngine {
             double dist = Math.sqrt(player.getBlockPos().getSquaredDistance(healerTarget));
             if (dist <= HEALER_INTERACT_RANGE) {
                 MovementHelper.releaseMovementKeys(client);
-                AutoQiqiClient.log("Tower", "Arrived at healing machine (" + String.format("%.1f", dist) + "m)");
+                AutoQiqiClient.logDebug("Tower", "Arrived at healing machine (" + String.format("%.1f", dist) + "m)");
                 state = State.IDLE;
                 BlockPos pos = healerTarget;
                 healerTarget = null;
@@ -265,7 +320,7 @@ public class TowerNpcEngine {
         double dist = player.distanceTo(walkTarget);
         if (dist <= ARRIVAL_DISTANCE) {
             MovementHelper.releaseMovementKeys(client);
-            AutoQiqiClient.log("Tower", "Arrived at NPC '" + getEntityName(walkTarget) + "' (" + String.format("%.1f", dist) + "m)");
+            AutoQiqiClient.logDebug("Tower", "Arrived at NPC '" + getEntityName(walkTarget) + "' (" + String.format("%.1f", dist) + "m)");
             boolean isEntrance = (state == State.WALKING_TO_ENTRANCE);
             Entity npc = walkTarget;
             state = State.IDLE;
@@ -288,7 +343,8 @@ public class TowerNpcEngine {
      */
     public void scheduleFloorCombatEngage() {
         npcBlacklist.clear();
-        AutoQiqiClient.log("Tower", "Scheduling floor combat engage in " + (FLOOR_COMBAT_DELAY_MS / 1000) + "s (blacklist cleared)");
+        markActivity();
+        AutoQiqiClient.logDebug("Tower", "Scheduling floor combat engage in " + (FLOOR_COMBAT_DELAY_MS / 1000) + "s (blacklist cleared)");
         AutoQiqiClient.runLater(this::tryEngageFloorCombat, FLOOR_COMBAT_DELAY_MS);
     }
 
@@ -302,25 +358,25 @@ public class TowerNpcEngine {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null || client.interactionManager == null) {
-            AutoQiqiClient.log("Tower", "tryEngageFloorCombat: no player/world/interactionManager");
+            AutoQiqiClient.logDebug("Tower", "tryEngageFloorCombat: no player/world/interactionManager");
             return false;
         }
 
         if (client.currentScreen != null) {
-            AutoQiqiClient.log("Tower", "tryEngageFloorCombat: screen open, skipping");
+            AutoQiqiClient.logDebug("Tower", "tryEngageFloorCombat: screen open, skipping");
             return false;
         }
 
         Entity npc = findAnyFloorCombatNpc(client, player);
         if (npc == null) {
-            AutoQiqiClient.log("Tower", "tryEngageFloorCombat: no floor combat NPC found within " + SEARCH_RANGE + " blocks");
+            AutoQiqiClient.logDebug("Tower", "tryEngageFloorCombat: no floor combat NPC found within " + SEARCH_RANGE + " blocks");
             return false;
         }
 
         double dist = player.distanceTo(npc);
         if (dist > INTERACT_RANGE) {
             startWalkingTo(npc, State.WALKING_TO_FLOOR_NPC);
-            AutoQiqiClient.log("Tower", "tryEngageFloorCombat: NPC '" + getEntityName(npc) + "' at " + String.format("%.1f", dist)
+            AutoQiqiClient.logDebug("Tower", "tryEngageFloorCombat: NPC '" + getEntityName(npc) + "' at " + String.format("%.1f", dist)
                     + "m — walking closer");
             return true;
         }
@@ -340,19 +396,22 @@ public class TowerNpcEngine {
     public void onDialogMismatch() {
         if (lastInteractedNpcId != -1) {
             npcBlacklist.add(lastInteractedNpcId);
-            AutoQiqiClient.log("Tower", "Dialog mismatch — blacklisted entity #" + lastInteractedNpcId
+            AutoQiqiClient.logDebug("Tower", "Dialog mismatch — blacklisted entity #" + lastInteractedNpcId
                     + " (total blacklisted: " + npcBlacklist.size() + ")");
             lastInteractedNpcId = -1;
         }
         towerFloorBattleActive = false;
+        markActivity();
         AutoQiqiClient.runLater(this::tryEngageFloorCombat, 1000);
     }
 
     /** Called when defeat is detected in chat. Schedules tower restart after teleport. */
     public void onDefeatDetected() {
         if (!towerFloorBattleActive) return;
+        TowerLogger.get().onBattleEnd(false);
         towerFloorBattleActive = false;
-        AutoQiqiClient.log("Tower", "Defeat detected - scheduling tower restart in " + (TOWER_RESTART_DELAY_MS / 1000) + "s");
+        markActivity();
+        AutoQiqiClient.logDebug("Tower", "Defeat detected - scheduling tower restart in " + (TOWER_RESTART_DELAY_MS / 1000) + "s");
         AutoQiqiClient.runLater(this::tryRestartTower, TOWER_RESTART_DELAY_MS);
     }
 
@@ -362,16 +421,18 @@ public class TowerNpcEngine {
 
     private boolean interactWith(MinecraftClient client, ClientPlayerEntity player, Entity npc, boolean isEntrance) {
         if (!MovementHelper.hasLineOfSight(player, npc)) {
-            AutoQiqiClient.log("Tower", "interactWith: no line of sight to '" + getEntityName(npc) + "'");
+            AutoQiqiClient.logDebug("Tower", "interactWith: no line of sight to '" + getEntityName(npc) + "'");
             return false;
         }
 
         MovementHelper.lookAtEntity(player, npc, 20f, 15f);
         var result = client.interactionManager.interactEntity(player, npc, Hand.MAIN_HAND);
         double dist = player.distanceTo(npc);
-        AutoQiqiClient.log("Tower", "interactWith: result=" + result
-                + " npc='" + getEntityName(npc) + "' type=" + (isEntrance ? "entrance" : "combat")
+        String npcName = getEntityName(npc);
+        AutoQiqiClient.logDebug("Tower", "interactWith: result=" + result
+                + " npc='" + npcName + "' type=" + (isEntrance ? "entrance" : "combat")
                 + " dist=" + String.format("%.1f", dist));
+        player.sendMessage(Text.literal("§e[Tower]§r Interaction: '" + npcName + "' (" + (isEntrance ? "entrance" : "combat") + ") dist=" + String.format("%.1f", dist)), false);
 
         lastInteractedNpcId = npc.getId();
         interactionTick = client.world != null ? client.world.getTime() : -1;
@@ -380,6 +441,7 @@ public class TowerNpcEngine {
             towerFloorBattleActive = true;
             towerBattleConfirmed = false;
             battleEndNullTicks = 0;
+            TowerLogger.get().onBattleStart(getEntityName(npc));
         }
 
         return result.isAccepted() || result.shouldSwingHand();
@@ -389,12 +451,17 @@ public class TowerNpcEngine {
         state = targetState;
         walkTarget = npc;
         walkStartMs = System.currentTimeMillis();
-        AutoQiqiClient.log("Tower", "Walking to '" + getEntityName(npc) + "' (state=" + targetState + ")");
+        String npcName = getEntityName(npc);
+        AutoQiqiClient.logDebug("Tower", "Walking to '" + npcName + "' (state=" + targetState + ")");
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player != null) {
+            mc.player.sendMessage(Text.literal("§e[Tower]§r Walking to: '" + npcName + "' (" + targetState + ")"), false);
+        }
     }
 
     private void cancelWalk(String reason) {
         if (state != State.IDLE) {
-            AutoQiqiClient.log("Tower", "Walk cancelled: " + reason);
+            AutoQiqiClient.logDebug("Tower", "Walk cancelled: " + reason);
         }
         state = State.IDLE;
         walkTarget = null;
@@ -411,14 +478,14 @@ public class TowerNpcEngine {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null || client.interactionManager == null) {
-            AutoQiqiClient.log("Tower", "tryHealBeforeRestart: no player/world — skipping heal, restarting");
+            AutoQiqiClient.logDebug("Tower", "tryHealBeforeRestart: no player/world — skipping heal, restarting");
             tryRestartTower();
             return;
         }
 
         BlockPos healer = scanForHealingMachine(client, player);
         if (healer == null) {
-            AutoQiqiClient.log("Tower", "No healing machine found within " + HEALER_SCAN_RADIUS + " blocks — skipping heal");
+            AutoQiqiClient.logDebug("Tower", "No healing machine found within " + HEALER_SCAN_RADIUS + " blocks — skipping heal");
             tryRestartTower();
             return;
         }
@@ -430,7 +497,7 @@ public class TowerNpcEngine {
             healerTarget = healer;
             state = State.WALKING_TO_HEALER;
             walkStartMs = System.currentTimeMillis();
-            AutoQiqiClient.log("Tower", "Walking to healing machine at " + healer.toShortString()
+            AutoQiqiClient.logDebug("Tower", "Walking to healing machine at " + healer.toShortString()
                     + " (dist=" + String.format("%.1f", dist) + ")");
         }
     }
@@ -459,7 +526,7 @@ public class TowerNpcEngine {
         }
 
         if (nearest != null) {
-            AutoQiqiClient.log("Tower", "Found healing machine at " + nearest.toShortString()
+            AutoQiqiClient.logDebug("Tower", "Found healing machine at " + nearest.toShortString()
                     + " (dist=" + String.format("%.1f", Math.sqrt(nearestDistSq)) + ")");
         }
         return nearest;
@@ -469,7 +536,7 @@ public class TowerNpcEngine {
         MovementHelper.lookAtPoint(player, Vec3d.ofCenter(pos), 20f, 15f);
         BlockHitResult hitResult = new BlockHitResult(Vec3d.ofCenter(pos), Direction.UP, pos, false);
         var result = client.interactionManager.interactBlock(player, Hand.MAIN_HAND, hitResult);
-        AutoQiqiClient.log("Tower", "Interacted with healing machine at " + pos.toShortString() + " result=" + result);
+        AutoQiqiClient.logDebug("Tower", "Interacted with healing machine at " + pos.toShortString() + " result=" + result);
         if (client.player != null) {
             client.player.sendMessage(Text.literal("§a[Tower]§r Soin en cours..."), false);
         }
@@ -479,12 +546,12 @@ public class TowerNpcEngine {
     private void tryRestartTower() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (tryStartTower()) {
-            AutoQiqiClient.log("Tower", "Tower restart initiated");
+            AutoQiqiClient.logDebug("Tower", "Tower restart initiated");
             if (client.player != null) {
                 client.player.sendMessage(Text.literal("§a[Tower]§r Redémarrage de la tour..."), false);
             }
         } else {
-            AutoQiqiClient.log("Tower", "Tower restart failed - no NPC found");
+            AutoQiqiClient.logDebug("Tower", "Tower restart failed - no NPC found");
             if (client.player != null) {
                 client.player.sendMessage(Text.literal("§c[Tower]§r Directeur de la tour introuvable."), false);
             }
@@ -496,9 +563,8 @@ public class TowerNpcEngine {
     // ========================
 
     /**
-     * Find any EasyNPC Humanoid entity that is NOT in the exclusion list.
-     * Tower trainers have personal names (Léo, Ethan, Kai...) so we match by entity type.
-     * Returns the nearest matching NPC.
+     * Find the nearest whitelisted trainer on the same Y level.
+     * Only matches Humanoid entities whose display name is in {@link #TRAINER_NAMES}.
      */
     private Entity findAnyFloorCombatNpc(MinecraftClient client, ClientPlayerEntity player) {
         Box searchBox = player.getBoundingBox().expand(SEARCH_RANGE);
@@ -510,22 +576,27 @@ public class TowerNpcEngine {
         StringBuilder allHumanoids = new StringBuilder();
         int humanoidCount = 0;
 
+        double playerY = player.getY();
+
         for (Entity e : entities) {
             String className = e.getClass().getSimpleName();
             if (!className.equals(EASYNPC_CLASS_NAME)) continue;
 
             String name = getEntityName(e);
             double dist = player.distanceTo(e);
-            boolean excluded = isExcludedNpc(name);
+            double yDiff = Math.abs(e.getY() - playerY);
+            boolean isTrainer = isWhitelistedTrainer(name);
             boolean blacklisted = npcBlacklist.contains(e.getId());
 
             allHumanoids.append("\n  [").append(humanoidCount++).append("] '")
                     .append(name != null ? name : "null").append("' dist=")
                     .append(String.format("%.1f", dist))
-                    .append(excluded ? " EXCLUDED" : "")
+                    .append(" yDiff=").append(String.format("%.1f", yDiff))
+                    .append(isTrainer ? " TRAINER" : "")
                     .append(blacklisted ? " BLACKLISTED" : "");
 
-            if (excluded || blacklisted) continue;
+            if (!isTrainer || blacklisted) continue;
+            if (yDiff > MAX_Y_DIFF) continue;
 
             if (dist < nearestDist) {
                 nearest = e;
@@ -533,20 +604,20 @@ public class TowerNpcEngine {
             }
         }
 
-        AutoQiqiClient.log("Tower", "Floor scan — " + humanoidCount + " Humanoids found:" + allHumanoids);
+        AutoQiqiClient.logDebug("Tower", "Floor scan — " + humanoidCount + " Humanoids found:" + allHumanoids);
 
         if (nearest != null) {
-            AutoQiqiClient.log("Tower", "Selected floor combat NPC: '" + getEntityName(nearest)
+            AutoQiqiClient.logDebug("Tower", "Selected floor combat NPC: '" + getEntityName(nearest)
                     + "' (dist=" + String.format("%.1f", nearestDist) + ")");
         }
         return nearest;
     }
 
-    private boolean isExcludedNpc(String name) {
-        if (name == null) return true;
-        String lower = name.toLowerCase();
-        for (String excl : NPC_EXCLUSIONS) {
-            if (lower.contains(excl.toLowerCase())) return true;
+    private boolean isWhitelistedTrainer(String name) {
+        if (name == null) return false;
+        String lower = name.toLowerCase().trim();
+        for (String trainer : TRAINER_NAMES) {
+            if (lower.equals(trainer)) return true;
         }
         return false;
     }
@@ -561,7 +632,7 @@ public class TowerNpcEngine {
             String name = getEntityName(e);
             if (name == null) continue;
             if (name.toLowerCase().contains(match)) {
-                AutoQiqiClient.log("Tower", "Found entrance NPC: '" + name + "' dist=" + String.format("%.1f",
+                AutoQiqiClient.logDebug("Tower", "Found entrance NPC: '" + name + "' dist=" + String.format("%.1f",
                         client.player != null ? client.player.distanceTo(e) : -1));
                 return e;
             }
@@ -573,17 +644,17 @@ public class TowerNpcEngine {
 
     /** Log nearby entity names when no NPC matched — for debugging. */
     private void logNearbyEntities(String context, List<Entity> entities) {
-        AutoQiqiClient.log("Tower", "No NPC found for " + context + ". Entities in range (" + SEARCH_RANGE + "b): " + entities.size());
+        AutoQiqiClient.logDebug("Tower", "No NPC found for " + context + ". Entities in range (" + SEARCH_RANGE + "b): " + entities.size());
         int maxLog = 15;
         for (int i = 0; i < Math.min(entities.size(), maxLog); i++) {
             Entity e = entities.get(i);
             String name = getEntityName(e);
             String type = e.getClass().getSimpleName();
             double dist = MinecraftClient.getInstance().player != null ? MinecraftClient.getInstance().player.distanceTo(e) : -1;
-            AutoQiqiClient.log("Tower", "  [" + i + "] " + type + " name=\"" + (name != null ? name : "null") + "\" dist=" + String.format("%.1f", dist));
+            AutoQiqiClient.logDebug("Tower", "  [" + i + "] " + type + " name=\"" + (name != null ? name : "null") + "\" dist=" + String.format("%.1f", dist));
         }
         if (entities.size() > maxLog) {
-            AutoQiqiClient.log("Tower", "  ... and " + (entities.size() - maxLog) + " more");
+            AutoQiqiClient.logDebug("Tower", "  ... and " + (entities.size() - maxLog) + " more");
         }
     }
 
@@ -601,7 +672,7 @@ public class TowerNpcEngine {
             }
             return null;
         } catch (Exception ex) {
-            AutoQiqiClient.log("Tower", "getEntityName failed for " + entity.getClass().getSimpleName() + ": " + ex.getMessage());
+            AutoQiqiClient.logDebug("Tower", "getEntityName failed for " + entity.getClass().getSimpleName() + ": " + ex.getMessage());
             return null;
         }
     }

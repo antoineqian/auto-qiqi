@@ -22,6 +22,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.7+1.21.1"
 
     modCompileOnly "com.cobblemon:fabric:1.7.0+1.21.1-SNAPSHOT"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
     testImplementation "org.mockito:mockito-core:5.14.2"
@@ -83,7 +84,7 @@ jar {
     }
 }
 
-def autoQiqiModsDir = file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/mods")
+def autoQiqiModsDir = file("/Users/antoineqian/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.2.1/mods")
 tasks.register('deploy', Copy) {
     dependsOn remapJar
     from remapJar.archiveFile

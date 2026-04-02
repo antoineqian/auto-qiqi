@@ -1,7 +1,11 @@
 package com.cobblemoon.autoqiqi;
 
+import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleGeneralActionSelection;
+import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
+import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
+import com.cobblemoon.autoqiqi.battle.BattleScreenHelper;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
@@ -23,7 +27,10 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.Element;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
@@ -84,7 +91,29 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static long lastModEngagementTick = -1000;
     private static Boolean currentBattleStartedByMod = null;
     private boolean wasInBattleScreen = false;
-    private static final int MOD_ENGAGEMENT_WINDOW_TICKS = 100; // ~5 seconds to attribute battle to mod
+    private static final int MOD_ENGAGEMENT_WINDOW_TICKS = 300; // ~15 seconds (lag between key and battle GUI)
+
+    // Debug mode: /pk debug toggles verbose chat logging
+    private static boolean debugMode = false;
+
+    /** Debounce log when auto-closing Game Menu for unfocused autofight (log at most once per 5s). */
+    private long lastUnfocusedCloseLogTick = -1000;
+    private static final int UNFOCUSED_CLOSE_LOG_DEBOUNCE_TICKS = 100;
+
+    /** Tick-based move selection: only act after we've been on the same move selection for this many ticks (lets GUI/state settle). */
+    private Object moveSelectionRequestSeen = null;
+    private long moveSelectionFirstSeenTick = -1000;
+    private static final int MOVE_SELECTION_FALLBACK_DELAY_TICKS = 3;
+
+    /** Tick-based general action fallback: recover if the mixin's runLater failed to fire. */
+    private Object generalActionRequestSeen = null;
+    private long generalActionFirstSeenTick = -1000;
+    private static final int GENERAL_ACTION_FALLBACK_DELAY_TICKS = 20; // 1 second — give mixin time first
+
+    /** Trainer dialog advance: tick path so we're not stuck on pre-battle dialogs (e.g. Ethan "Let's battle!"). */
+    private Screen lastTrainerDialogScreen = null;
+    private int trainerDialogTicksOnScreen = 0;
+    private static final int TRAINER_DIALOG_ADVANCE_DELAY_TICKS = 20;
 
     /** Set in onInitializeClient so static warp callback can clear instance state. */
     private static AutoQiqiClient instance;
@@ -109,12 +138,149 @@ public class AutoQiqiClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             clientTickCounter++;
             trackBlockedState(client);
-            boolean nowInBattleScreen = client.currentScreen != null
-                    && client.currentScreen.getClass().getSimpleName().toLowerCase().contains("battle");
-            if (wasInBattleScreen && !nowInBattleScreen) {
+            boolean nowInBattleScreen = BattleScreenHelper.isInBattleScreen(client);
+            // When leaving battle screen, clear battle attribution — but not when we're only showing the Game Menu
+            // (pause screen), so we keep attribution and will close the menu below for unfocused autofight
+            boolean isGameMenuScreen = isPauseOrGameMenuScreen(client.currentScreen);
+            boolean skipClearForUnfocused = wasInBattleScreen && !nowInBattleScreen && isGameMenuScreen
+                    && !client.isWindowFocused()
+                    && com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null;
+            if (wasInBattleScreen && !nowInBattleScreen && !skipClearForUnfocused) {
                 currentBattleStartedByMod = null;
+                BattleDecisionRouter.clearMoveSelectionDebounce();
             }
             wasInBattleScreen = nowInBattleScreen;
+
+            // Unfocused autofight: close Game Menu when in battle or berserk scanning, and any autofight is enabled
+            // Only do this when the window is NOT focused (i.e. Minecraft auto-opened the pause menu).
+            // If the user manually paused while focused, leave it alone.
+            boolean inBattle = com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null;
+            boolean berserkScanning = AutoBattleEngine.get().getMode() == BattleMode.BERSERK;
+            if (client.currentScreen != null
+                    && !client.isWindowFocused()
+                    && isPauseOrGameMenuScreen(client.currentScreen)
+                    && (inBattle || berserkScanning)
+                    && isAutofightRelevantForUnfocused()) {
+                client.setScreen(null);
+                if (clientTickCounter - lastUnfocusedCloseLogTick >= UNFOCUSED_CLOSE_LOG_DEBOUNCE_TICKS) {
+                    lastUnfocusedCloseLogTick = clientTickCounter;
+                    logDebug("Battle", "Unfocused: closed Game Menu to continue autofight");
+                }
+            }
+
+            // Tick-based general action fallback: if the mixin's runLater didn't fire, handle it here.
+            try {
+            if (com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
+                    && shouldAutoFight()
+                    && !CaptureEngine.get().isActive()
+                    && client.currentScreen != null) {
+                Object actionSelection = getBattleCurrentActionSelection(client.currentScreen);
+                if (actionSelection instanceof BattleGeneralActionSelection gas) {
+                    if (gas.getRequest().getResponse() == null) {
+                        Object req = gas.getRequest();
+                        if (req != generalActionRequestSeen) {
+                            generalActionRequestSeen = req;
+                            generalActionFirstSeenTick = clientTickCounter;
+                        }
+                        if (clientTickCounter - generalActionFirstSeenTick >= GENERAL_ACTION_FALLBACK_DELAY_TICKS) {
+                            logDebug("Battle", "GeneralAction: tick fallback (mixin may have missed)");
+                            BattleDecisionRouter.handleGeneralAction(gas);
+                            generalActionRequestSeen = null;
+                        }
+                    } else {
+                        generalActionRequestSeen = null;
+                    }
+                } else {
+                    generalActionRequestSeen = null;
+                }
+            }
+            } catch (Exception e) {
+                logDebug("Battle", "GeneralAction tick error: " + e.getMessage());
+                generalActionRequestSeen = null;
+            }
+
+            // Tick-based move selection (single path for autofight): only this code path submits the move, so no race when unfocused.
+            // currentScreen is usually the BattleGUI (top-level), not BattleMoveSelection; get current action selection from it.
+            try {
+            if (com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
+                    && shouldAutoFight()
+                    && !CaptureEngine.get().isActive()
+                    && client.currentScreen != null) {
+                Object moveSelection = null;
+                if (BattleMoveSelection.class.isInstance(client.currentScreen)) {
+                    moveSelection = client.currentScreen;
+                } else {
+                    String screenClassName = client.currentScreen.getClass().getSimpleName();
+                    if (screenClassName.toLowerCase().contains("battle")) {
+                        moveSelection = getBattleCurrentMoveSelection(client.currentScreen);
+                    }
+                }
+                if (moveSelection != null && BattleMoveSelection.class.isInstance(moveSelection)) {
+                    BattleMoveSelection sel = (BattleMoveSelection) (Object) moveSelection;
+                    if (sel.getRequest().getResponse() == null) {
+                        Object req = sel.getRequest();
+                        if (req != moveSelectionRequestSeen) {
+                            moveSelectionRequestSeen = req;
+                            moveSelectionFirstSeenTick = clientTickCounter;
+                        }
+                        if (clientTickCounter - moveSelectionFirstSeenTick >= MOVE_SELECTION_FALLBACK_DELAY_TICKS) {
+                            logDebug("Battle", "MoveSelection: tick");
+                            BattleDecisionRouter.performMoveSelection(sel);
+                        }
+                    } else {
+                        moveSelectionRequestSeen = null;
+                    }
+                } else {
+                    moveSelectionRequestSeen = null;
+                    // Log when we're on a battle screen but can't get move selection (e.g. Extended Battle UI structure)
+                    if (moveSelection == null) {
+                        String screenClassName = client.currentScreen != null ? client.currentScreen.getClass().getSimpleName() : "null";
+                        if (screenClassName.toLowerCase().contains("battle") && clientTickCounter % 100 == 50) {
+                            logDebug("Battle", "MoveSelection: screen not detected (class=" + screenClassName + ") — cannot auto-pick move");
+                        }
+                    }
+                }
+            }
+            } catch (Exception e) {
+                logDebug("Battle", "MoveSelection tick error: " + e.getMessage());
+                moveSelectionRequestSeen = null;
+            }
+
+            // Tick-based trainer dialog advance: when autofight is TRAINER and a dialog is open (e.g. Ethan "Let's battle!"),
+            // we have no mixin for it — only battle screens trigger mixins. This tick path unsticks pre-battle dialogs.
+            if (shouldAutoFight()
+                    && AutoBattleEngine.get().getMode() == BattleMode.TRAINER
+                    && !CaptureEngine.get().isActive()
+                    && !TowerGuiHandler.get().isHandlingScreen()
+                    && client.currentScreen != null) {
+                Screen screen = client.currentScreen;
+                boolean isBattleScreen = screen.getClass().getSimpleName().toLowerCase().contains("battle");
+                boolean preBattleOrNonBattleGui = com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() == null
+                        || !isBattleScreen;
+                if (preBattleOrNonBattleGui && hasClickableDialogButton(screen)) {
+                    if (screen != lastTrainerDialogScreen) {
+                        lastTrainerDialogScreen = screen;
+                        trainerDialogTicksOnScreen = 0;
+                    }
+                    trainerDialogTicksOnScreen++;
+                    if (trainerDialogTicksOnScreen >= TRAINER_DIALOG_ADVANCE_DELAY_TICKS) {
+                        ButtonWidget first = getFirstDialogButton(screen);
+                        if (first != null) {
+                            logDebug("Battle", "Trainer dialog: advancing (clicking first button after " + TRAINER_DIALOG_ADVANCE_DELAY_TICKS + " ticks)");
+                            first.onPress();
+                        }
+                        lastTrainerDialogScreen = null;
+                        trainerDialogTicksOnScreen = 0;
+                    }
+                } else {
+                    lastTrainerDialogScreen = null;
+                    trainerDialogTicksOnScreen = 0;
+                }
+            } else {
+                lastTrainerDialogScreen = null;
+                trainerDialogTicksOnScreen = 0;
+            }
+
             AutoReconnectEngine.get().tick(client);
 
             if (!firstTickDone && client.player != null) {
@@ -123,7 +289,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                 PokemonWalker.get().stop();
                 CaptureEngine.get().stop();
                 MovementHelper.releaseMovementKeys(client);
-                log("Init", "First tick: all engines disabled, movement keys released");
+                logDebug("Init", "First tick: all engines disabled, movement keys released");
 
                 // Show last session recap (delayed so chat is ready)
                 runLater(() -> {
@@ -158,7 +324,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                     battleNullTicks = 0;
                     if (!wasInCaptureBattle && inBattlePhase) {
                         wasInCaptureBattle = true;
-                        log("Tick", "Capture battle confirmed (phase=IN_BATTLE, getBattle() != null)");
+                        logDebug("Tick", "Capture battle confirmed (phase=IN_BATTLE, getBattle() != null)");
                     }
                 } else if (wasInCaptureBattle) {
                     // Don't trigger battle end while picking up a dropped ball or waiting for hit
@@ -169,10 +335,10 @@ public class AutoQiqiClient implements ClientModInitializer {
                         if (battleNullTicks >= BATTLE_END_DEBOUNCE_TICKS) {
                             wasInCaptureBattle = false;
                             battleNullTicks = 0;
-                            log("Tick", "Capture battle ENDED (getBattle() null for " + BATTLE_END_DEBOUNCE_TICKS + " ticks)");
+                            logDebug("Tick", "Capture battle ENDED (getBattle() null for " + BATTLE_END_DEBOUNCE_TICKS + " ticks)");
                             CaptureEngine.get().onBattleEnded();
                         } else if (battleNullTicks == 1) {
-                            log("Tick", "getBattle() went null, debouncing... (phase=" + CaptureEngine.get().getPhase() + ")");
+                            logDebug("Tick", "getBattle() went null, debouncing... (phase=" + CaptureEngine.get().getPhase() + ")");
                         }
                     }
                 }
@@ -198,7 +364,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                     if (elapsed >= MIN_LEGENDARY_PAUSE_MS) {
                         captureSeenActiveDuringPause = false;
                         legendaryPauseStartMs = 0;
-                        log("Legendary", "Capture finished after " + (elapsed / 1000) + "s, auto-resuming legendary switching");
+                        logDebug("Legendary", "Capture finished after " + (elapsed / 1000) + "s, auto-resuming legendary switching");
                         AutoSwitchEngine.get().resumeFromPause();
                         if (client.player != null) {
                             client.player.sendMessage(
@@ -297,8 +463,10 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (towerStartKey.wasPressed()) {
             if (TowerNpcEngine.get().isLoopEnabled()) {
                 TowerNpcEngine.get().stopLoop();
+                AutoBattleEngine.get().setMode(BattleMode.fromString(AutoQiqiConfig.get().battleMode));
                 msg(client, "§e[Tower]§r Tour arrêtée après le prochain combat.");
             } else if (TowerNpcEngine.get().tryStartTower()) {
+                AutoBattleEngine.get().setMode(BattleMode.TRAINER);
                 AutoQiqiConfig config = AutoQiqiConfig.get();
                 if (config.legendaryAutoSwitch) {
                     config.legendaryAutoSwitch = false;
@@ -306,7 +474,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                     AutoSwitchEngine.get().cancelToIdle();
                     msg(client, "§7[Tower]§r Legendary hop désactivé (mutuellement exclusif).");
                 }
-                msg(client, "§a[Tower]§r Tour démarrée. Appuyez sur I pour arrêter.");
+                msg(client, "§a[Tower]§r Tour démarrée (auto-combat activé). Appuyez sur I pour arrêter.");
             } else {
                 msg(client, "§c[Tower]§r Aucun NPC de tour trouvé (Directeur ou combat).");
             }
@@ -321,7 +489,7 @@ public class AutoQiqiClient implements ClientModInitializer {
     public static void invokeNextlegOneMinuteAction(MinecraftClient client) {
         if (com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
                 || CaptureEngine.get().isActive()) {
-            log("Battle", "1-min action skipped (in battle) — no toggle, no /monde");
+            logDebug("Battle", "1-min action skipped (in battle) — no toggle, no /monde");
             return;
         }
         if (AutoSwitchEngine.get().isPaused()) {
@@ -338,9 +506,9 @@ public class AutoQiqiClient implements ClientModInitializer {
             String cmd = mondeCmd.startsWith("/") ? mondeCmd.substring(1) : mondeCmd;
             try {
                 client.player.networkHandler.sendChatCommand(cmd);
-                log("Battle", "Roaming: sent " + mondeCmd + " (1 min left — open world menu)");
+                logDebug("Battle", "Roaming: sent " + mondeCmd + " (1 min left — open world menu)");
             } catch (Exception e) {
-                log("Battle", "Roaming: " + mondeCmd + " failed at 1min: " + e.getMessage());
+                logDebug("Battle", "Roaming: " + mondeCmd + " failed at 1min: " + e.getMessage());
             }
         }
     }
@@ -405,6 +573,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                     .then(ClientCommandManager.literal("stop")
                             .executes(context -> { executeStop(); return 1; }))
                     .then(ClientCommandManager.literal("debug")
+                            .executes(context -> { executeDebugToggle(); return 1; })
                             .then(ClientCommandManager.argument("index", IntegerArgumentType.integer(1))
                                     .executes(context -> {
                                         executeDebug(IntegerArgumentType.getInteger(context, "index"));
@@ -456,6 +625,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                                             }))))
                     .then(ClientCommandManager.literal("reconnect")
                             .executes(context -> { executeReconnectToggle(); return 1; }))
+                    .then(ClientCommandManager.literal("reload")
+                            .executes(context -> { executeReload(); return 1; }))
                     .then(ClientCommandManager.literal("version")
                             .executes(context -> { executeVersion(); return 1; }))
             );
@@ -482,7 +653,7 @@ public class AutoQiqiClient implements ClientModInitializer {
             }
         }
 
-        log("Scan", "Periodic: " + total + " wild nearby, " + uncaught + " uncaught, " + bosses + " boss(es).");
+        logDebug("Scan", "Periodic: " + total + " wild nearby, " + uncaught + " uncaught, " + bosses + " boss(es).");
 
         if (bosses > 0) {
             client.player.sendMessage(
@@ -568,6 +739,14 @@ public class AutoQiqiClient implements ClientModInitializer {
         String name = PokemonScanner.getDisplayInfo(target);
         msg(client, "§bMarche vers §e" + name + "§b (" + String.format("%.1f", dist) + " blocs)");
         PokemonWalker.get().startWalking(target);
+    }
+
+    private void executeDebugToggle() {
+        debugMode = !debugMode;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.player != null) {
+            msg(client, "Debug mode: " + (debugMode ? "§aON" : "§cOFF") + "§r (verbose logging)");
+        }
     }
 
     private void executeDebug(int index) {
@@ -860,7 +1039,7 @@ public class AutoQiqiClient implements ClientModInitializer {
             }
             long blockedMs = now - blockedSinceMs;
             if (blockedMs >= 60_000 && (lastBlockedLogMs == 0 || now - lastBlockedLogMs >= BLOCKED_LOG_INTERVAL_MS)) {
-                log("Idle", "Engines blocked for " + formatDuration(blockedMs / 1000)
+                logDebug("Idle", "Engines blocked for " + formatDuration(blockedMs / 1000)
                         + " (reason=" + blockedReason + ")");
                 com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("IDLE",
                         "Blocked for " + formatDuration(blockedMs / 1000)
@@ -871,7 +1050,7 @@ public class AutoQiqiClient implements ClientModInitializer {
             if (blockedSinceMs > 0 && blockedReason != null && blockedReason.startsWith("screen:")) {
                 long blockedSec = (now - blockedSinceMs) / 1000;
                 if (blockedSec >= 10) {
-                    log("Idle", "Screen closed after " + formatDuration(blockedSec)
+                    logDebug("Idle", "Screen closed after " + formatDuration(blockedSec)
                             + " (was " + blockedReason + ")");
                 }
             }
@@ -977,6 +1156,18 @@ public class AutoQiqiClient implements ClientModInitializer {
     }
 
     // ========================
+    // Reload command
+    // ========================
+
+    private void executeReload() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        AutoQiqiConfig.load();
+        int wl = AutoQiqiConfig.get().scanCaptureWhitelist.size();
+        msg(client, "§aConfig rechargee. §7Whitelist: §f" + wl + " §7pokemon(s).");
+    }
+
+    // ========================
     // Version command
     // ========================
 
@@ -1010,7 +1201,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         int level = PokemonScanner.getPokemonLevel(target);
         boolean legendary = PokemonScanner.isLegendary(target);
 
-        log("Capture", "executeCapture index=" + index
+        logDebug("Capture", "executeCapture index=" + index
                 + " name=" + name + " level=" + level
                 + " legendary=" + legendary + " entity=" + target.getClass().getSimpleName()
                 + " alive=" + target.isAlive());
@@ -1071,7 +1262,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         // We must NOT need to switch — we're already in the right world
         String worldToSwitch = tracker.getWorldToSwitchTo();
         if (worldToSwitch != null) {
-            log("Capture", "canRoamCapture=false: need to switch to " + worldToSwitch + " (current=" + currentWorld + ")");
+            logDebug("Capture", "canRoamCapture=false: need to switch to " + worldToSwitch + " (current=" + currentWorld + ")");
             return false;
         }
 
@@ -1082,7 +1273,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         // or timer within switch threshold (camping, waiting for legendary).
         boolean allowed = data.isEventActive() || tracker.currentWorldHasImminentEvent();
         if (!allowed) {
-            log("Capture", "canRoamCapture=false: not in imminent world (current=" + currentWorld
+            logDebug("Capture", "canRoamCapture=false: not in imminent world (current=" + currentWorld
                     + " remaining=" + data.getEstimatedRemainingSeconds() + "s)");
         }
         return allowed;
@@ -1105,13 +1296,22 @@ public class AutoQiqiClient implements ClientModInitializer {
                 && client.world != null;
     }
 
-    /** True when battle actions should be automated. Only true if the mod started the battle (simulated send-out), so manually engaged battles are not auto-fought. */
+    /** True when battle actions should be automated. True for capture, tower (tour de combat) battles, or when the mod started the battle (simulated send-out); manually engaged wild battles are not auto-fought. */
     public static boolean shouldAutoFight() {
         if (CaptureEngine.get().isActive()) return true;
-        if (AutoBattleEngine.get().getMode() != BattleMode.OFF) {
+        // Tour de combat (tower) mode: auto-fight trainer battles when tower loop is active
+        if (AutoBattleEngine.get().getMode() == BattleMode.TRAINER && TowerNpcEngine.get().isLoopEnabled()) {
+            return true;
+        }
+        // Berserk and Roaming always auto-fight (no attribution needed — the mod fights everything)
+        BattleMode mode = AutoBattleEngine.get().getMode();
+        if (mode == BattleMode.BERSERK || mode == BattleMode.ROAMING) {
+            return true;
+        }
+        if (mode != BattleMode.OFF) {
             if (currentBattleStartedByMod == null) {
                 currentBattleStartedByMod = (clientTickCounter - lastModEngagementTick) <= MOD_ENGAGEMENT_WINDOW_TICKS;
-                log("Battle", "Battle attribution: " + (currentBattleStartedByMod ? "mod (auto-fight)" : "manual (no auto-fight)"));
+                logDebug("Battle", "Battle attribution: " + (currentBattleStartedByMod ? "mod (auto-fight)" : "manual (no auto-fight)"));
             }
             if (!currentBattleStartedByMod) return false;
             return true;
@@ -1125,6 +1325,71 @@ public class AutoQiqiClient implements ClientModInitializer {
         lastModEngagementTick = clientTickCounter;
     }
 
+    /** Current client tick count (for debouncing move selection so tick and mixin runLater don't both submit). */
+    public static long getClientTickCounter() {
+        return clientTickCounter;
+    }
+
+    /** True if the screen is the Minecraft pause / Game Menu (Yarn: GameMenuScreen). */
+    private static boolean isPauseOrGameMenuScreen(Screen screen) {
+        if (screen == null) return false;
+        String name = screen.getClass().getSimpleName();
+        return "GameMenuScreen".equals(name) || name.contains("GameMenu") || name.contains("Pause");
+    }
+
+    /** True if the screen has at least one clickable button (e.g. EasyNPC dialog, trainer pre-battle). */
+    private static boolean hasClickableDialogButton(Screen screen) {
+        return getFirstDialogButton(screen) != null;
+    }
+
+    /** First ButtonWidget on the screen, or null. Used to advance trainer/NPC dialogs. */
+    private static ButtonWidget getFirstDialogButton(Screen screen) {
+        if (screen == null) return null;
+        for (Element child : screen.children()) {
+            if (child instanceof ButtonWidget bw) return bw;
+        }
+        return null;
+    }
+
+    /**
+     * If the given screen is a battle GUI, returns its current action selection (any type).
+     * Uses reflection so we work with Cobblemon and Extended Battle UI.
+     */
+    private static Object getBattleCurrentActionSelection(Screen screen) {
+        if (screen == null) return null;
+        try {
+            java.lang.reflect.Method m = screen.getClass().getMethod("getCurrentActionSelection");
+            return m.invoke(screen);
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * If the given screen is a battle GUI (e.g. BattleGUI or Extended Battle UI), returns its current action
+     * selection when that selection is a move-selection screen; otherwise returns null.
+     * Uses reflection so we work with Cobblemon and Extended Battle UI without requiring the exact class.
+     */
+    private static Object getBattleCurrentMoveSelection(Screen screen) {
+        if (screen == null) return null;
+        try {
+            java.lang.reflect.Method m = screen.getClass().getMethod("getCurrentActionSelection");
+            Object current = m.invoke(screen);
+            if (current != null && current.getClass().getSimpleName().toLowerCase().contains("moveselection")) {
+                return current;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /** True when some form of autofight is on (for unfocused: we close the menu so battle can continue). */
+    private static boolean isAutofightRelevantForUnfocused() {
+        if (CaptureEngine.get().isActive()) return true;
+        if (AutoBattleEngine.get().getMode() == BattleMode.TRAINER && TowerNpcEngine.get().isLoopEnabled()) return true;
+        if (AutoBattleEngine.get().getMode() != BattleMode.OFF) return true;
+        AutofishEngine fish = AutofishEngine.get();
+        return fish != null && fish.isFishBattleActive();
+    }
+
     /**
      * Execute a runnable on the main client thread after a delay.
      * Used by battle mixins for delayed action selection.
@@ -1136,9 +1401,21 @@ public class AutoQiqiClient implements ClientModInitializer {
         }).start();
     }
 
+    /** Sends message to in-game chat only (no file or stdout logging). Always shown. */
     public static void log(String prefix, String message) {
-        System.out.println("[Auto-Qiqi/" + prefix + "] " + message);
+        MinecraftClient c = MinecraftClient.getInstance();
+        if (c != null && c.player != null) {
+            c.player.sendMessage(Text.literal("§6[Auto-Qiqi/" + prefix + "]§r " + message), false);
+        }
     }
+
+    /** Debug-level log: only shown when /pk debug is ON. */
+    public static void logDebug(String prefix, String message) {
+        if (!debugMode) return;
+        log(prefix, message);
+    }
+
+    public static boolean isDebugMode() { return debugMode; }
 
     private static void msg(MinecraftClient client, String message) {
         if (client.player != null) {

@@ -24,18 +24,19 @@ public abstract class BattleSwitchPokemonSelectionMixin {
         AutoQiqiConfig config = AutoQiqiConfig.get();
         var self = (BattleSwitchPokemonSelection) (Object) this;
 
+        AutoQiqiClient.logDebug("Mixin", "SwitchSelection: screen constructed (response=" + (self.getRequest().getResponse() != null) + ")");
         if (self.getRequest().getResponse() != null) return;
 
         if (CaptureEngine.get().isActive()) {
-            AutoQiqiClient.log("Mixin", "SwitchSelection: CaptureEngine active, isReviving=" + self.isReviving());
+            AutoQiqiClient.logDebug("Mixin", "SwitchSelection: CaptureEngine active, isReviving=" + self.isReviving());
             AutoQiqiClient.runLater(() -> {
                 var current = self.getBattleGUI().getCurrentActionSelection();
                 if (!(current instanceof BattleSwitchPokemonSelection currentSelection)) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no longer on switch screen, skipping");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: no longer on switch screen, skipping");
                     return;
                 }
                 if (currentSelection.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: response already set, skipping");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: response already set, skipping");
                     return;
                 }
 
@@ -47,17 +48,17 @@ public abstract class BattleSwitchPokemonSelectionMixin {
                                 : (!t.isFainted() && !t.isCurrentlyInBattle()))
                         .toList();
 
-                AutoQiqiClient.log("Mixin", "SwitchSelection: " + available.size() + " available: "
+                AutoQiqiClient.logDebug("Mixin", "SwitchSelection: " + available.size() + " available: "
                         + available.stream().map(t -> t.getPokemon().getSpecies().getName()).toList());
 
                 SwitchTile chosen = CaptureEngine.get().chooseSwitchFromTiles(available);
                 if (chosen != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
                     currentSelection.getBattleGUI().selectAction(
                             currentSelection.getRequest(),
                             new SwitchActionResponse(chosen.getPokemon().getUuid()));
                 } else {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target — doing nothing (user intervention needed)");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: no valid switch target — doing nothing (user intervention needed)");
                 }
             }, config.battleSelectDelay);
             return;
@@ -67,11 +68,11 @@ public abstract class BattleSwitchPokemonSelectionMixin {
             AutoQiqiClient.runLater(() -> {
                 var current = self.getBattleGUI().getCurrentActionSelection();
                 if (!(current instanceof BattleSwitchPokemonSelection currentSelection)) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no longer on switch screen (autofight), skipping");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: no longer on switch screen (autofight), skipping");
                     return;
                 }
                 if (currentSelection.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: response already set (autofight), skipping");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: response already set (autofight), skipping");
                     return;
                 }
 
@@ -85,12 +86,12 @@ public abstract class BattleSwitchPokemonSelectionMixin {
                 SwitchTile chosen = BattleDecisionRouter.chooseSwitch(tiles);
 
                 if (chosen != null) {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: switching to " + chosen.getPokemon().getSpecies().getName());
                     currentSelection.getBattleGUI().selectAction(
                             currentSelection.getRequest(),
                             new SwitchActionResponse(chosen.getPokemon().getUuid()));
                 } else {
-                    AutoQiqiClient.log("Mixin", "SwitchSelection: no valid switch target (autofight) — doing nothing (user intervention needed)");
+                    AutoQiqiClient.logDebug("Mixin", "SwitchSelection: no valid switch target (autofight) — doing nothing (user intervention needed)");
                 }
             }, config.battleSelectDelay + 800);
         }

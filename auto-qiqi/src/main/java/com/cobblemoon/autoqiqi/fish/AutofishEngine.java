@@ -86,7 +86,7 @@ public class AutofishEngine {
             fishBattlePending = false;
             fishBattleActive = true;
             aimTarget = null;
-            com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Fish battle started — auto-fighting");
+            com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Fish battle started — auto-fighting");
         }
     }
 
@@ -95,15 +95,15 @@ public class AutofishEngine {
         if (fishBattleActive) {
             fishBattleActive = false;
             fishBattleCount++;
-            com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Fish battle ended (total: " + fishBattleCount + ") — recast queued");
+            com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Fish battle ended (total: " + fishBattleCount + ") — recast queued");
 
             int healEvery = AutoQiqiConfig.get().battleHealEveryN;
             if (healEvery > 0 && fishBattleCount % healEvery == 0 && com.cobblemoon.autoqiqi.AutoQiqiClient.isConnected(client)) {
                 try {
                     client.player.networkHandler.sendChatCommand("pokeheal");
-                    com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Sent /pokeheal (after " + fishBattleCount + " fish battles)");
+                    com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Sent /pokeheal (after " + fishBattleCount + " fish battles)");
                 } catch (Exception e) {
-                    com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "pokeheal failed (network?): " + e.getMessage());
+                    com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "pokeheal failed (network?): " + e.getMessage());
                 }
             }
 
@@ -115,13 +115,13 @@ public class AutofishEngine {
     public void pauseForBossBattle() {
         if (client.player != null && client.player.fishHook != null) {
             useRod();
-            com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Reeled in rod for boss battle");
+            com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Reeled in rod for boss battle");
         }
     }
 
     /** Called by AutoBattleEngine after a boss battle ends while fishing was paused. */
     public void resumeAfterBossBattle() {
-        com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Boss battle done — recasting rod");
+        com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Boss battle done — recasting rod");
         queueRecast();
     }
 
@@ -147,11 +147,11 @@ public class AutofishEngine {
             }
             MovementHelper.lookAtPoint(client.player, aimTarget, AIM_YAW_SPEED, AIM_PITCH_SPEED);
             if (isAimedAt(client.player, aimTarget)) {
-                com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Aimed at water — casting!");
+                com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Aimed at water — casting!");
                 aimTarget = null;
                 useRod();
             } else if (timeMillis - aimStartTime > AIM_TIMEOUT_MS) {
-                com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "Auto-aim timeout");
+                com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "Auto-aim timeout");
                 aimTarget = null;
             }
             return;
@@ -348,20 +348,20 @@ public class AutofishEngine {
             try {
                 client.player.networkHandler.sendChatCommand("repair");
             } catch (Exception e) {
-                com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "repair send failed (network?): " + e.getMessage());
+                com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "repair send failed (network?): " + e.getMessage());
                 return false;
             }
             config.lastRepairTimeMs = now;
             AutoQiqiConfig.save();
             int remaining = held.getMaxDamage() - held.getDamage();
-            com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish",
+            com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish",
                     "Rod low (" + remaining + " uses left) — sent /repair");
             return true;
         }
 
         long remainingCooldown = config.fishRepairCooldownMs - elapsed;
         long mins = remainingCooldown / 60_000;
-        com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish",
+        com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish",
                 "Rod low but /repair on cooldown (" + mins + "min left)");
         return false;
     }
@@ -403,11 +403,11 @@ public class AutofishEngine {
         if (spot != null) {
             aimTarget = spot;
             aimStartTime = timeMillis;
-            com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish",
+            com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish",
                     String.format("Water found at (%.0f, %.0f, %.0f) — aiming...", spot.x, spot.y, spot.z));
             return true;
         }
-        com.cobblemoon.autoqiqi.AutoQiqiClient.log("Fish", "No suitable water found nearby");
+        com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Fish", "No suitable water found nearby");
         return false;
     }
 

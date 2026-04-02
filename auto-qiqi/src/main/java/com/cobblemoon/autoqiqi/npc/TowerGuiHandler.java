@@ -84,7 +84,7 @@ public class TowerGuiHandler {
 
         String className = screen.getClass().getName();
         String title = screen.getTitle().getString();
-        AutoQiqiClient.log("Tower", "Dialog screen opened: " + className + " title='" + title + "'");
+        AutoQiqiClient.logDebug("Tower", "Dialog screen opened: " + className + " title='" + title + "'");
 
         activeDialogScreen = screen;
         dialogTicksSinceOpened = 0;
@@ -106,7 +106,7 @@ public class TowerGuiHandler {
             chestItemsDetectedTick = 0;
             pendingClickSlot = null;
             TowerNpcEngine.get().clearInteractionTick();
-            AutoQiqiClient.log("Tower", "Chest GUI opened (tower dialog): '" + title + "'");
+            AutoQiqiClient.logDebug("Tower", "Chest GUI opened (tower dialog): '" + title + "'");
         }
     }
 
@@ -153,31 +153,31 @@ public class TowerGuiHandler {
             dialogProcessed = true;
             pendingButton = null;
             expectingTowerDialog = false;
-            AutoQiqiClient.log("Tower", "Dialog timeout");
+            AutoQiqiClient.logDebug("Tower", "Dialog timeout");
         }
     }
 
     private void scanDialogButtons(Screen screen) {
-        AutoQiqiClient.log("Tower", "Scanning dialog children (" + screen.children().size() + " elements):");
+        AutoQiqiClient.logDebug("Tower", "Scanning dialog children (" + screen.children().size() + " elements):");
 
         ButtonWidget bestMatch = null;
         boolean isFloorSelect = false;
         for (Element child : screen.children()) {
             if (child instanceof ClickableWidget cw) {
                 String msg = cw.getMessage().getString();
-                AutoQiqiClient.log("Tower", "  button: '" + msg + "' (" + cw.getClass().getSimpleName() + ")");
+                AutoQiqiClient.logDebug("Tower", "  button: '" + msg + "' (" + cw.getClass().getSimpleName() + ")");
 
                     if (child instanceof ButtonWidget bw) {
                     if (matchesKeywords(msg, FLOOR_KEYWORDS)) {
                         bestMatch = bw;
                         isFloorSelect = true;
-                        AutoQiqiClient.log("Tower", "  -> MATCH (floor select)");
+                        AutoQiqiClient.logDebug("Tower", "  -> MATCH (floor select)");
                         break;
                     }
                     if (matchesKeywords(msg, CONFIRM_KEYWORDS)) {
                         bestMatch = bw;
                         isFloorSelect = false;
-                        AutoQiqiClient.log("Tower", "  -> MATCH (combat confirm)");
+                        AutoQiqiClient.logDebug("Tower", "  -> MATCH (combat confirm)");
                         break;
                     }
                 }
@@ -188,15 +188,15 @@ public class TowerGuiHandler {
             pendingButton = bestMatch;
             pendingIsFloorSelect = isFloorSelect;
             buttonClickAtTick = dialogTicksSinceOpened + HumanDelay.guiClickTicks();
-            AutoQiqiClient.log("Tower", "Scheduled dialog button click: '" + bestMatch.getMessage().getString()
+            AutoQiqiClient.logDebug("Tower", "Scheduled dialog button click: '" + bestMatch.getMessage().getString()
                     + "' at tick " + buttonClickAtTick + " (floorSelect=" + isFloorSelect + ")");
         } else {
             if (dialogTicksSinceOpened < TICKS_TIMEOUT / 4) {
-                AutoQiqiClient.log("Tower", "No matching button yet, will retry...");
+                AutoQiqiClient.logDebug("Tower", "No matching button yet, will retry...");
             } else {
                 dialogProcessed = true;
                 expectingTowerDialog = false;
-                AutoQiqiClient.log("Tower", "No matching dialog button found — wrong NPC, blacklisting");
+                AutoQiqiClient.logDebug("Tower", "No matching dialog button found — wrong NPC, blacklisting");
                 MinecraftClient.getInstance().setScreen(null);
                 TowerNpcEngine.get().onDialogMismatch();
             }
@@ -206,7 +206,11 @@ public class TowerGuiHandler {
     private void clickDialogButton(ButtonWidget button) {
         String msg = button.getMessage().getString();
         boolean floorSelect = pendingIsFloorSelect;
-        AutoQiqiClient.log("Tower", "Clicking dialog button: '" + msg + "' (floorSelect=" + floorSelect + ")");
+        AutoQiqiClient.logDebug("Tower", "Clicking dialog button: '" + msg + "' (floorSelect=" + floorSelect + ")");
+        // Combat confirm: attribute the ensuing battle to the mod so shouldAutoFight() is true when the battle GUI opens
+        if (!floorSelect) {
+            AutoQiqiClient.recordModEngagement();
+        }
         button.onPress();
         MinecraftClient.getInstance().setScreen(null);
 
@@ -244,7 +248,7 @@ public class TowerGuiHandler {
             chestProcessed = true;
             pendingClickSlot = null;
             expectingTowerDialog = false;
-            AutoQiqiClient.log("Tower", "Chest GUI timeout — blacklisting NPC");
+            AutoQiqiClient.logDebug("Tower", "Chest GUI timeout — blacklisting NPC");
             MinecraftClient.getInstance().setScreen(null);
             TowerNpcEngine.get().onDialogMismatch();
         }
@@ -254,7 +258,7 @@ public class TowerGuiHandler {
         ScreenHandler handler = screen.getScreenHandler();
         int guiSlotCount = getGuiSlotCount(handler);
 
-        AutoQiqiClient.log("Tower", "Chest GUI slots (" + guiSlotCount + " gui, " + handler.slots.size() + " total):");
+        AutoQiqiClient.logDebug("Tower", "Chest GUI slots (" + guiSlotCount + " gui, " + handler.slots.size() + " total):");
         int slotToClick = -1;
         for (int i = 0; i < guiSlotCount; i++) {
             Slot slot = handler.slots.get(i);
@@ -262,11 +266,11 @@ public class TowerGuiHandler {
             if (stack.isEmpty()) continue;
 
             String name = stack.getName().getString();
-            AutoQiqiClient.log("Tower", "  slot[" + i + "] = '" + name + "'");
+            AutoQiqiClient.logDebug("Tower", "  slot[" + i + "] = '" + name + "'");
 
             if (matchesKeywords(name, FLOOR_KEYWORDS) || matchesKeywords(name, CONFIRM_KEYWORDS)) {
                 slotToClick = i;
-                AutoQiqiClient.log("Tower", "  -> MATCH (tower option)");
+                AutoQiqiClient.logDebug("Tower", "  -> MATCH (tower option)");
                 break;
             }
         }
@@ -274,11 +278,11 @@ public class TowerGuiHandler {
         if (slotToClick >= 0) {
             pendingClickSlot = slotToClick;
             slotClickAtTick = chestTicksSinceOpened + HumanDelay.guiClickTicks();
-            AutoQiqiClient.log("Tower", "Scheduled chest click on slot " + slotToClick + " at tick " + slotClickAtTick);
+            AutoQiqiClient.logDebug("Tower", "Scheduled chest click on slot " + slotToClick + " at tick " + slotClickAtTick);
         } else {
             chestProcessed = true;
             expectingTowerDialog = false;
-            AutoQiqiClient.log("Tower", "No matching slot in chest GUI — wrong NPC, blacklisting");
+            AutoQiqiClient.logDebug("Tower", "No matching slot in chest GUI — wrong NPC, blacklisting");
             MinecraftClient.getInstance().setScreen(null);
             TowerNpcEngine.get().onDialogMismatch();
         }
@@ -287,13 +291,13 @@ public class TowerGuiHandler {
     private void clickChestSlot(HandledScreen<?> screen, int slotIndex) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.interactionManager == null || client.player == null) {
-            AutoQiqiClient.log("Tower", "clickChestSlot: no interactionManager or player");
+            AutoQiqiClient.logDebug("Tower", "clickChestSlot: no interactionManager or player");
             client.setScreen(null);
             return;
         }
 
         int syncId = screen.getScreenHandler().syncId;
-        AutoQiqiClient.log("Tower", "Clicking chest slot " + slotIndex);
+        AutoQiqiClient.logDebug("Tower", "Clicking chest slot " + slotIndex);
         client.interactionManager.clickSlot(syncId, slotIndex, 0, SlotActionType.PICKUP, client.player);
         client.setScreen(null);
         expectingTowerDialog = false;

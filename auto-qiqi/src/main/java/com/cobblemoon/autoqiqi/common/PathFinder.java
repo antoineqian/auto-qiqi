@@ -342,6 +342,6 @@ public class PathFinder {
     }
 
     private static void log(String msg) {
-        System.out.println("[Auto-Qiqi|Path] " + msg);
+        com.cobblemoon.autoqiqi.AutoQiqiClient.logDebug("Path", msg);
     }
 }

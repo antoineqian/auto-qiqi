@@ -149,10 +149,25 @@ public class AutoQiqiHud {
         int maxW = Math.max(w1, w2);
         String line3 = null;
         int w3 = 0;
-        if (info.damageRangePercent() != null) {
-            line3 = "§7Dmg §f" + info.damageRangePercent() + " §7(of target HP)";
+        if (info.bestMoveName() != null || info.damageRangePercent() != null) {
+            StringBuilder sb = new StringBuilder();
+            if (info.bestMoveName() != null && !info.bestMoveName().isEmpty()) {
+                sb.append("§7Best move: §f").append(info.bestMoveName());
+                if (info.damageRangePercent() != null) {
+                    sb.append(" §7— Dmg §f").append(info.damageRangePercent()).append(" §7(of target HP)");
+                }
+            } else if (info.damageRangePercent() != null) {
+                sb.append("§7Dmg §f").append(info.damageRangePercent()).append(" §7(of target HP)");
+            }
+            line3 = sb.toString();
             w3 = tr.getWidth(line3.replaceAll("§.", ""));
             maxW = Math.max(maxW, w3);
+        }
+        String line4 = null;
+        if (info.adviseSwitchAfterAttacks()) {
+            line4 = "§e>> Switch recommended (5+ attacks, no KO)";
+            int w4 = tr.getWidth(line4.replaceAll("§.", ""));
+            maxW = Math.max(maxW, w4);
         }
         int x = (screenWidth - maxW) / 2;
 
@@ -162,6 +177,10 @@ public class AutoQiqiHud {
         y += lineHeight;
         if (line3 != null) {
             drawBg(context, tr, line3, x, y, 0xFFAAAAAA);
+            y += lineHeight;
+        }
+        if (line4 != null) {
+            drawBg(context, tr, line4, x, y, 0xFFFFFF55);
         }
     }
 

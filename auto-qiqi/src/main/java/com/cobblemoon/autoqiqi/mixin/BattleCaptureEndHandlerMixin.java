@@ -36,7 +36,7 @@ public abstract class BattleCaptureEndHandlerMixin {
         if (!CaptureEngine.get().isWaitingForBallHit()) return;
 
         boolean succeeded = packet.getSucceeded();
-        AutoQiqiClient.log("Capture", "Ball HIT confirmed via BattleCaptureEndPacket (succeeded=" + succeeded + ")");
+        AutoQiqiClient.logDebug("Capture", "Ball HIT confirmed via BattleCaptureEndPacket (succeeded=" + succeeded + ")");
         CaptureEngine.chatBall("Packet: hit confirmed, succeeded=" + succeeded + (succeeded ? " (caught)" : " (breakout)"));
         CaptureEngine.get().onBallHitConfirmed();
 

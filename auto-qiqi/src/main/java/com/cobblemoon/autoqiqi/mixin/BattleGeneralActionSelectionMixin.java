@@ -19,6 +19,7 @@ public abstract class BattleGeneralActionSelectionMixin {
         AutoQiqiConfig config = AutoQiqiConfig.get();
         var self = (BattleGeneralActionSelection) (Object) this;
 
+        AutoQiqiClient.logDebug("Mixin", "GeneralAction: screen constructed (response=" + (self.getRequest().getResponse() != null) + ")");
         if (self.getRequest().getResponse() != null) return;
 
         if (CaptureEngine.get().isActive() && AutoQiqiClient.getBattleMode() != BattleMode.OFF) {
@@ -31,7 +32,7 @@ public abstract class BattleGeneralActionSelectionMixin {
 
             // If a ball throw is still being prepared, don't schedule another action
             if (CaptureEngine.get().isPendingBallThrow()) {
-                AutoQiqiClient.log("Mixin", "GeneralAction: ball throw still pending, ignoring");
+                AutoQiqiClient.logDebug("Mixin", "GeneralAction: ball throw still pending, ignoring");
                 return;
             }
 
@@ -40,17 +41,17 @@ public abstract class BattleGeneralActionSelectionMixin {
             long delay = hitJustConfirmed
                     ? CaptureEngine.get().getBallHitExtraDelay()
                     : config.battleSelectDelay;
-            AutoQiqiClient.log("Mixin", "GeneralAction: CaptureEngine active, delay=" + delay + " (hitConfirmed=" + hitJustConfirmed + ")");
+            AutoQiqiClient.logDebug("Mixin", "GeneralAction: CaptureEngine active, delay=" + delay + " (hitConfirmed=" + hitJustConfirmed + ")");
             AutoQiqiClient.runLater(() -> {
                 // Use current action selection: after ball hit the UI may have recreated the screen (new instance),
                 // so self != getCurrentActionSelection() would wrongly skip and leave battle idle.
                 var current = self.getBattleGUI().getCurrentActionSelection();
                 if (!(current instanceof BattleGeneralActionSelection currentSelection)) {
-                    AutoQiqiClient.log("Mixin", "GeneralAction: no longer on action selection, skipping");
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction: no longer on action selection, skipping");
                     return;
                 }
                 if (currentSelection.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "GeneralAction: response already set, skipping");
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction: response already set, skipping");
                     return;
                 }
                 CaptureEngine.handleCaptureAction(currentSelection);
@@ -60,12 +61,20 @@ public abstract class BattleGeneralActionSelectionMixin {
 
         if (AutoQiqiClient.shouldAutoFight()) {
             boolean isTrainer = AutoQiqiClient.getBattleMode() == BattleMode.TRAINER;
-            AutoQiqiClient.log("Mixin", "GeneralAction: AutoBattle mode" + (isTrainer ? " (Trainer)" : "") + ", auto-fighting");
+            AutoQiqiClient.logDebug("Mixin", "GeneralAction: AutoBattle mode" + (isTrainer ? " (Trainer)" : "") + ", auto-fighting");
             AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) return;
-
-                BattleDecisionRouter.handleGeneralAction(self);
+                // Use current action selection: the GUI may have a different instance by the time we run
+                // (e.g. Cobblemon Extended Battle UI or internal refresh), so identity check would wrongly skip.
+                var current = self.getBattleGUI().getCurrentActionSelection();
+                if (!(current instanceof BattleGeneralActionSelection currentSelection)) {
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction: no longer on action selection, skipping");
+                    return;
+                }
+                if (currentSelection.getRequest().getResponse() != null) {
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction: response already set, skipping");
+                    return;
+                }
+                BattleDecisionRouter.handleGeneralAction(currentSelection);
             }, config.battleSelectDelay);
         }
     }

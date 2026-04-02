@@ -136,7 +136,7 @@ public class CaptureEngine {
 
     public void start(String name, int level, boolean isLegendary, Entity entity) {
         if (isRecentlyFailed(name)) {
-            AutoQiqiClient.log("Capture", "Skipping " + name + " - recently failed (cooldown " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s)");
+            AutoQiqiClient.logDebug("Capture", "Skipping " + name + " - recently failed (cooldown " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s)");
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player != null) {
                 client.player.sendMessage(Text.literal("§6[Capture]§r §c" + name + " a echappe recemment, attente " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s avant de reessayer."), false);
@@ -151,7 +151,7 @@ public class CaptureEngine {
         if (isLegendary && isInLegendaryCaptureWhitelist(name)) {
             s.targetInMasterBallWhitelist = true;
             s.activeBallSequence = LEGENDARY_BALLS;
-            AutoQiqiClient.log("Capture", "Whitelisted legendary: will use Master Ball after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra Balls (if in hotbar)");
+            AutoQiqiClient.logDebug("Capture", "Whitelisted legendary: will use Master Ball after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra Balls (if in hotbar)");
         } else {
             s.activeBallSequence = level >= LEGENDARY_LEVEL_THRESHOLD ? LEGENDARY_BALLS : (level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS);
         }
@@ -160,7 +160,7 @@ public class CaptureEngine {
         s.resetBattleAndBallState();
         s.statusMessage = "Capture: " + name + " Lv." + level;
         this.session = s;
-        AutoQiqiClient.log("Capture", "Started for " + name + " Lv." + level
+        AutoQiqiClient.logDebug("Capture", "Started for " + name + " Lv." + level
                 + " (legendary=" + isLegendary + ", phase=" + s.phase + ")");
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logBattleStart(name, level, "capture");
     }
@@ -173,7 +173,7 @@ public class CaptureEngine {
                         session.targetName, session.targetLevel, session.targetIsLegendary,
                         session.totalBallsThrown, "stopped manually");
             }
-            AutoQiqiClient.log("Capture", "Stopped");
+            AutoQiqiClient.logDebug("Capture", "Stopped");
             PokemonWalker.get().stop();
             MinecraftClient client = MinecraftClient.getInstance();
             if (client != null) {
@@ -249,7 +249,7 @@ public class CaptureEngine {
 
         // Target still alive? Re-engage instead of giving up.
         if (s.targetEntity != null && s.targetEntity.isAlive() && !s.targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Battle ended but " + s.targetName + " is still alive — re-engaging");
+            AutoQiqiClient.logDebug("Capture", "Battle ended but " + s.targetName + " is still alive — re-engaging");
             reengageTarget(s, "battle ended, target still alive");
             return;
         }
@@ -257,7 +257,7 @@ public class CaptureEngine {
         if (s.targetName != null) recordCaptureFailed(s.targetName);
         String msg = s.targetName + " - battle ended (Balls: " + s.totalBallsThrown + ")";
         s.statusMessage = msg;
-        AutoQiqiClient.log("Capture", msg);
+        AutoQiqiClient.logDebug("Capture", msg);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
             client.player.sendMessage(
@@ -277,7 +277,7 @@ public class CaptureEngine {
     public void onCaptureConfirmedByChat(String pokemonName) {
         CaptureSession s = session;
         if (s == null) return;
-        AutoQiqiClient.log("Capture", "CAPTURE CONFIRMED via chat: " + pokemonName);
+        AutoQiqiClient.logDebug("Capture", "CAPTURE CONFIRMED via chat: " + pokemonName);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
             client.player.sendMessage(
@@ -298,7 +298,7 @@ public class CaptureEngine {
         if (s.phase == Phase.WALKING || s.phase == Phase.ENGAGING) {
             long elapsed = System.currentTimeMillis() - s.captureStartMs;
             if (elapsed > CAPTURE_TOTAL_TIMEOUT_MS) {
-                AutoQiqiClient.log("Capture", "TOTAL TIMEOUT after " + (elapsed / 1000) + "s");
+                AutoQiqiClient.logDebug("Capture", "TOTAL TIMEOUT after " + (elapsed / 1000) + "s");
                 client.player.sendMessage(
                         Text.literal("§6[Capture]§r §cTimeout: impossible de capturer §e" + s.targetName + "§c. Arret."), false);
                 stop();
@@ -324,7 +324,7 @@ public class CaptureEngine {
 
     private void tickWalking(CaptureSession s, MinecraftClient client) {
         if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Target gone during WALKING phase");
+            AutoQiqiClient.logDebug("Capture", "Target gone during WALKING phase");
             client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
             stop();
             return;
@@ -336,7 +336,7 @@ public class CaptureEngine {
         if (s.walkTicks > MAX_WALK_TICKS) {
             s.walkRetries++;
             double dist = client.player.distanceTo(s.targetEntity);
-            AutoQiqiClient.log("Capture", "Walk timeout (" + s.walkRetries + "/" + MAX_WALK_RETRIES
+            AutoQiqiClient.logDebug("Capture", "Walk timeout (" + s.walkRetries + "/" + MAX_WALK_RETRIES
                     + ") dist=" + String.format("%.1f", dist)
                     + " player=" + fmtPos(client.player.getPos())
                     + " target=" + fmtPos(s.targetEntity.getPos()));
@@ -351,7 +351,7 @@ public class CaptureEngine {
 
         if (!PokemonWalker.get().isActive()) {
             if (PokemonWalker.get().hasTimedOut()) {
-                AutoQiqiClient.log("Capture", "Walker timed out, aborting capture");
+                AutoQiqiClient.logDebug("Capture", "Walker timed out, aborting capture");
                 client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + ". Arret."), false);
                 stop();
                 return;
@@ -362,9 +362,9 @@ public class CaptureEngine {
                 s.aimTicks = 0;
                 s.keySent = false;
                 s.statusMessage = "Engaging " + s.targetName + "...";
-                AutoQiqiClient.log("Capture", "WALKING->ENGAGING dist=" + String.format("%.1f", dist));
+                AutoQiqiClient.logDebug("Capture", "WALKING->ENGAGING dist=" + String.format("%.1f", dist));
             } else {
-                AutoQiqiClient.log("Capture", "Walker stopped but still far (dist=" + String.format("%.1f", dist) + "), restarting walk");
+                AutoQiqiClient.logDebug("Capture", "Walker stopped but still far (dist=" + String.format("%.1f", dist) + "), restarting walk");
                 PokemonWalker.get().startWalking(s.targetEntity);
             }
         }
@@ -375,12 +375,12 @@ public class CaptureEngine {
         // removes the wild entity; we must transition to IN_BATTLE so capture mixin is used.
         if (client.currentScreen != null) {
             String screenName = client.currentScreen.getClass().getSimpleName();
-            AutoQiqiClient.log("Capture", "Screen opened during ENGAGING: " + screenName);
+            AutoQiqiClient.logDebug("Capture", "Screen opened during ENGAGING: " + screenName);
             if (screenName.toLowerCase().contains("battle")) {
                 s.reengagePending = false;
                 s.phase = Phase.IN_BATTLE;
                 s.statusMessage = "In battle - " + s.targetName;
-                AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (battle screen detected)");
+                AutoQiqiClient.logDebug("Capture", "ENGAGING->IN_BATTLE (battle screen detected)");
                 SessionLogger.get().logEvent("BATTLE", "Engaged: " + s.targetName + " Lv." + s.targetLevel);
                 s.aimTicks = 0;
                 s.keySent = false;
@@ -394,7 +394,7 @@ public class CaptureEngine {
                 && s.phase != Phase.IN_BATTLE) {
             s.phase = Phase.IN_BATTLE;
             s.statusMessage = "In battle - " + s.targetName;
-            AutoQiqiClient.log("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
+            AutoQiqiClient.logDebug("Capture", "ENGAGING->IN_BATTLE (CobblemonClient.getBattle() != null)");
             SessionLogger.get().logEvent("BATTLE", "Engaged: " + s.targetName + " Lv." + s.targetLevel);
             s.aimTicks = 0;
             s.keySent = false;
@@ -402,7 +402,7 @@ public class CaptureEngine {
         }
 
         if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Target gone during ENGAGING phase");
+            AutoQiqiClient.logDebug("Capture", "Target gone during ENGAGING phase");
             client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
             stop();
             return;
@@ -412,7 +412,7 @@ public class CaptureEngine {
         if (dist > s.currentEngageRange) {
             MovementHelper.stopStrafe(client);
             s.losStrafeTicks = 0;
-            AutoQiqiClient.log("Capture", "ENGAGING->WALKING target moved away (dist=" + String.format("%.1f", dist) + ")");
+            AutoQiqiClient.logDebug("Capture", "ENGAGING->WALKING target moved away (dist=" + String.format("%.1f", dist) + ")");
             s.phase = Phase.WALKING;
             PokemonWalker.get().startWalking(s.targetEntity);
             s.statusMessage = "Walking to " + s.targetName + "...";
@@ -436,13 +436,13 @@ public class CaptureEngine {
         if (!hasLOS) {
             s.losStrafeTicks++;
             if (s.losStrafeTicks == 1) {
-                AutoQiqiClient.log("Capture", "No LOS to target, strafing to find clear angle");
+                AutoQiqiClient.logDebug("Capture", "No LOS to target, strafing to find clear angle");
             }
             if (s.losStrafeTicks % LOS_STRAFE_SWITCH_TICKS == 0) {
                 s.losStrafeDir = -s.losStrafeDir;
             }
             if (s.losStrafeTicks > LOS_MAX_STRAFE_TICKS) {
-                AutoQiqiClient.log("Capture", "LOS strafe timeout, trying to engage anyway");
+                AutoQiqiClient.logDebug("Capture", "LOS strafe timeout, trying to engage anyway");
                 s.losStrafeTicks = 0;
             } else {
                 MovementHelper.strafeSideways(client, s.targetEntity, client.player, s.losStrafeDir);
@@ -452,7 +452,7 @@ public class CaptureEngine {
                 return;
             }
         } else if (s.losStrafeTicks > 0) {
-            AutoQiqiClient.log("Capture", "LOS acquired after " + s.losStrafeTicks + " ticks of strafing");
+            AutoQiqiClient.logDebug("Capture", "LOS acquired after " + s.losStrafeTicks + " ticks of strafing");
             MovementHelper.stopStrafe(client);
             s.losStrafeTicks = 0;
         }
@@ -466,17 +466,17 @@ public class CaptureEngine {
             boolean bypassCrosshair = s.engageAttempts >= CROSSHAIR_BYPASS_AFTER;
             if (!crosshairOnTarget && !bypassCrosshair) {
                 if (s.aimTicks % 4 == 0) {
-                    AutoQiqiClient.log("Capture", "Crosshair not on target, wiggling aim (dist=" + String.format("%.1f", dist) + ")");
+                    AutoQiqiClient.logDebug("Capture", "Crosshair not on target, wiggling aim (dist=" + String.format("%.1f", dist) + ")");
                 }
                 if (s.aimTicks > AIM_TICKS_BEFORE_PRESS + 10) {
                     s.aimTicks = 0;
                     s.engageAttempts++;
                     if (s.engageAttempts >= CROSSHAIR_BYPASS_AFTER) {
-                        AutoQiqiClient.log("Capture", "Crosshair bypass active after " + s.engageAttempts + " misses (small hitbox?), will force send-out key");
+                        AutoQiqiClient.logDebug("Capture", "Crosshair bypass active after " + s.engageAttempts + " misses (small hitbox?), will force send-out key");
                     }
                     if (s.engageAttempts >= 4 && s.currentEngageRange > ENGAGE_RANGE_MIN) {
                         s.currentEngageRange = Math.max(ENGAGE_RANGE_MIN, s.currentEngageRange - 1.0);
-                        AutoQiqiClient.log("Capture", "Reducing engage range to " + String.format("%.1f", s.currentEngageRange));
+                        AutoQiqiClient.logDebug("Capture", "Reducing engage range to " + String.format("%.1f", s.currentEngageRange));
                     }
                 }
                 return;
@@ -484,13 +484,13 @@ public class CaptureEngine {
 
             s.engageAttempts++;
             if (s.engageAttempts > MAX_ENGAGE_ATTEMPTS) {
-                AutoQiqiClient.log("Capture", "Engagement failed after " + MAX_ENGAGE_ATTEMPTS + " attempts (not wild?)");
+                AutoQiqiClient.logDebug("Capture", "Engagement failed after " + MAX_ENGAGE_ATTEMPTS + " attempts (not wild?)");
                 client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'engager " + s.targetName + " (pas sauvage ?). Arret."), false);
                 stop();
                 return;
             }
             String reason = crosshairOnTarget ? "crosshair hit" : "bypass (snap aim)";
-            AutoQiqiClient.log("Capture", "Sending send-out key (" + reason + ", attempt=" + s.engageAttempts + "/" + MAX_ENGAGE_ATTEMPTS
+            AutoQiqiClient.logDebug("Capture", "Sending send-out key (" + reason + ", attempt=" + s.engageAttempts + "/" + MAX_ENGAGE_ATTEMPTS
                     + " dist=" + String.format("%.1f", dist) + " reengage=" + s.reengagePending + ")");
             s.reengagePending = false;
             AutoQiqiClient.recordModEngagement();
@@ -534,9 +534,9 @@ public class CaptureEngine {
             KeyBinding.setKeyPressed(key, true);
             KeyBinding.onKeyPressed(key);
             s.pendingKeyRelease = key;
-            AutoQiqiClient.log("Capture", "Send-out key pressed");
+            AutoQiqiClient.logDebug("Capture", "Send-out key pressed");
         } else {
-            AutoQiqiClient.log("Capture", "Could not find Cobblemon send-out keybinding");
+            AutoQiqiClient.logDebug("Capture", "Could not find Cobblemon send-out keybinding");
         }
     }
 
@@ -590,7 +590,7 @@ public class CaptureEngine {
             long sinceLast = System.currentTimeMillis() - s.lastThrowTimeMs;
             if (sinceLast >= THROW_COOLDOWN_MS) {
                 s.retryThrowPending = false;
-                AutoQiqiClient.log("Capture", "Deferred retry: cooldown expired, retrying ball throw");
+                AutoQiqiClient.logDebug("Capture", "Deferred retry: cooldown expired, retrying ball throw");
                 prepareBallThrow();
             }
         }
@@ -606,7 +606,7 @@ public class CaptureEngine {
             s.retryThrowPending = false;
             client.options.backKey.setPressed(false);
             MovementHelper.stopStrafe(client);
-            AutoQiqiClient.log("Capture", "Battle ended during throw phase, cancelling");
+            AutoQiqiClient.logDebug("Capture", "Battle ended during throw phase, cancelling");
             return;
         }
 
@@ -627,14 +627,14 @@ public class CaptureEngine {
                 s.throwAimTicks = 0;
                 client.options.backKey.setPressed(false);
                 MovementHelper.stopStrafe(client);
-                AutoQiqiClient.log("Capture", "Too far from target during throw (dist=" + String.format("%.1f", dist)
+                AutoQiqiClient.logDebug("Capture", "Too far from target during throw (dist=" + String.format("%.1f", dist)
                         + " > " + s.currentEngageRange + "), aborting");
                 return;
             }
             if (dist < MIN_THROW_DISTANCE && dist < s.currentEngageRange - 0.5 && s.backupTicks < MAX_BACKUP_TICKS) {
                 if (!s.backingUp) {
                     s.backingUp = true;
-                    AutoQiqiClient.log("Capture", "Too close to throw (dist=" + String.format("%.1f", dist)
+                    AutoQiqiClient.logDebug("Capture", "Too close to throw (dist=" + String.format("%.1f", dist)
                             + "), backing up to " + MIN_THROW_DISTANCE);
                 }
                 MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
@@ -647,7 +647,7 @@ public class CaptureEngine {
             if (s.backingUp) {
                 client.options.backKey.setPressed(false);
                 s.backingUp = false;
-                AutoQiqiClient.log("Capture", "Backed up to dist=" + String.format("%.1f", dist)
+                AutoQiqiClient.logDebug("Capture", "Backed up to dist=" + String.format("%.1f", dist)
                         + " after " + s.backupTicks + " ticks");
             }
         }
@@ -658,17 +658,17 @@ public class CaptureEngine {
             if (blocker != null && s.entityObstructionStrafeTicks < ENTITY_OBSTRUCTION_MAX_STRAFE) {
                 if (s.entityObstructionStrafeTicks == 0) {
                     String blockerName = PokemonScanner.getPokemonName(blocker);
-                    AutoQiqiClient.log("Capture", "getEntityBlockingThrow: " + blockerName
+                    AutoQiqiClient.logDebug("Capture", "getEntityBlockingThrow: " + blockerName
                             + " (dist=" + String.format("%.1f", client.player.distanceTo(blocker)) + ")");
                     s.entityObstructionIsOurPokemon = PokemonScanner.isPlayerOwned(blocker);
                     if (s.entityObstructionIsOurPokemon) {
                         s.losStrafeDir = MovementHelper.getPreferredStrafeDirectionToAvoidBlocker(
                                 client.player, s.targetEntity, blocker);
-                        AutoQiqiClient.log("Capture", "Our Pokemon blocking throw: " + blockerName
+                        AutoQiqiClient.logDebug("Capture", "Our Pokemon blocking throw: " + blockerName
                                 + ", strafing " + (s.losStrafeDir > 0 ? "left" : "right")
                                 + " to clear line to target");
                     } else {
-                        AutoQiqiClient.log("Capture", "Entity blocking throw path: " + blockerName
+                        AutoQiqiClient.logDebug("Capture", "Entity blocking throw path: " + blockerName
                                 + " at dist=" + String.format("%.1f", client.player.distanceTo(blocker))
                                 + ", strafing quarter-circle " + (s.losStrafeDir > 0 ? "left" : "right"));
                     }
@@ -677,7 +677,7 @@ public class CaptureEngine {
                 if (!s.entityObstructionIsOurPokemon
                         && s.entityObstructionStrafeTicks == ENTITY_OBSTRUCTION_SWITCH_DIR_TICKS) {
                     s.losStrafeDir = -s.losStrafeDir;
-                    AutoQiqiClient.log("Capture", "Quarter-circle blocked, reversing to "
+                    AutoQiqiClient.logDebug("Capture", "Quarter-circle blocked, reversing to "
                             + (s.losStrafeDir > 0 ? "left" : "right"));
                 }
                 MovementHelper.lookAtEntity(client.player, s.targetEntity, AIM_YAW_SPEED, AIM_PITCH_SPEED);
@@ -685,7 +685,7 @@ public class CaptureEngine {
                 s.throwAimTicks = 0;
                 return;
             } else if (blocker == null && s.entityObstructionStrafeTicks > 0) {
-                AutoQiqiClient.log("Capture", "Entity obstruction cleared after " + s.entityObstructionStrafeTicks + " ticks");
+                AutoQiqiClient.logDebug("Capture", "Entity obstruction cleared after " + s.entityObstructionStrafeTicks + " ticks");
                 MovementHelper.stopStrafe(client);
                 s.entityObstructionStrafeTicks = 0;
                 s.entityObstructionIsOurPokemon = false;
@@ -717,19 +717,19 @@ public class CaptureEngine {
                 if ("master_ball".equals(s.pendingBallName) && s.targetInMasterBallWhitelist) {
                     s.masterBallThrownThisSession = true;
                     s.pendingBallName = getNextBallName(s);
-                    AutoQiqiClient.log("Capture", "Master Ball not in hotbar, falling back to: " + s.pendingBallName);
+                    AutoQiqiClient.logDebug("Capture", "Master Ball not in hotbar, falling back to: " + s.pendingBallName);
                     return;
                 }
-                AutoQiqiClient.log("Capture", "Ball '" + s.pendingBallName + "' not in hotbar (seqIdx=" + s.ballSequenceIndex
+                AutoQiqiClient.logDebug("Capture", "Ball '" + s.pendingBallName + "' not in hotbar (seqIdx=" + s.ballSequenceIndex
                         + " count=" + s.currentBallCount + " total=" + s.totalBallsThrown + "), searching any ball...");
                 slot = findAnyBallInHotbar(client);
                 if (slot == -1) {
-                    AutoQiqiClient.log("Capture", "NO balls found in hotbar! Dumping hotbar:");
+                    AutoQiqiClient.logDebug("Capture", "NO balls found in hotbar! Dumping hotbar:");
                     for (int i = 0; i < 9; i++) {
                         ItemStack stack = client.player.getInventory().getStack(i);
                         if (!stack.isEmpty()) {
                             Identifier id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem());
-                            AutoQiqiClient.log("Capture", "  slot " + i + ": " + id + " x" + stack.getCount());
+                            AutoQiqiClient.logDebug("Capture", "  slot " + i + ": " + id + " x" + stack.getCount());
                         }
                     }
                     s.statusMessage = "No balls in hotbar!";
@@ -741,7 +741,7 @@ public class CaptureEngine {
 
             ItemStack ballStack = client.player.getInventory().getStack(slot);
             Identifier ballId = net.minecraft.registry.Registries.ITEM.getId(ballStack.getItem());
-            AutoQiqiClient.log("Capture", "Selecting ball: slot=" + slot + " item=" + ballId + " x" + ballStack.getCount());
+            AutoQiqiClient.logDebug("Capture", "Selecting ball: slot=" + slot + " item=" + ballId + " x" + ballStack.getCount());
 
             client.player.getInventory().selectedSlot = slot;
             s.throwSlotSelected = true;
@@ -749,10 +749,10 @@ public class CaptureEngine {
         }
 
         // Phase 3: throw
-        AutoQiqiClient.log("Capture", "Throwing ball (aimed for " + s.throwAimTicks + " ticks)");
+        AutoQiqiClient.logDebug("Capture", "Throwing ball (aimed for " + s.throwAimTicks + " ticks)");
         if (client.interactionManager != null) {
             client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-            AutoQiqiClient.log("Capture", "interactItem called (ball thrown)");
+            AutoQiqiClient.logDebug("Capture", "interactItem called (ball thrown)");
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logBallThrow(
                     s.targetName, s.pendingBallName != null ? s.pendingBallName : "unknown", s.totalBallsThrown);
         }
@@ -767,7 +767,7 @@ public class CaptureEngine {
 
         s.waitingForBallHit = true;
         s.throwWaitTicks = 0;
-        AutoQiqiClient.log("Capture", "Waiting for ball hit (timeout=" + MISS_TIMEOUT_TICKS + " ticks)");
+        AutoQiqiClient.logDebug("Capture", "Waiting for ball hit (timeout=" + MISS_TIMEOUT_TICKS + " ticks)");
         chatBall("Waiting for hit (tick=" + (MISS_TIMEOUT_TICKS / 20) + "s, wall=" + (BALL_HIT_WALL_CLOCK_TIMEOUT_MS / 1000) + "s)");
     }
 
@@ -782,12 +782,12 @@ public class CaptureEngine {
             }
         }
         // Log what we were looking for and what's actually in the hotbar
-        AutoQiqiClient.log("Capture", "Ball search FAILED for '" + ballName + "'. Hotbar contents:");
+        AutoQiqiClient.logDebug("Capture", "Ball search FAILED for '" + ballName + "'. Hotbar contents:");
         for (int i = 0; i < 9; i++) {
             ItemStack stack = client.player.getInventory().getStack(i);
             if (!stack.isEmpty()) {
                 Identifier id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem());
-                AutoQiqiClient.log("Capture", "  slot " + i + ": " + id.getNamespace() + ":" + id.getPath() + " x" + stack.getCount());
+                AutoQiqiClient.logDebug("Capture", "  slot " + i + ": " + id.getNamespace() + ":" + id.getPath() + " x" + stack.getCount());
             }
         }
         return -1;
@@ -799,7 +799,7 @@ public class CaptureEngine {
             if (!stack.isEmpty()) {
                 Identifier itemId = net.minecraft.registry.Registries.ITEM.getId(stack.getItem());
                 if (itemId.getPath().contains("ball") && itemId.getNamespace().equals("cobblemon")) {
-                    AutoQiqiClient.log("Capture", "Fallback ball found: slot " + i + " = " + itemId.getNamespace() + ":" + itemId.getPath());
+                    AutoQiqiClient.logDebug("Capture", "Fallback ball found: slot " + i + " = " + itemId.getNamespace() + ":" + itemId.getPath());
                     return i;
                 }
             }
@@ -819,14 +819,14 @@ public class CaptureEngine {
             s.waitingForBallHit = false;
             s.throwWaitTicks = 0;
             s.retryThrowPending = false;
-            AutoQiqiClient.log("Capture", "Battle ended while waiting for ball hit, clearing state");
+            AutoQiqiClient.logDebug("Capture", "Battle ended while waiting for ball hit, clearing state");
             chatBall("Battle ended while waiting for hit, clearing");
             return;
         }
 
         long waitMs = System.currentTimeMillis() - s.lastThrowTimeMs;
         if (waitMs >= BALL_HIT_WALL_CLOCK_TIMEOUT_MS) {
-            AutoQiqiClient.log("Capture", "Ball wait wall-clock timeout (" + (waitMs / 1000) + "s) — re-engaging");
+            AutoQiqiClient.logDebug("Capture", "Ball wait wall-clock timeout (" + (waitMs / 1000) + "s) — re-engaging");
             chatBall("Wall-clock timeout " + (waitMs / 1000) + "s → re-engage");
             s.waitingForBallHit = false;
             s.throwWaitTicks = 0;
@@ -838,7 +838,7 @@ public class CaptureEngine {
         s.throwWaitTicks++;
         if (s.throwWaitTicks >= MISS_TIMEOUT_TICKS) {
             s.missCount++;
-            AutoQiqiClient.log("Capture", "Ball MISSED! (timeout " + MISS_TIMEOUT_TICKS
+            AutoQiqiClient.logDebug("Capture", "Ball MISSED! (timeout " + MISS_TIMEOUT_TICKS
                     + " ticks, missCount=" + s.missCount + "/" + MAX_MISSES + ")");
             chatBall("Tick timeout " + (MISS_TIMEOUT_TICKS / 20) + "s → Ball MISSED (" + s.missCount + "/" + MAX_MISSES + ")");
             client.player.sendMessage(
@@ -848,7 +848,7 @@ public class CaptureEngine {
             s.throwWaitTicks = 0;
 
             if (s.missCount >= MAX_MISSES) {
-                AutoQiqiClient.log("Capture", "Too many misses (" + MAX_MISSES + "), switching to kill");
+                AutoQiqiClient.logDebug("Capture", "Too many misses (" + MAX_MISSES + "), switching to kill");
                 String target = s.targetName != null ? s.targetName : "Pokemon";
                 SessionLogger.get().logCaptureFailed(target, s.targetLevel, s.targetIsLegendary, s.totalBallsThrown, "too many misses (" + MAX_MISSES + "), switching to kill");
                 stop(false);
@@ -866,7 +866,7 @@ public class CaptureEngine {
     public void onBallHitConfirmed() {
         CaptureSession s = session;
         if (s != null && s.waitingForBallHit) {
-            AutoQiqiClient.log("Capture", "Ball HIT confirmed (wait=" + s.throwWaitTicks + " ticks)");
+            AutoQiqiClient.logDebug("Capture", "Ball HIT confirmed (wait=" + s.throwWaitTicks + " ticks)");
             chatBall("Ball HIT confirmed (wait=" + s.throwWaitTicks + " ticks)");
             s.waitingForBallHit = false;
             s.throwWaitTicks = 0;
@@ -913,18 +913,18 @@ public class CaptureEngine {
         if (s.droppedBallEntity == null) {
             if (CobblemonClient.INSTANCE.getBattle() == null) {
                 s.waitingForBallHit = false;
-                AutoQiqiClient.log("Capture", "No dropped ball and battle ended, not retrying");
+                AutoQiqiClient.logDebug("Capture", "No dropped ball and battle ended, not retrying");
                 chatBall("No dropped ball, battle ended — not retrying");
                 return;
             }
-            AutoQiqiClient.log("Capture", "No dropped ball item found nearby, retrying throw directly");
+            AutoQiqiClient.logDebug("Capture", "No dropped ball item found nearby, retrying throw directly");
             chatBall("No dropped ball nearby → retry throw");
             retryThrow();
             return;
         }
 
         double dist = client.player.distanceTo(s.droppedBallEntity);
-        AutoQiqiClient.log("Capture", "Found dropped ball at " + fmtPos(s.droppedBallEntity.getPos())
+        AutoQiqiClient.logDebug("Capture", "Found dropped ball at " + fmtPos(s.droppedBallEntity.getPos())
                 + " dist=" + String.format("%.1f", dist) + ", walking to pick up");
         client.player.sendMessage(
                 Text.literal("§6[Capture]§r §7Recuperation de la ball..."), false);
@@ -938,7 +938,7 @@ public class CaptureEngine {
         s.pickupTicks++;
 
         if (s.droppedBallEntity == null || !s.droppedBallEntity.isAlive() || s.droppedBallEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Dropped ball entity gone (picked up or despawned) after " + s.pickupTicks + " ticks");
+            AutoQiqiClient.logDebug("Capture", "Dropped ball entity gone (picked up or despawned) after " + s.pickupTicks + " ticks");
             client.options.forwardKey.setPressed(false);
             s.pickingUpBall = false;
             s.droppedBallEntity = null;
@@ -948,12 +948,12 @@ public class CaptureEngine {
 
         double dist = client.player.distanceTo(s.droppedBallEntity);
         if (dist <= 1.5) {
-            AutoQiqiClient.log("Capture", "Close enough to ball (dist=" + String.format("%.1f", dist) + "), waiting for auto-pickup");
+            AutoQiqiClient.logDebug("Capture", "Close enough to ball (dist=" + String.format("%.1f", dist) + "), waiting for auto-pickup");
             return;
         }
 
         if (s.pickupTicks > MAX_PICKUP_TICKS) {
-            AutoQiqiClient.log("Capture", "Pickup timeout (" + MAX_PICKUP_TICKS + " ticks), giving up on this ball");
+            AutoQiqiClient.logDebug("Capture", "Pickup timeout (" + MAX_PICKUP_TICKS + " ticks), giving up on this ball");
             client.options.forwardKey.setPressed(false);
             s.pickingUpBall = false;
             s.droppedBallEntity = null;
@@ -998,7 +998,7 @@ public class CaptureEngine {
         if (closest != null) {
             Identifier id = net.minecraft.registry.Registries.ITEM.getId(
                     ((ItemEntity) closest).getStack().getItem());
-            AutoQiqiClient.log("Capture", "Nearest ball item: " + id + " dist=" + String.format("%.1f", closestDist));
+            AutoQiqiClient.logDebug("Capture", "Nearest ball item: " + id + " dist=" + String.format("%.1f", closestDist));
         }
         return closest;
     }
@@ -1014,7 +1014,7 @@ public class CaptureEngine {
         }
         long idleMs = System.currentTimeMillis() - s.inBattleIdleSinceMs;
         if (idleMs >= IN_BATTLE_IDLE_TIMEOUT_MS) {
-            AutoQiqiClient.log("Capture", "IN_BATTLE idle for " + (idleMs / 1000) + "s, re-engaging");
+            AutoQiqiClient.logDebug("Capture", "IN_BATTLE idle for " + (idleMs / 1000) + "s, re-engaging");
             reengageTarget(s, "idle safety net after " + (idleMs / 1000) + "s");
         }
     }
@@ -1037,14 +1037,14 @@ public class CaptureEngine {
         if (client.player == null) return;
 
         if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
-            AutoQiqiClient.log("Capture", "Re-engage: target entity gone, cannot re-engage (" + reason + ")");
+            AutoQiqiClient.logDebug("Capture", "Re-engage: target entity gone, cannot re-engage (" + reason + ")");
             client.player.sendMessage(
                     Text.literal("§6[Capture]§r §cPokemon disparu, impossible de re-engager."), false);
             stop();
             return;
         }
 
-        AutoQiqiClient.log("Capture", "RE-ENGAGING " + s.targetName + " (" + reason + ")");
+        AutoQiqiClient.logDebug("Capture", "RE-ENGAGING " + s.targetName + " (" + reason + ")");
         client.player.sendMessage(
                 Text.literal("§6[Capture]§r §eRe-engagement de §f" + s.targetName + "§e..."), false);
 
@@ -1070,16 +1070,16 @@ public class CaptureEngine {
     private void retryThrow() {
         CaptureSession s = session;
         if (s == null) return;
-        AutoQiqiClient.log("Capture", "Retrying ball throw (missCount=" + s.missCount + ")");
+        AutoQiqiClient.logDebug("Capture", "Retrying ball throw (missCount=" + s.missCount + ")");
         var battle = CobblemonClient.INSTANCE.getBattle();
         if (battle != null && battle.getMinimised()) {
             prepareBallThrow();
             if (session != null && !session.pendingBallThrow) {
                 session.retryThrowPending = true;
-                AutoQiqiClient.log("Capture", "Retry deferred (cooldown), will retry when cooldown expires");
+                AutoQiqiClient.logDebug("Capture", "Retry deferred (cooldown), will retry when cooldown expires");
             }
         } else {
-            AutoQiqiClient.log("Capture", "Battle not minimized, waiting for mixin to fire");
+            AutoQiqiClient.logDebug("Capture", "Battle not minimized, waiting for mixin to fire");
         }
     }
 
@@ -1099,7 +1099,7 @@ public class CaptureEngine {
         String activeName = getActivePokemonName();
         boolean hasFalseSwipe = activePokemonHasMove("falseswipe");
         boolean hasThunderWave = activePokemonHasMove("thunderwave");
-        AutoQiqiClient.log("Capture", "Active=" + activeName
+        AutoQiqiClient.logDebug("Capture", "Active=" + activeName
                 + " hasFalseSwipe=" + hasFalseSwipe + " hasThunderWave=" + hasThunderWave);
         BattleSnapshot battle = new BattleSnapshot(
             activeName,
@@ -1130,7 +1130,7 @@ public class CaptureEngine {
         CaptureDecision decision = CaptureStrategy.decide(sessionSnapshot, battle, forceSwitch, trapped);
 
         if (decision.giveUp()) {
-            AutoQiqiClient.log("Capture", "Legendary: " + s.totalBallsThrown + " balls thrown, giving up — killing " + s.targetName);
+            AutoQiqiClient.logDebug("Capture", "Legendary: " + s.totalBallsThrown + " balls thrown, giving up — killing " + s.targetName);
             MinecraftClient client = MinecraftClient.getInstance();
             if (client != null && client.player != null) {
                 client.player.sendMessage(
@@ -1153,7 +1153,7 @@ public class CaptureEngine {
         if (decision.statusMessage() != null) s.statusMessage = decision.statusMessage();
 
         int minFS = CaptureStrategy.getMinFalseSwipes(s.targetLevel);
-        AutoQiqiClient.log("Capture", "Decide #" + s.decisionCount
+        AutoQiqiClient.logDebug("Capture", "Decide #" + s.decisionCount
                 + ": target=" + s.targetName + " Lv." + s.targetLevel + (s.targetIsLegendary ? " [LEG]" : "")
                 + " | active=" + battle.activePokemonName() + " HP=" + f(battle.activeHpPercent()) + "%"
                 + " | opp=" + battle.opponentPokemonName() + " HP=" + f(battle.opponentHpPercent()) + "% status=" + battle.opponentStatus()
@@ -1163,7 +1163,7 @@ public class CaptureEngine {
                 + " cycleNext=" + (s.cycleNextIsBall ? "BALL" : "FS")
                 + " | forceSwitch=" + forceSwitch + " trapped=" + trapped
                 + " | switchAttempts=" + s.consecutiveSwitchAttempts);
-        AutoQiqiClient.log("Capture", "Decision: " + decision.action() + (decision.statusMessage() != null ? " — " + decision.statusMessage() : ""));
+        AutoQiqiClient.logDebug("Capture", "Decision: " + decision.action() + (decision.statusMessage() != null ? " — " + decision.statusMessage() : ""));
         chatBall("Decide #" + s.decisionCount + ": " + formatDecisionChoice(decision.action()));
 
         return actionToGeneralChoice(decision.action());
@@ -1194,22 +1194,22 @@ public class CaptureEngine {
         CaptureSession s = session;
         if (s == null) return;
         if (s.pendingBallThrow) {
-            AutoQiqiClient.log("Capture", "Ball throw already pending, skipping");
+            AutoQiqiClient.logDebug("Capture", "Ball throw already pending, skipping");
             return;
         }
         if (s.waitingForBallHit) {
-            AutoQiqiClient.log("Capture", "Still waiting for ball hit, skipping");
+            AutoQiqiClient.logDebug("Capture", "Still waiting for ball hit, skipping");
             return;
         }
         long sinceLast = System.currentTimeMillis() - s.lastThrowTimeMs;
         if (s.lastThrowTimeMs > 0 && sinceLast < THROW_COOLDOWN_MS) {
-            AutoQiqiClient.log("Capture", "Throw cooldown active (" + sinceLast + "ms/" + THROW_COOLDOWN_MS + "ms), skipping");
+            AutoQiqiClient.logDebug("Capture", "Throw cooldown active (" + sinceLast + "ms/" + THROW_COOLDOWN_MS + "ms), skipping");
             return;
         }
         s.pendingBallName = getNextBallName(s);
         s.pendingBallThrow = true;
         s.throwTicksRemaining = THROW_DELAY_TICKS;
-        AutoQiqiClient.log("Capture", "Ball throw prepared: " + s.pendingBallName);
+        AutoQiqiClient.logDebug("Capture", "Ball throw prepared: " + s.pendingBallName);
     }
 
     private String getNextBallName(CaptureSession s) {
@@ -1222,7 +1222,7 @@ public class CaptureEngine {
             s.masterBallThrownThisSession = true;
             s.totalBallsThrown++;
             s.statusMessage = "Master Ball (after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra)";
-            AutoQiqiClient.log("Capture", "Whitelisted legendary: throwing Master Ball after " + s.ultraBallsThrown + " Ultra Balls");
+            AutoQiqiClient.logDebug("Capture", "Whitelisted legendary: throwing Master Ball after " + s.ultraBallsThrown + " Ultra Balls");
             return "master_ball";
         }
 
@@ -1241,7 +1241,7 @@ public class CaptureEngine {
         }
 
         s.statusMessage = formatBallName(entry.name) + " (" + (s.currentBallCount + 1) + "/" + entry.count + ")";
-        AutoQiqiClient.log("Capture", "Throwing " + entry.name + " " + (s.currentBallCount + 1) + "/" + entry.count);
+        AutoQiqiClient.logDebug("Capture", "Throwing " + entry.name + " " + (s.currentBallCount + 1) + "/" + entry.count);
 
         s.currentBallCount++;
         s.totalBallsThrown++;
@@ -1266,19 +1266,19 @@ public class CaptureEngine {
                 || s.currentAction == CaptureAction.SWITCH_FOR_FALSE_SWIPE
                 || s.currentAction == CaptureAction.SWITCH_FOR_THUNDER_WAVE
                 || s.currentAction == CaptureAction.SWITCH_TANK) {
-            AutoQiqiClient.log("Capture", "MoveSelection: decided " + s.currentAction + ", not picking a move (back out). Available: " + availableMoves);
+            AutoQiqiClient.logDebug("Capture", "MoveSelection: decided " + s.currentAction + ", not picking a move (back out). Available: " + availableMoves);
             return null;
         }
 
         int minFS = CaptureStrategy.getMinFalseSwipes(s.targetLevel);
         if (s.falseSwipeCount >= minFS) {
-            AutoQiqiClient.log("Capture", "MoveSelection: falseSwipeCount=" + s.falseSwipeCount + " >= minFS=" + minFS + ", backing out to throw ball");
+            AutoQiqiClient.logDebug("Capture", "MoveSelection: falseSwipeCount=" + s.falseSwipeCount + " >= minFS=" + minFS + ", backing out to throw ball");
             return null;
         }
 
         String target = (s.currentAction == CaptureAction.THUNDER_WAVE)
                 ? "thunder wave" : "false swipe";
-        AutoQiqiClient.log("Capture", "MoveSelection: looking for '" + target + "' among " + availableMoves);
+        AutoQiqiClient.logDebug("Capture", "MoveSelection: looking for '" + target + "' among " + availableMoves);
 
         for (MoveTile tile : selectableTiles) {
             String moveName = tile.getMove().getMove().toLowerCase();
@@ -1287,13 +1287,13 @@ public class CaptureEngine {
                     s.falseSwipeUsedThisBattle = true;
                     s.falseSwipeCount++;
                 }
-                AutoQiqiClient.log("Capture", "Using move: " + tile.getMove().getMove()
+                AutoQiqiClient.logDebug("Capture", "Using move: " + tile.getMove().getMove()
                         + (target.equals("false swipe") ? " (#" + s.falseSwipeCount + ", HP before=" + f(s.lastOppHpBeforeFalseSwipe) + "%)" : ""));
                 return tile;
             }
         }
 
-        AutoQiqiClient.log("Capture", "No valid move: '" + target + "' not found in " + availableMoves
+        AutoQiqiClient.logDebug("Capture", "No valid move: '" + target + "' not found in " + availableMoves
                 + " — doing nothing (user intervention needed)");
         return null;
     }
@@ -1303,12 +1303,12 @@ public class CaptureEngine {
     public SwitchTile chooseSwitchFromTiles(List<SwitchTile> availableTiles) {
         CaptureSession s = session;
         if (s == null) {
-            AutoQiqiClient.log("Capture", "SwitchFromTiles: no session — doing nothing");
+            AutoQiqiClient.logDebug("Capture", "SwitchFromTiles: no session — doing nothing");
             return null;
         }
 
         java.util.List<String> allSpecies = availableTiles.stream().map(t -> tileSpecies(t)).toList();
-        AutoQiqiClient.log("Capture", "SwitchFromTiles: action=" + s.currentAction + " available=" + allSpecies);
+        AutoQiqiClient.logDebug("Capture", "SwitchFromTiles: action=" + s.currentAction + " available=" + allSpecies);
 
         if (s.currentAction == CaptureAction.SWITCH_FOR_FALSE_SWIPE) {
             return findTileWithMove(availableTiles, "falseswipe", FALSE_SWIPE_PREFERENCE, "False Swipe");
@@ -1321,11 +1321,11 @@ public class CaptureEngine {
         for (SwitchTile tile : availableTiles) {
             if (!pokemonHasMove(tile.getPokemon(), "falseswipe") && !pokemonHasMove(tile.getPokemon(), "thunderwave")) {
                 String species = tileSpecies(tile);
-                AutoQiqiClient.log("Capture", "Switching to tank: " + species + " (has neither False Swipe nor Thunder Wave)");
+                AutoQiqiClient.logDebug("Capture", "Switching to tank: " + species + " (has neither False Swipe nor Thunder Wave)");
                 return tile;
             }
         }
-        AutoQiqiClient.log("Capture", "No valid tank: all available Pokemon have False Swipe or Thunder Wave — doing nothing. Available: " + allSpecies);
+        AutoQiqiClient.logDebug("Capture", "No valid tank: all available Pokemon have False Swipe or Thunder Wave — doing nothing. Available: " + allSpecies);
         return null;
     }
 
@@ -1338,11 +1338,11 @@ public class CaptureEngine {
         }
 
         java.util.List<String> candidateNames = candidates.stream().map(t -> tileSpecies(t)).toList();
-        AutoQiqiClient.log("Capture", "Choices for " + moveDisplayName + ": " + candidateNames
+        AutoQiqiClient.logDebug("Capture", "Choices for " + moveDisplayName + ": " + candidateNames
                 + (speciesPreference.isEmpty() ? "" : " (preference: " + speciesPreference + ")"));
 
         if (candidates.isEmpty()) {
-            AutoQiqiClient.log("Capture", "No Pokemon with " + moveDisplayName + " found — doing nothing");
+            AutoQiqiClient.logDebug("Capture", "No Pokemon with " + moveDisplayName + " found — doing nothing");
             return null;
         }
 
@@ -1350,14 +1350,14 @@ public class CaptureEngine {
         for (String preferred : speciesPreference) {
             for (SwitchTile tile : candidates) {
                 if (tileSpecies(tile).contains(preferred)) {
-                    AutoQiqiClient.log("Capture", "Switching to " + tileSpecies(tile) + " (preferred for " + moveDisplayName + ")");
+                    AutoQiqiClient.logDebug("Capture", "Switching to " + tileSpecies(tile) + " (preferred for " + moveDisplayName + ")");
                     return tile;
                 }
             }
         }
 
         SwitchTile chosen = candidates.get(0);
-        AutoQiqiClient.log("Capture", "Switching to " + tileSpecies(chosen) + " (first with " + moveDisplayName + ")");
+        AutoQiqiClient.logDebug("Capture", "Switching to " + tileSpecies(chosen) + " (first with " + moveDisplayName + ")");
         return chosen;
     }
 
@@ -1393,7 +1393,7 @@ public class CaptureEngine {
                 } catch (Exception ignored) {}
             }
         } catch (Exception e) {
-            AutoQiqiClient.log("Capture", "pokemonHasMove: reflection failed for " + pokemon.getSpecies().getName() + ": " + e.getMessage());
+            AutoQiqiClient.logDebug("Capture", "pokemonHasMove: reflection failed for " + pokemon.getSpecies().getName() + ": " + e.getMessage());
         }
         return false;
     }
@@ -1418,7 +1418,7 @@ public class CaptureEngine {
                 }
             }
         } catch (Exception e) {
-            AutoQiqiClient.log("Capture", "activePokemonHasMove: failed: " + e.getMessage());
+            AutoQiqiClient.logDebug("Capture", "activePokemonHasMove: failed: " + e.getMessage());
         }
         return false;
     }
@@ -1439,7 +1439,7 @@ public class CaptureEngine {
             if (bp == null) return -1;
             float hpVal = (float) bp.getHpValue();
             float maxHp = (float) bp.getMaxHp();
-            AutoQiqiClient.log("Capture", "HP_DEBUG_ACTIVE: hpValue=" + hpVal + " maxHp=" + maxHp);
+            AutoQiqiClient.logDebug("Capture", "HP_DEBUG_ACTIVE: hpValue=" + hpVal + " maxHp=" + maxHp);
             return hpVal / maxHp * 100f;
         } catch (Exception e) { return -1; }
     }
@@ -1458,7 +1458,7 @@ public class CaptureEngine {
             float maxHp = (float) bp.getMaxHp();
             float ratioPercent = hpValue * 100f;
             float divPercent = (maxHp > 0) ? hpValue / maxHp * 100f : -1;
-            AutoQiqiClient.log("Capture", "HP_DEBUG_OPP: hpValue=" + hpValue + " maxHp=" + maxHp
+            AutoQiqiClient.logDebug("Capture", "HP_DEBUG_OPP: hpValue=" + hpValue + " maxHp=" + maxHp
                     + " asRatio=" + String.format("%.1f", ratioPercent) + "%"
                     + " asDivided=" + String.format("%.1f", divPercent) + "%");
             // Disambiguate: if maxHp looks like an integer stat (> 1), treat hpValue as absolute HP.
@@ -1538,18 +1538,18 @@ public class CaptureEngine {
                 && self.getRequest().getMoveSet().getTrapped();
 
         CaptureEngine.GeneralChoice choice = engine.decideGeneralAction(forceSwitch, trapped);
-        AutoQiqiClient.log("Mixin", "GeneralAction capture choice=" + choice + " action=" + engine.getCurrentAction() + " forceSwitch=" + forceSwitch);
+        AutoQiqiClient.logDebug("Mixin", "GeneralAction capture choice=" + choice + " action=" + engine.getCurrentAction() + " forceSwitch=" + forceSwitch);
         chatBall("Choice: " + choice + " (" + engine.getCurrentAction() + ")");
         self.playDownSound(MinecraftClient.getInstance().getSoundManager());
 
         switch (choice) {
             case FIGHT -> {
-                AutoQiqiClient.log("Mixin", "GeneralAction -> FIGHT (opening move selection)");
+                AutoQiqiClient.logDebug("Mixin", "GeneralAction -> FIGHT (opening move selection)");
                 self.getBattleGUI().changeActionSelection(
                     new BattleMoveSelection(self.getBattleGUI(), self.getRequest()));
             }
             case SWITCH -> {
-                AutoQiqiClient.log("Mixin", "GeneralAction -> SWITCH (opening switch selection)");
+                AutoQiqiClient.logDebug("Mixin", "GeneralAction -> SWITCH (opening switch selection)");
                 self.getBattleGUI().changeActionSelection(
                     new BattleSwitchPokemonSelection(self.getBattleGUI(), self.getRequest()));
             }
@@ -1557,9 +1557,9 @@ public class CaptureEngine {
                 var battle = CobblemonClient.INSTANCE.getBattle();
                 if (battle != null) {
                     battle.setMinimised(true);
-                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE (battle minimized, preparing ball)");
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction -> CAPTURE (battle minimized, preparing ball)");
                 } else {
-                    AutoQiqiClient.log("Mixin", "GeneralAction -> CAPTURE but getBattle() is null!");
+                    AutoQiqiClient.logDebug("Mixin", "GeneralAction -> CAPTURE but getBattle() is null!");
                 }
                 engine.prepareBallThrow();
             }

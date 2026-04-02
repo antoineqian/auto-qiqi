@@ -40,6 +40,8 @@ public class AutoQiqiConfig {
     public List<String> battleTargetWhitelist = new ArrayList<>(List.of(
             "Combee", "Vespiquen", "Cutiefly", "Ribombee"
     ));
+    /** Pokemon in this list always show as [WANT] in /pk scan, even if already caught. Case-insensitive. Reload with /pk reload. */
+    public List<String> scanCaptureWhitelist = new ArrayList<>();
 
     // ========================
     // Legendary
@@ -143,6 +145,10 @@ public class AutoQiqiConfig {
     public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
     /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). Same idea as legendary homeWorlds. */
     public String reconnectHome = "end";
+    /** Warp command to send after reconnect when in Trainer (tower) mode (e.g. "/warp Tour-de-Combat"). */
+    public String reconnectTowerWarp = "/warp Tour-de-Combat";
+    /** Delay (ms) after sending the tower warp before restarting the tower loop. */
+    public long reconnectTowerWarpDelayMs = 5000;
 
     // ========================
     // Mining (Nether Gold Ore)
@@ -214,7 +220,7 @@ public class AutoQiqiConfig {
         boolean hasOldRessources = worldNames.removeIf(w -> w.equalsIgnoreCase("Ressources"));
         if (!hasOldRessources) return;
 
-        System.out.println("[Auto-Qiqi] Migrating config: splitting 'Ressources' into 3 sub-worlds");
+        // Config migration (no stdout — chat-only mode)
         List<String> subWorlds = List.of("Ressources (Overworld)", "Ressources (Nether)", "Ressources (End)");
         for (String sw : subWorlds) {
             if (!worldNames.contains(sw)) worldNames.add(sw);
@@ -285,7 +291,7 @@ public class AutoQiqiConfig {
                 INSTANCE.migrateResourceWorlds();
                 save();
             } catch (IOException e) {
-                System.err.println("[Auto-Qiqi] Failed to load config: " + e.getMessage());
+                // Failed to load config (no file logging)
                 INSTANCE = new AutoQiqiConfig();
             }
         } else {
@@ -301,7 +307,7 @@ public class AutoQiqiConfig {
             Files.createDirectories(path.getParent());
             Files.writeString(path, GSON.toJson(INSTANCE != null ? INSTANCE : new AutoQiqiConfig()));
         } catch (IOException e) {
-            System.err.println("[Auto-Qiqi] Failed to save config: " + e.getMessage());
+            // Failed to save config (no file logging)
         }
     }
 }

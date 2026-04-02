@@ -71,9 +71,12 @@ public class QiqiTimerConfig {
     /** Regex for "X seconds" only. Group 1 = seconds. */
     public String timerPatternSecondsOnly = "(?i)(\\d+)\\s*seconds?";
 
-    /** When true, send key J when remaining time is at or below sendJThresholdSeconds (e.g. 30 sec left). */
+    /** When true, send K+J when remaining time is at or below sendJThresholdSeconds. (Name is legacy; threshold is 30 sec by default.) */
     public boolean sendJAt1MinLeft = true;
 
-    /** Send J when remaining seconds is in [0, this]. Default 30 = 30 seconds before. */
+    /** Send K+J when remaining seconds is in [0, this]. Default 30 = 30 seconds before next leg. */
     public int sendJThresholdSeconds = 30;
+
+    /** GLFW key code for the "Toggle Autohop" keybinding default. Default 79 = O. See GLFW key constants (e.g. key.keyboard.o = 79). */
+    public int toggleAutohopKeyCode = 79;
 }

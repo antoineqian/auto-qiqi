@@ -147,7 +147,7 @@ public class AutoBattleEngine {
     public BattleMode getMode() { return mode; }
     public void setMode(BattleMode mode) {
         if (this.mode != mode) {
-            AutoQiqiClient.log("Battle", "Mode changed: " + this.mode + " -> " + mode);
+            AutoQiqiClient.logDebug("Battle", "Mode changed: " + this.mode + " -> " + mode);
             modeSwitchGraceTicks = MODE_SWITCH_GRACE;
             if (mode == BattleMode.ROAMING) {
                 lastNextlegPollTick = 0;
@@ -163,7 +163,7 @@ public class AutoBattleEngine {
             if (mode == BattleMode.OFF) {
                 if (CaptureEngine.get().isActive()) {
                     CaptureEngine.get().stop();
-                    AutoQiqiClient.log("Battle", "CaptureEngine stopped (mode -> OFF)");
+                    AutoQiqiClient.logDebug("Battle", "CaptureEngine stopped (mode -> OFF)");
                 }
                 PokemonWalker.get().stop();
             }
@@ -199,7 +199,7 @@ public class AutoBattleEngine {
 
     public void clearTarget() {
         if (target != null) {
-            AutoQiqiClient.log("Battle", "clearTarget: releasing " + PokemonScanner.getDisplayInfo(target));
+            AutoQiqiClient.logDebug("Battle", "clearTarget: releasing " + PokemonScanner.getDisplayInfo(target));
         }
         if (walking) stopWalking();
         target = null;
@@ -241,13 +241,13 @@ public class AutoBattleEngine {
         this.keySimulated = false;
         this.losStrafeTicks = 0;
         this.cooldown = 0;
-        AutoQiqiClient.log("Battle", "Force target set: " + PokemonScanner.getDisplayInfo(entity)
+        AutoQiqiClient.logDebug("Battle", "Force target set: " + PokemonScanner.getDisplayInfo(entity)
                 + " (forCapture=" + forCapture + ")");
     }
 
     public void recordCapture(String pokemonName) {
         sessionCaptures.add(pokemonName);
-        AutoQiqiClient.log("Stats", "Capture recorded: " + pokemonName + " (session total: " + sessionCaptures.size() + ")");
+        AutoQiqiClient.logDebug("Stats", "Capture recorded: " + pokemonName + " (session total: " + sessionCaptures.size() + ")");
         CaptureEngine cap = CaptureEngine.get();
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logCapture(
                 pokemonName, cap.getTargetLevel(), cap.isTargetLegendary(), cap.getTotalBallsThrown());
@@ -273,7 +273,7 @@ public class AutoBattleEngine {
         // If current target is gone (picked up), find next
         if (lootTarget != null && (!lootTarget.isAlive() || lootTarget.isRemoved())) {
             lootCollected++;
-            AutoQiqiClient.log("Battle", "Loot picked up (#" + lootCollected + ")");
+            AutoQiqiClient.logDebug("Battle", "Loot picked up (#" + lootCollected + ")");
             lootTarget = null;
             lootTicks = 0;
         }
@@ -286,14 +286,14 @@ public class AutoBattleEngine {
                 return;
             }
             lootTicks = 0;
-            AutoQiqiClient.log("Battle", "Walking to loot: "
+            AutoQiqiClient.logDebug("Battle", "Walking to loot: "
                     + getLootItemName(lootTarget) + " dist="
                     + String.format("%.1f", player.distanceTo(lootTarget)));
         }
 
         lootTicks++;
         if (lootTicks > LOOT_MAX_TICKS) {
-            AutoQiqiClient.log("Battle", "Loot pickup timeout, skipping");
+            AutoQiqiClient.logDebug("Battle", "Loot pickup timeout, skipping");
             lootTarget = null;
             lootTicks = 0;
             finishLootCollection(client);
@@ -317,7 +317,7 @@ public class AutoBattleEngine {
         collectingLoot = false;
         lootTarget = null;
         if (lootCollected > 0) {
-            AutoQiqiClient.log("Battle", "Loot collection done: " + lootCollected + " items");
+            AutoQiqiClient.logDebug("Battle", "Loot collection done: " + lootCollected + " items");
         }
         cooldown = POST_BATTLE_COOLDOWN;
     }
@@ -337,7 +337,7 @@ public class AutoBattleEngine {
 
         if (wasCaptureActiveLastTick) {
             lastAfkSentTick = 0;
-            AutoQiqiClient.log("Battle", "Roaming: returned from capture, resuming AFK mode");
+            AutoQiqiClient.logDebug("Battle", "Roaming: returned from capture, resuming AFK mode");
         }
 
         WorldTracker tracker = WorldTracker.get();
@@ -358,9 +358,9 @@ public class AutoBattleEngine {
                 ChatMessageHandler.get().setPendingPollGlobal();
                 lastNextlegPollTick = globalTickCounter;
                 sentNextleg = true;
-                AutoQiqiClient.log("Battle", "Roaming: sent " + config.nextlegCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
+                AutoQiqiClient.logDebug("Battle", "Roaming: sent " + config.nextlegCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
             } catch (Exception e) {
-                AutoQiqiClient.log("Battle", "Roaming: " + config.nextlegCommand + " failed: " + e.getMessage());
+                AutoQiqiClient.logDebug("Battle", "Roaming: " + config.nextlegCommand + " failed: " + e.getMessage());
             }
         }
 
@@ -368,15 +368,15 @@ public class AutoBattleEngine {
         boolean afkCooldownElapsed = lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks;
         if (!sentNextleg && afkCooldownElapsed) {
             if (timerImminent) {
-                AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
+                AutoQiqiClient.logDebug("Battle", "Roaming: " + config.roamingAfkCommand + " SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
             } else {
                 String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
                 try {
                     player.networkHandler.sendChatCommand(afkCmd);
                     lastAfkSentTick = globalTickCounter;
-                    AutoQiqiClient.log("Battle", "Roaming: sent " + config.roamingAfkCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
+                    AutoQiqiClient.logDebug("Battle", "Roaming: sent " + config.roamingAfkCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
                 } catch (Exception e) {
-                    AutoQiqiClient.log("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
+                    AutoQiqiClient.logDebug("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
                 }
             }
         }
@@ -390,7 +390,7 @@ public class AutoBattleEngine {
             player.setYaw(yaw + 8.0f);
             player.setPitch(net.minecraft.util.math.MathHelper.clamp(pitch + 4.0f, -90.0f, 90.0f));
             roamingCameraMoveDone = true;
-            AutoQiqiClient.log("Battle", "Roaming: CAMERA MOVED (timer=" + remaining + "s) — un-AFK for legendary eligibility, /afk suppressed until timer resets");
+            AutoQiqiClient.logDebug("Battle", "Roaming: CAMERA MOVED (timer=" + remaining + "s) — un-AFK for legendary eligibility, /afk suppressed until timer resets");
         }
     }
 
@@ -505,22 +505,22 @@ public class AutoBattleEngine {
             battleCount++;
             if (lastFightWasBoss) {
                 sessionBossKills++;
-                AutoQiqiClient.log("Battle", "Boss killed (session total: " + sessionBossKills + ")");
+                AutoQiqiClient.logDebug("Battle", "Boss killed (session total: " + sessionBossKills + ")");
                 com.cobblemoon.autoqiqi.common.SessionLogger.get().logKill(lastTargetName, true);
             } else {
                 sessionPokemonKills++;
                 com.cobblemoon.autoqiqi.common.SessionLogger.get().logKill(lastTargetName, false);
             }
             lastFightWasBoss = false;
-            AutoQiqiClient.log("Battle", mode.displayName() + " battle finished (total: " + battleCount + ")");
+            AutoQiqiClient.logDebug("Battle", mode.displayName() + " battle finished (total: " + battleCount + ")");
 
             int healEvery = AutoQiqiConfig.get().battleHealEveryN;
             if (healEvery > 0 && battleCount % healEvery == 0 && AutoQiqiClient.isConnected(MinecraftClient.getInstance())) {
                 try {
                     player.networkHandler.sendChatCommand("pokeheal");
-                    AutoQiqiClient.log("Battle", "Sent /pokeheal (after " + battleCount + " battles)");
+                    AutoQiqiClient.logDebug("Battle", "Sent /pokeheal (after " + battleCount + " battles)");
                 } catch (Exception e) {
-                    AutoQiqiClient.log("Battle", "pokeheal failed (network?): " + e.getMessage());
+                    AutoQiqiClient.logDebug("Battle", "pokeheal failed (network?): " + e.getMessage());
                 }
             }
 
@@ -536,7 +536,7 @@ public class AutoBattleEngine {
                 int upPresses = AutoQiqiConfig.get().postBattlePartyUpPresses;
                 if (upPresses > 0) {
                     partyResetPressesLeft = upPresses;
-                    AutoQiqiClient.log("Battle", "Will press party-up " + upPresses + " time(s) to reset lead Pokemon");
+                    AutoQiqiClient.logDebug("Battle", "Will press party-up " + upPresses + " time(s) to reset lead Pokemon");
                 }
             }
 
@@ -572,13 +572,13 @@ public class AutoBattleEngine {
             if (cooldown == 0 && lastEngagedEntityId != -1) {
                 if (lastFightWasBoss && bossEngageRetries < MAX_BOSS_ENGAGE_RETRIES) {
                     bossEngageRetries++;
-                    AutoQiqiClient.log("Battle", "Boss engage attempt " + bossEngageRetries + "/" + MAX_BOSS_ENGAGE_RETRIES
+                    AutoQiqiClient.logDebug("Battle", "Boss engage attempt " + bossEngageRetries + "/" + MAX_BOSS_ENGAGE_RETRIES
                             + " failed — retrying (entity #" + lastEngagedEntityId + ")");
                     lastEngagedEntityId = -1;
                     scanTimer = 0;
                 } else {
                     engageBlacklist.put(lastEngagedEntityId, globalTickCounter + BLACKLIST_DURATION_TICKS);
-                    AutoQiqiClient.log("Battle", "Engage failed (no battle started) — blacklisting entity #"
+                    AutoQiqiClient.logDebug("Battle", "Engage failed (no battle started) — blacklisting entity #"
                             + lastEngagedEntityId + " for 30s"
                             + (lastFightWasBoss ? " (boss, " + bossEngageRetries + " retries exhausted)" : ""));
                     lastEngagedEntityId = -1;
@@ -600,7 +600,7 @@ public class AutoBattleEngine {
             } else {
                 if (globalTickCounter - lastRoamingSkipLogTick >= ROAMING_SKIP_LOG_INTERVAL) {
                     lastRoamingSkipLogTick = globalTickCounter;
-                    AutoQiqiClient.log("Battle", "Roaming nextleg/afk: skipped (" + (inBattle ? "in battle" : "capture active") + ") — check launcher_log when idle to see /nextleg, /afk, camera move");
+                    AutoQiqiClient.logDebug("Battle", "Roaming nextleg/afk: skipped (" + (inBattle ? "in battle" : "capture active") + ") — check launcher_log when idle to see /nextleg, /afk, camera move");
                 }
             }
         }
@@ -617,14 +617,14 @@ public class AutoBattleEngine {
         PokemonWalker walkerForYield = PokemonWalker.get();
         if (target != null) {
             if (walkerForYield.isActive() && walkerForYield.getTarget() != null && target.getId() == walkerForYield.getTarget().getId()) {
-                AutoQiqiClient.log("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — user walking to it (manual)");
+                AutoQiqiClient.logDebug("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — user walking to it (manual)");
                 target = null;
                 targetForCapture = false;
                 aimTicks = 0;
                 keySimulated = false;
                 if (walking) stopWalking();
             } else if (walkerForYield.isInManualWalkGracePeriod() && target.getId() == walkerForYield.getLastWalkTargetEntityId()) {
-                AutoQiqiClient.log("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — manual engagement grace");
+                AutoQiqiClient.logDebug("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — manual engagement grace");
                 target = null;
                 targetForCapture = false;
                 aimTicks = 0;
@@ -643,14 +643,14 @@ public class AutoBattleEngine {
             if (fish != null && AutoQiqiConfig.get().fishEnabled && fish.isHoldingFishingRod()) {
                 fish.pauseForBossBattle();
                 pausedFishingForBattle = true;
-                AutoQiqiClient.log("Battle", "Paused fishing to engage " + PokemonScanner.getDisplayInfo(target));
+                AutoQiqiClient.logDebug("Battle", "Paused fishing to engage " + PokemonScanner.getDisplayInfo(target));
             }
 
             String action = targetForCapture ? "capture" : "fight";
             lastTargetName = PokemonScanner.getDisplayInfo(target);
             berserkEngageTicks = 0;
             roamingEngageTicks = 0;
-            AutoQiqiClient.log("Battle", "Target acquired: " + lastTargetName
+            AutoQiqiClient.logDebug("Battle", "Target acquired: " + lastTargetName
                     + " (action=" + action + ")");
         }
 
@@ -676,7 +676,7 @@ public class AutoBattleEngine {
                 if (!hasLOS && losStrafeTicks < 120) {
                     losStrafeTicks++;
                     if (losStrafeTicks == 1) {
-                        AutoQiqiClient.log("Battle", "No LOS to target, strafing");
+                        AutoQiqiClient.logDebug("Battle", "No LOS to target, strafing");
                     }
                     if (losStrafeTicks % 30 == 0) losStrafeDir = -losStrafeDir;
                     MovementHelper.strafeSideways(client, target, player, losStrafeDir);
@@ -726,7 +726,7 @@ public class AutoBattleEngine {
             if (mode == BattleMode.BERSERK) {
                 berserkEngageTicks++;
                 if (berserkEngageTicks >= BERSERK_ENGAGE_TIMEOUT) {
-                    AutoQiqiClient.log("Battle", "Berserk engage timeout (" + (BERSERK_ENGAGE_TIMEOUT / 20)
+                    AutoQiqiClient.logDebug("Battle", "Berserk engage timeout (" + (BERSERK_ENGAGE_TIMEOUT / 20)
                             + "s) — skipping " + PokemonScanner.getDisplayInfo(target));
                     engageBlacklist.put(target.getId(), Long.MAX_VALUE);
                     if (walking) stopWalking();
@@ -741,7 +741,7 @@ public class AutoBattleEngine {
             if (mode == BattleMode.ROAMING) {
                 roamingEngageTicks++;
                 if (roamingEngageTicks >= ROAMING_ENGAGE_TIMEOUT) {
-                    AutoQiqiClient.log("Battle", "Roaming engage timeout (" + (ROAMING_ENGAGE_TIMEOUT / 20)
+                    AutoQiqiClient.logDebug("Battle", "Roaming engage timeout (" + (ROAMING_ENGAGE_TIMEOUT / 20)
                             + "s) — cannot reach " + PokemonScanner.getDisplayInfo(target) + ", aborting");
                     player.sendMessage(Text.literal("§6[Roaming]§r §cImpossible d'atteindre la cible en 30s. Abandon."), false);
                     engageBlacklist.put(target.getId(), globalTickCounter + BLACKLIST_DURATION_TICKS);
@@ -767,7 +767,7 @@ public class AutoBattleEngine {
         boolean legendary = PokemonScanner.isLegendary(target);
 
         if (CaptureEngine.isRecentlyFailed(name)) {
-            AutoQiqiClient.log("Battle", "Skipping " + name + " - recently failed capture (cooldown)");
+            AutoQiqiClient.logDebug("Battle", "Skipping " + name + " - recently failed capture (cooldown)");
             player.sendMessage(Text.literal("§6[Roaming]§r §c" + name + " a echappe recemment, attente avant reessai."), false);
             target = null;
             targetForCapture = false;
@@ -776,7 +776,7 @@ public class AutoBattleEngine {
             return;
         }
 
-        AutoQiqiClient.log("Battle", "Handing off to CaptureEngine: " + name + " Lv." + level);
+        AutoQiqiClient.logDebug("Battle", "Handing off to CaptureEngine: " + name + " Lv." + level);
         player.sendMessage(Text.literal(
                 "§6[Roaming]§r §bCapture auto: §e" + name + " Lv." + level
                         + (legendary ? " §d[LEG]" : "")), false);
@@ -819,7 +819,7 @@ public class AutoBattleEngine {
             KeyBinding.onKeyPressed(key);
             pendingRelease = key;
         } else {
-            AutoQiqiClient.log("Battle", "Could not find Cobblemon send-out keybinding");
+            AutoQiqiClient.logDebug("Battle", "Could not find Cobblemon send-out keybinding");
         }
     }
 
@@ -830,9 +830,9 @@ public class AutoBattleEngine {
             KeyBinding.setKeyPressed(key, true);
             KeyBinding.onKeyPressed(key);
             KeyBinding.setKeyPressed(key, false);
-            AutoQiqiClient.log("Battle", "Pressed party-up key (" + partyResetPressesLeft + " remaining)");
+            AutoQiqiClient.logDebug("Battle", "Pressed party-up key (" + partyResetPressesLeft + " remaining)");
         } else {
-            AutoQiqiClient.log("Battle", "Could not find Cobblemon party-up keybinding");
+            AutoQiqiClient.logDebug("Battle", "Could not find Cobblemon party-up keybinding");
             partyResetPressesLeft = 0;
         }
     }
@@ -847,7 +847,7 @@ public class AutoBattleEngine {
             if (category.contains("cobblemon") || translationKey.contains("cobblemon")) {
                 if (translationKey.contains("up") && (translationKey.contains("part") || translationKey.contains("select"))) {
                     cachedPartyUpKey = kb;
-                    AutoQiqiClient.log("Battle", "Found party-up key: " + kb.getTranslationKey()
+                    AutoQiqiClient.logDebug("Battle", "Found party-up key: " + kb.getTranslationKey()
                             + " bound to " + kb.getBoundKeyTranslationKey());
                     break;
                 }
@@ -860,7 +860,7 @@ public class AutoBattleEngine {
                     String cat = kb.getCategory().toLowerCase();
                     if (cat.contains("cobblemon") || kb.getTranslationKey().toLowerCase().contains("cobblemon")) {
                         cachedPartyUpKey = kb;
-                        AutoQiqiClient.log("Battle", "Found party-up key (by Up arrow): " + kb.getTranslationKey());
+                        AutoQiqiClient.logDebug("Battle", "Found party-up key (by Up arrow): " + kb.getTranslationKey());
                         break;
                     }
                 }
@@ -869,12 +869,12 @@ public class AutoBattleEngine {
 
         partyUpSearchDone = true;
         if (cachedPartyUpKey == null) {
-            AutoQiqiClient.log("Battle", "WARNING: Could not find Cobblemon party-up keybinding. "
+            AutoQiqiClient.logDebug("Battle", "WARNING: Could not find Cobblemon party-up keybinding. "
                     + "Dumping Cobblemon keys:");
             for (KeyBinding kb : client.options.allKeys) {
                 if (kb.getCategory().toLowerCase().contains("cobblemon")
                         || kb.getTranslationKey().toLowerCase().contains("cobblemon")) {
-                    AutoQiqiClient.log("Battle", "  " + kb.getTranslationKey()
+                    AutoQiqiClient.logDebug("Battle", "  " + kb.getTranslationKey()
                             + " -> " + kb.getBoundKeyTranslationKey());
                 }
             }
@@ -925,14 +925,14 @@ public class AutoBattleEngine {
     private void logCrosshairInfo(MinecraftClient client) {
         HitResult hit = client.crosshairTarget;
         if (hit == null) {
-            AutoQiqiClient.log("Battle", "Crosshair: null");
+            AutoQiqiClient.logDebug("Battle", "Crosshair: null");
         } else if (hit.getType() == HitResult.Type.ENTITY) {
             EntityHitResult entityHit = (EntityHitResult) hit;
             Entity e = entityHit.getEntity();
-            AutoQiqiClient.log("Battle", "Crosshair: ENTITY " + e.getClass().getSimpleName()
+            AutoQiqiClient.logDebug("Battle", "Crosshair: ENTITY " + e.getClass().getSimpleName()
                     + " (isTarget=" + (e == target) + ")");
         } else {
-            AutoQiqiClient.log("Battle", "Crosshair: " + hit.getType());
+            AutoQiqiClient.logDebug("Battle", "Crosshair: " + hit.getType());
         }
     }
 
@@ -983,7 +983,7 @@ public class AutoBattleEngine {
         // Deprioritize Pokémon with another player standing next to them
         candidates.removeIf(e -> {
             if (isOtherPlayerNearby(client, e)) {
-                AutoQiqiClient.log("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
+                AutoQiqiClient.logDebug("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
                         + " — another player nearby");
                 return true;
             }
@@ -996,7 +996,7 @@ public class AutoBattleEngine {
             final int walkTargetId = walker.getTarget().getId();
             candidates.removeIf(e -> {
                 if (e.getId() == walkTargetId) {
-                    AutoQiqiClient.log("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
+                    AutoQiqiClient.logDebug("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
                             + " — user is walking to this Pokemon (manual engagement)");
                     return true;
                 }
@@ -1007,7 +1007,7 @@ public class AutoBattleEngine {
             final int lastId = walker.getLastWalkTargetEntityId();
             candidates.removeIf(e -> {
                 if (e.getId() == lastId) {
-                    AutoQiqiClient.log("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
+                    AutoQiqiClient.logDebug("Battle", "Skipping " + PokemonScanner.getPokemonName(e)
                             + " — just arrived (manual engagement grace)");
                     return true;
                 }
@@ -1018,7 +1018,7 @@ public class AutoBattleEngine {
         if (candidates.isEmpty()) return null;
 
         if (battleCount == 0 || candidates.size() > 0 && scanTimer == SCAN_INTERVAL) {
-            AutoQiqiClient.log("Battle", "Scan: " + candidates.size() + " wild pokemon in range (mode=" + mode + ")");
+            AutoQiqiClient.logDebug("Battle", "Scan: " + candidates.size() + " wild pokemon in range (mode=" + mode + ")");
         }
 
         candidates.sort(Comparator.comparingDouble(e -> e.distanceTo(player)));
@@ -1107,9 +1107,9 @@ public class AutoBattleEngine {
         }
 
         if (uncaughtCount > 0 && !canCapture) {
-            AutoQiqiClient.log("Battle", "Roaming: " + uncaughtCount + " uncaught but canCapture=false — skipping (won't kill uncaught)");
+            AutoQiqiClient.logDebug("Battle", "Roaming: " + uncaughtCount + " uncaught but canCapture=false — skipping (won't kill uncaught)");
         }
-        AutoQiqiClient.log("Battle", "Roaming scan: " + sortedCandidates.size() + " candidates"
+        AutoQiqiClient.logDebug("Battle", "Roaming scan: " + sortedCandidates.size() + " candidates"
                 + " (uncaught=" + uncaughtCount + " caught=" + caughtCount
                 + " boss=" + bossCount + " whitelisted=" + whitelistedCount
                 + " uncaughtLegKill=" + uncaughtLegKillCount
@@ -1118,37 +1118,37 @@ public class AutoBattleEngine {
 
         if (bestBoss != null) {
             targetForCapture = false;
-            AutoQiqiClient.log("Battle", "Roaming: -> boss (kill) " + PokemonScanner.getDisplayInfo(bestBoss));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> boss (kill) " + PokemonScanner.getDisplayInfo(bestBoss));
             return bestBoss;
         }
         if (bestUncaught != null) {
             targetForCapture = true;
-            AutoQiqiClient.log("Battle", "Roaming: -> uncaught (capture) " + PokemonScanner.getDisplayInfo(bestUncaught));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught (capture) " + PokemonScanner.getDisplayInfo(bestUncaught));
             return bestUncaught;
         }
         if (bestUncaughtLegendaryKill != null) {
             targetForCapture = false;
-            AutoQiqiClient.log("Battle", "Roaming: -> uncaught legendary in kill whitelist (kill) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendaryKill));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught legendary in kill whitelist (kill) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendaryKill));
             return bestUncaughtLegendaryKill;
         }
         if (bestUncaughtLegendary != null) {
             targetForCapture = true;
-            AutoQiqiClient.log("Battle", "Roaming: -> uncaught legendary (capture) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught legendary (capture) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
             return bestUncaughtLegendary;
         }
         if (bestCaughtLegendaryKill != null) {
             targetForCapture = false;
-            AutoQiqiClient.log("Battle", "Roaming: -> caught legendary in whitelist (kill) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryKill));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> caught legendary in whitelist (kill) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryKill));
             return bestCaughtLegendaryKill;
         }
         if (bestCaughtLegendaryRecapture != null) {
             targetForCapture = true;
-            AutoQiqiClient.log("Battle", "Roaming: -> caught legendary not in whitelist (recapture) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryRecapture));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> caught legendary not in whitelist (recapture) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryRecapture));
             return bestCaughtLegendaryRecapture;
         }
         if (bestWhitelisted != null) {
             targetForCapture = false;
-            AutoQiqiClient.log("Battle", "Roaming: -> whitelisted " + PokemonScanner.getDisplayInfo(bestWhitelisted));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> whitelisted " + PokemonScanner.getDisplayInfo(bestWhitelisted));
             return bestWhitelisted;
         }
 
@@ -1177,7 +1177,7 @@ public class AutoBattleEngine {
     private void walkToward(MinecraftClient client, ClientPlayerEntity player, Entity target) {
         if (!walking) {
             String name = PokemonScanner.getPokemonName(target);
-            AutoQiqiClient.log("Battle", "MOVE: walking toward " + name + " (dist=" + String.format("%.1f", player.distanceTo(target)) + ")");
+            AutoQiqiClient.logDebug("Battle", "MOVE: walking toward " + name + " (dist=" + String.format("%.1f", player.distanceTo(target)) + ")");
         }
         walking = true;
         MovementHelper.lookAtEntity(player, target, WALK_YAW_SPEED, WALK_PITCH_SPEED);
@@ -1196,7 +1196,7 @@ public class AutoBattleEngine {
 
     private void stopWalking() {
         if (walking) {
-            AutoQiqiClient.log("Battle", "MOVE: stopped walking");
+            AutoQiqiClient.logDebug("Battle", "MOVE: stopped walking");
         }
         walking = false;
         MovementHelper.releaseMovementKeys(MinecraftClient.getInstance());

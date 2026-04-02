@@ -1,9 +1,12 @@
 package com.cobblemoon.autoqiqi.common;
 
+import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
+
+import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 
 import java.util.*;
 public class PokemonScanner {
@@ -154,6 +157,14 @@ public class PokemonScanner {
         }
     }
 
+    public static boolean isInScanCaptureWhitelist(Entity entity) {
+        String name = getPokemonName(entity).toLowerCase();
+        for (String entry : AutoQiqiConfig.get().scanCaptureWhitelist) {
+            if (entry.equalsIgnoreCase(name)) return true;
+        }
+        return false;
+    }
+
     public static boolean isSpeciesCaught(Entity entity) {
         return "CAUGHT".equals(getPokedexStatus(entity));
     }
@@ -161,7 +172,7 @@ public class PokemonScanner {
     public static int countUncaught(List<Entity> entities) {
         int count = 0;
         for (Entity entity : entities) {
-            if (!isSpeciesCaught(entity)) count++;
+            if (!isSpeciesCaught(entity) || isInScanCaptureWhitelist(entity)) count++;
         }
         return count;
     }
@@ -213,11 +224,16 @@ public class PokemonScanner {
             sb.append("§d[LEG] ");
         }
         String status = getPokedexStatus(entity);
-        switch (status) {
-            case "NEW"    -> sb.append("§a§l[NEW] §r§f");
-            case "SEEN"   -> sb.append("§e[SEEN] §f");
-            case "CAUGHT" -> sb.append("§7[DEX] §f");
-            default       -> sb.append("§8[?] §f");
+        boolean whitelisted = isInScanCaptureWhitelist(entity);
+        if (whitelisted && "CAUGHT".equals(status)) {
+            sb.append("§a§l[WANT] §r§f");
+        } else {
+            switch (status) {
+                case "NEW"    -> sb.append("§a§l[NEW] §r§f");
+                case "SEEN"   -> sb.append("§e[SEEN] §f");
+                case "CAUGHT" -> sb.append("§7[DEX] §f");
+                default       -> sb.append("§8[?] §f");
+            }
         }
         sb.append(getPokemonName(entity));
         int level = getPokemonLevel(entity);
@@ -257,6 +273,6 @@ public class PokemonScanner {
     }
 
     private static void log(String message) {
-        System.out.println("[Auto-Qiqi] " + message);
+        AutoQiqiClient.logDebug("Scan", message);
     }
 }

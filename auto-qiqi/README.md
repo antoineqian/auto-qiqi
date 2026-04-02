@@ -9,7 +9,7 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 - **What it is:** A client-side Fabric mod for Minecraft 1.21.1 that automates Cobblemon-related gameplay (battles, captures, legendary spawn tracking, tower runs, fishing, mining).
 - **Entrypoint:** `com.cobblemoon.autoqiqi.AutoQiqiClient` (Fabric `client` entrypoint).
 - **Config:** `config/auto-qiqi.json` (loaded via `FabricLoader.getInstance().getConfigDir()`).
-- **Logging:** Stdout lines are prefixed with `[Auto-Qiqi/<module>]`; persistent session events go to `auto-qiqi/session-YYYY-MM-DD.log` and `session-stats.json` (see [Logs & paths](#6-logs--paths)).
+- **Output:** Chat only. The mod does not write any log files (no session logs, no session-stats). All messages use `AutoQiqiClient.log(module, message)` and appear in-game as `§6[Auto-Qiqi/&lt;module&gt;]§r message`.
 
 ---
 
@@ -31,7 +31,7 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 **`AutoQiqiClient.java`** is the main client initializer. It:
 
 - Loads config, sets initial battle mode and world list, optionally enables `AutoReconnectEngine`.
-- Registers **keybinds** (K = config/battle screen, H = legendary HUD, J = legendary auto-switch, U = force poll, L = legendary on/off, I = tower start, **O = stop all**).
+- Registers **keybinds** (K = config/battle screen, H = legendary HUD, J = legendary auto-switch, U = force poll, L = legendary on/off, I = tower start / tour de combat — enables auto-battle for tower trainer battles, **O = stop all**).
 - Registers **screen events** for legendary GUI world switching and tower GUI handling.
 - Registers **client commands** under `/pk` (see below).
 - Registers a **client tick callback** that drives all engines in a fixed order.
@@ -39,19 +39,20 @@ This document explains the **Auto-Qiqi** Fabric mod codebase for human review. T
 **Tick order (each client tick):**
 
 1. Blocked-state tracking (disconnect / open screen).
-2. `AutoReconnectEngine` (reconnect flow if enabled).
-3. First-tick init: disable walk/capture, release movement keys, schedule session recap in chat.
-4. **Keybind handling** (opens config screen, toggles HUD/legendary/poll/mod/tower; **Stop All** key works even with a screen open so automation is always cancelable).
-5. **CaptureEngine** (if active): tick walk/engage/ball, ball throw/wait, and battle-end detection (debounced when `getBattle()` becomes null).
-6. **AutoBattleEngine** (if battle mode ≠ OFF and capture not active): roam, engage wild, fight or hand off to capture.
-7. **Legendary:** If paused for capture, optionally auto-resume after capture finishes and min pause time.
-8. **AutoSwitchEngine** (legendary world rotation and timer polling).
-9. **PokemonWalker** (pathfinding toward a target entity).
-10. **TowerNpcEngine** (tower entrance + floor NPCs + healer).
-11. Circle walk (if enabled).
-12. Hunt timer (stops hunt when duration expires).
-13. **GoldMiningEngine** (Nether gold when idle).
-14. Periodic Pokedex scan (e.g. every 30s) for uncaught count.
+2. **Unfocused autofight:** when the current screen is the Game Menu while in an autofight battle, the mod closes the menu so the battle continues when the window is unfocused (singleplayer: disable "Pause on Lost Focus" via F3+P). With F3+P the menu does not open on unfocus. Autofight move selection runs only from the client tick (no delayed runnable), with a short delay (~3 ticks) before each move choice, so behavior is consistent when focused or unfocused and avoids desync.
+3. `AutoReconnectEngine` (reconnect flow if enabled).
+4. First-tick init: disable walk/capture, release movement keys, schedule session recap in chat.
+5. **Keybind handling** (opens config screen, toggles HUD/legendary/poll/mod/tower; **Stop All** key works even with a screen open so automation is always cancelable).
+6. **CaptureEngine** (if active): tick walk/engage/ball, ball throw/wait, and battle-end detection (debounced when `getBattle()` becomes null).
+7. **AutoBattleEngine** (if battle mode ≠ OFF and capture not active): roam, engage wild, fight or hand off to capture.
+8. **Legendary:** If paused for capture, optionally auto-resume after capture finishes and min pause time.
+9. **AutoSwitchEngine** (legendary world rotation and timer polling).
+10. **PokemonWalker** (pathfinding toward a target entity).
+11. **TowerNpcEngine** (tower entrance + floor NPCs + healer).
+12. Circle walk (if enabled).
+13. Hunt timer (stops hunt when duration expires).
+14. **GoldMiningEngine** (Nether gold when idle).
+15. Periodic Pokedex scan (e.g. every 30s) for uncaught count.
 
 So: **capture has priority over roaming battle**; legendary and tower run in parallel with battle/capture; mining is lowest priority.
 
@@ -66,9 +67,9 @@ So: **capture has priority over roaming battle**; legendary and tower run in par
 | **CaptureEngine** | Full capture flow: walk to target, aim, simulate send-out key, then in-battle sequence (False Swipe, Thunder Wave, ball throws, switch to tank if needed). **Move-based team selection:** the engine picks Pokemon by checking their move set (via reflection on Cobblemon's `MoveSet`), not by species name. For False Swipe, **Gallade** is preferred over **Marowak** over any other Pokemon that knows the move. For Thunder Wave, any Pokemon with the move is chosen. If no valid choice is found, the mod **does nothing** and logs the reason (user intervention needed). For **whitelisted legendaries** (config `legendaryCaptureWhitelist`): after applying False Swipe/Thunder Wave (or when unable to), the mod throws 5 Ultra Balls, then one **Master Ball** (if in hotbar); if Master Ball is not in hotbar, it continues with Ultra Balls. Holds a single **CaptureSession**; state is in the session, engine ticks it. Phases: `IDLE`, `WALKING`, `ENGAGING`, `IN_BATTLE`. |
 | **CaptureSession** | Holds all mutable state for one capture run (target, phase, walking/engagement/ball counts, etc.). Created on start, cleared on stop/success/fail. |
 | **AutoBattleEngine** | Roaming wild battles: scan for Pokemon, walk/aim, simulate send-out. Modes: **OFF**, **BERSERK**, **ROAMING**, **TRAINER**. ROAMING priority: boss (kill) &gt; uncaught (capture) &gt; uncaught legendary in `legendaryKillWhitelist` (kill) &gt; uncaught legendary (capture) &gt; caught legendary in `battleTargetWhitelist` (kill) &gt; caught legendary not in whitelist (recapture) &gt; whitelisted (kill). If the target cannot be reached within 30 seconds, Roaming aborts and blacklists the target briefly. **Roaming nextleg (when `roamingNextlegAfkEnabled`):** single global timer only—polls `/nextleg`, sends `/afk` periodically; when **1 min left** the J action can run (e.g. from qiqi-timer or manual J): toggle legendary auto-switch / resume and, if `roamingNextlegOpenMondeAt1Min`, send the world menu command (e.g. `/monde`). **The 1-min action is skipped while in a Cobblemon battle** so the player is never teleported or menu-opened mid-fight. moves the camera shortly before expiry (config `roamingCameraMoveSecondsBefore`) to disable AFK—no world hop. Loot pickup; engage blacklist. When not in capture mode, battle decisions go through **BattleDecisionRouter**. |
-| **BattleDecisionRouter** | Central router for in-battle decisions when not in capture mode: general action (FIGHT/SWITCH), move, switch. TRAINER/BERSERK use TrainerBattleEngine; ROAMING uses random. Called from battle GUI mixins. |
-| **TrainerBattleEngine** | Smart trainer battles: type effectiveness (TypeChart), STAB, base power; no voluntary switch; on forced switch picks strongest attacker. Used when battle mode is TRAINER. |
-| **TypeChart** | Gen 6+ type effectiveness lookup. Used by TrainerBattleEngine (and any move/target scoring). |
+| **BattleDecisionRouter** | Central router for in-battle decisions when not in capture mode: general action (FIGHT/SWITCH), move, switch. TRAINER/BERSERK use TrainerBattleEngine; ROAMING uses random. **After 5 attacks** on the same opponent without KO, TRAINER and BERSERK automatically choose SWITCH. Called from battle GUI mixins. |
+| **TrainerBattleEngine** | Smart trainer battles: type effectiveness (TypeChart), STAB, base power; ignores moves with 0 PP. **Rotom/Motisma:** type can change by form; the engine does not trust opponent type info and instead **cycles through the current Pokémon's damaging moves** (by move name order). Switch evaluation and damage estimates vs Rotom use neutral effectiveness. **First attack after switching** prefers the highest-priority damaging move (e.g. Coup Bas/Sucker Punch for Shifours) so the switch-in can act first, **only if that move is not resisted** (otherwise the best scored move is used). When active Pokémon HP &lt; 40%, prefers recovery moves (Recover/Soin, Roost/Atterrissage) if available. Switches when forced (fainted), when current Pokémon has only ineffective attacks, or **after 5 attacks on the same opponent without KO** (then advises/auto-switches). When switching, picks a Pokemon that balances **offense** (best damage vs opponent) and **survivability** (penalises switch-ins that take super-effective damage from the opponent’s types, e.g. avoids Rayquaza vs Palkia’s Dragon STAB). HUD advisor shows best move, damage range, and “Switch recommended (5+ attacks, no KO)” when applicable. Used when battle mode is TRAINER. |
+| **TypeChart** | Gen 6+ type effectiveness lookup. Species-based overrides (e.g. Heatran immune to Fire, as in Cobblemon) are applied when defender species is known. Used by TrainerBattleEngine (and any move/target scoring). |
 | **BattleMode** | Enum: `OFF`, `BERSERK`, `ROAMING`, `TRAINER`; persisted in config as `battleMode`. |
 
 Battle **decisions** (Fight / Switch / Capture, move, switch target) are **injected via mixins** into Cobblemon’s battle GUI (see [Mixins](#5-mixins)).
@@ -86,7 +87,7 @@ Battle **decisions** (Fight / Switch / Capture, move, switch target) are **injec
 | **ChatMessageHandler** | Parses chat for: timer lines (regex from config), “legendary appeared” events, spawn messages (pokemon + location). Updates WorldTracker (per-world or **global** timer when `setPendingPollGlobal()` was used, e.g. from roaming nextleg flow) and triggers AutoSwitchEngine. |
 | **PokemonWalker** | A* pathfinding (using common `PathFinder`) to walk to an entity (e.g. after `/pk walk <index>`). Uses `MovementHelper` for rotation; waypoint reach, stuck detection, timeout. |
 | **DirectionGuide** | Renders arrow/guide toward a target (e.g. for `/pk guide <index>`). |
-| **AutoReconnectEngine** | On disconnect, clicks “Rejoindre” (or configured button) after a delay and optionally retries; can click “Back to server list” if configured. Once in world, if `reconnectHome` is set (e.g. `"end"`), sends `/home <name>` and waits for `homeTeleportWarmupSeconds` so you end up in the configured home (e.g. resource End) instead of spawn. |
+| **AutoReconnectEngine** | On disconnect, clicks “Rejoindre” (or configured button) after a delay and optionally retries; can click “Back to server list” if configured. Once in world, if `reconnectHome` is set (e.g. `"end"`), sends `/home <name>` and waits for `homeTeleportWarmupSeconds` so you end up in the configured home (e.g. resource End) instead of spawn. **After a successful reconnect**, runs the same action as key **J** at 1 min: resume or toggle legendary auto-switch and, if `roamingNextlegOpenMondeAt1Min`, opens the world menu (e.g. `/monde`). |
 
 ---
 
@@ -96,7 +97,7 @@ Battle **decisions** (Fight / Switch / Capture, move, switch target) are **injec
 
 | Class | Role |
 |-------|------|
-| **TowerNpcEngine** | Tower flow: find “Directeur de la tour” (entrance), interact → open floor menu → click “Accès à l’étage 1” to teleport; find floor combat NPC (EasyNPC Humanoid), walk and interact to start battle. After defeat, can walk to healing machine (Cobblemon block), interact, then restart. States: IDLE, WALKING_TO_ENTRANCE, WALKING_TO_FLOOR_NPC, WALKING_TO_HEALER. |
+| **TowerNpcEngine** | Tower flow (tour de combat): find “Directeur de la tour” (entrance), interact → open floor menu → click “Accès à l’étage 1” to teleport; find floor combat NPC (EasyNPC Humanoid), walk and interact to start battle. **Pressing I starts the tower and enables auto-battle** (TRAINER mode) for floor trainer battles; pressing I again stops the loop and restores the previous battle mode. After defeat, can walk to healing machine (Cobblemon block), interact, then restart. States: IDLE, WALKING_TO_ENTRANCE, WALKING_TO_FLOOR_NPC, WALKING_TO_HEALER. |
 | **TowerGuiHandler** | Handles tower-specific screens (chest/menu and EasyNPC dialog): detect floor menu, “Accès à l’étage”, and dialog buttons so TowerNpcEngine can drive clicks. |
 
 Tower is mutually exclusive with legendary auto-switch: starting tower disables legendary hop.
@@ -131,7 +132,7 @@ Paused when AutoBattleEngine starts a battle (`pausedFishingForBattle`).
 | Class | Role |
 |-------|------|
 | **PokemonScanner** | Scans for wild Pokemon entities in range (80 blocks). `scan()` for periodic/quick scan; `manualScan()` for `/pk scan` (results kept for `/pk capture <index>`). Helpers: boss/legendary/uncaught detection, `countUncaught()`, `getFromLastScan(index)`. |
-| **SessionLogger** | Writes session log (`session-YYYY-MM-DD.log`) and `session-stats.json`. Events: CAPTURE, CAPTURE_FAIL, KILL, LEGENDARY_SPAWN, WORLD_SWITCH, BALL, BATTLE, ERROR, INFO. On next launch, recap is read and shown in chat, then stats reset. |
+| **SessionLogger** | No-op (chat-only mode). No file or stats writes; use `AutoQiqiClient.log()` for in-game output. |
 | **MovementHelper** | Shared movement: forward/back/strafe, release keys, rotation (yaw/pitch) toward target. **Ball throw:** detects entity blocking the throw line; when the blocker is our own Pokemon, computes preferred strafe direction from player/target/blocker positions so we move to clear the line (avoids "pas un pokémon sauvage" errors). Used by CaptureEngine, AutoBattleEngine, PokemonWalker, TowerNpcEngine. |
 | **PathFinder** | A* pathfinding in the world (block collision). Used by PokemonWalker and GoldMiningEngine. |
 | **HumanDelay** | Random delay in a range (ms) for “human-like” timing (e.g. command delays). |
@@ -143,7 +144,7 @@ Paused when AutoBattleEngine starts a battle (`pausedFishingForBattle`).
 
 | Class | Role |
 |-------|------|
-| **AutoQiqiConfig** | All options (battle, legendary, reconnect, mining, fish, tower, etc.). JSON in `config/auto-qiqi.json`. **Battle:** `battleTargetWhitelist` — species to target for kill in ROAMING when already caught; caught legendaries *not* in this list are recaptured instead of killed. **Legendary kill:** `legendaryKillWhitelist` — legendaries in this list are always targeted for kill (never capture), even when uncaught; used in ROAMING and when a legendary spawns near the player. **Legendary capture:** `legendaryCaptureWhitelist` — list of Pokémon names; when a legendary is in this list, after setup (False Swipe/Thunder Wave) and 5 Ultra Balls, the mod throws one Master Ball (if in hotbar); otherwise it continues with Ultra Balls. **Roaming nextleg:** `roamingNextlegAfkEnabled` — in ROAMING, single global timer: poll `/nextleg`, send `roamingAfkCommand` (e.g. `/afk`) every `roamingAfkIntervalSeconds`; when **1 min left** run J action (toggle legendary / resume) and, if `roamingNextlegOpenMondeAt1Min`, send world menu command (e.g. `/monde`); move camera `roamingCameraMoveSecondsBefore` seconds before expiry. `roamingNextlegPollIntervalSeconds` — interval between `/nextleg` polls. |
+| **AutoQiqiConfig** | All options (battle, legendary, reconnect, mining, fish, tower, etc.). JSON in `config/auto-qiqi.json`. **Battle:** `battleTargetWhitelist` — species to target for kill in ROAMING when already caught; caught legendaries *not* in this list are recaptured instead of killed. The mod always auto-closes the Game Menu when in an autofight battle so battles continue when the window is unfocused; **singleplayer:** disable "Pause on Lost Focus" (F3+P in-game or `pauseOnLostFocus:false` in options.txt) or the world will not tick. **Legendary kill:** `legendaryKillWhitelist` — legendaries in this list are always targeted for kill (never capture), even when uncaught; used in ROAMING and when a legendary spawns near the player. **Legendary capture:** `legendaryCaptureWhitelist` — list of Pokémon names; when a legendary is in this list, after setup (False Swipe/Thunder Wave) and 5 Ultra Balls, the mod throws one Master Ball (if in hotbar); otherwise it continues with Ultra Balls. **Roaming nextleg:** `roamingNextlegAfkEnabled` — in ROAMING, single global timer: poll `/nextleg`, send `roamingAfkCommand` (e.g. `/afk`) every `roamingAfkIntervalSeconds`; when **1 min left** run J action (toggle legendary / resume) and, if `roamingNextlegOpenMondeAt1Min`, send world menu command (e.g. `/monde`); move camera `roamingCameraMoveSecondsBefore` seconds before expiry. `roamingNextlegPollIntervalSeconds` — interval between `/nextleg` polls. |
 | **AutoQiqiConfigScreen** | In-game config screen (opened by K key). |
 | **AutoQiqiHud** | Renders legendary HUD (timer, state, world list, etc.) via `HudRenderCallback`. |
 
@@ -156,7 +157,7 @@ Defined in `auto-qiqi.mixins.json`; package `com.cobblemoon.autoqiqi.mixin`. The
 | Mixin | Target | Purpose |
 |-------|--------|---------|
 | **BattleGeneralActionSelectionMixin** | Cobblemon battle general action (Fight/Switch/Capture) | Routes decision to CaptureEngine (capture flow) or AutoBattleEngine/TrainerBattleEngine (fight/switch). |
-| **BattleMoveSelectionMixin** | Cobblemon move selection | Picks move (TrainerBattleEngine or CaptureEngine move choice). |
+| **BattleMoveSelectionMixin** | Cobblemon move selection | Capture mode: picks move via runLater. Autofight: no-op (client tick is the single path for move selection). |
 | **BattleSwitchPokemonSelectionMixin** | Cobblemon switch Pokemon selection | Picks which Pokemon to switch to. |
 | **BattleTargetSelectionMixin** | Cobblemon target selection | Picks target in double battles. |
 | **BattleCaptureEndHandlerMixin** | Cobblemon capture end handler | Hook when capture sequence ends (e.g. for ball result). |
@@ -166,17 +167,11 @@ Defined in `auto-qiqi.mixins.json`; package `com.cobblemoon.autoqiqi.mixin`. The
 
 ---
 
-## 6. Logs & paths
+## 6. Output & config
 
-Paths are under the game dir. **Log folders:** `logs/` (game stdout), `auto-qiqi/` (session log and session stats).
+**The mod does not write any log files.** All output is in-game chat only (no session logs, no session-stats, no stdout from the mod). `AutoQiqiClient.log("Module", "message")` sends messages to chat as `§6[Auto-Qiqi/Module]§r message`.
 
-- **Game log (stdout):** `logs/latest.log`. All `AutoQiqiClient.log("Module", "message")` appear as `[Auto-Qiqi/Module] message`. Rotated on each launch.
-- **Modrinth App:** In-game stdout is often in `logs/launcher_log.txt` as `[STDOUT]: [Auto-Qiqi/...]`. To verify roaming nextleg/afk/camera: grep for `Roaming:` or `nextleg` or `CAMERA MOVED` in `launcher_log.txt`.
-- **Session log:** `auto-qiqi/session-YYYY-MM-DD.log` — timestamped events (CAPTURE, KILL, WORLD_SWITCH, etc.). Primary for reviewing AFK sessions.
-- **Session stats:** `auto-qiqi/session-stats.json` — counters and lists; read on launch for recap, then reset.
-- **Config:** `config/auto-qiqi.json`.
-
-Example full path (Modrinth profile): `~/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/` — so logs live in `.../profiles/Cobblemoon1.1.8/logs/` and `.../profiles/Cobblemoon1.1.8/auto-qiqi/`.
+**Config:** `config/auto-qiqi.json` (via `FabricLoader.getInstance().getConfigDir()`). Example base path (Modrinth profile): `~/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/`.
 
 ---
 

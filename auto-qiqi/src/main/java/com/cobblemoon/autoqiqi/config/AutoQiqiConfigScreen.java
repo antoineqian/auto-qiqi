@@ -50,7 +50,7 @@ public class AutoQiqiConfigScreen extends Screen {
             String currentHome = config.getHomeCommand(worldName);
             if (currentHome == null) currentHome = "";
 
-            int fieldY = TOP_MARGIN + i * ROW_HEIGHT;
+            int fieldY = TOP_MARGIN + 24 + i * ROW_HEIGHT;
             TextFieldWidget field = new TextFieldWidget(
                     textRenderer, width / 2, fieldY, 140, 18, Text.literal("home"));
             field.setMaxLength(64);
@@ -59,7 +59,7 @@ public class AutoQiqiConfigScreen extends Screen {
             worldRows.add(new WorldRow(worldName, field));
         }
 
-        int contentHeight = TOP_MARGIN + worlds.size() * ROW_HEIGHT + BOTTOM_MARGIN;
+        int contentHeight = TOP_MARGIN + 24 + worlds.size() * ROW_HEIGHT + BOTTOM_MARGIN;
         maxScroll = Math.max(0, contentHeight - height);
 
         ButtonWidget doneButton = ButtonWidget.builder(
@@ -88,7 +88,7 @@ public class AutoQiqiConfigScreen extends Screen {
         AutoQiqiConfig.get().battleMode = selectedMode.name();
         AutoQiqiConfig.save();
 
-        AutoQiqiClient.log("Battle", "Config screen mode: " + prev + " -> " + selectedMode);
+        AutoQiqiClient.logDebug("Battle", "Config screen mode: " + prev + " -> " + selectedMode);
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MODE_CHANGE",
                 "Battle mode: " + prev + " -> " + selectedMode + " (config screen)");
     }
@@ -101,7 +101,7 @@ public class AutoQiqiConfigScreen extends Screen {
 
         for (int i = 0; i < worldRows.size(); i++) {
             WorldRow row = worldRows.get(i);
-            int labelY = TOP_MARGIN + i * ROW_HEIGHT - scrollOffset + 5;
+            int labelY = TOP_MARGIN + 24 + i * ROW_HEIGHT - scrollOffset + 5;
             if (labelY < 24 || labelY > height - BOTTOM_MARGIN) continue;
             int labelX = width / 2 - 160;
             context.drawTextWithShadow(textRenderer, row.worldName, labelX, labelY, 0xFFFFAA);
@@ -124,7 +124,7 @@ public class AutoQiqiConfigScreen extends Screen {
     private void updateScrollPositions() {
         for (int i = 0; i < worldRows.size(); i++) {
             WorldRow row = worldRows.get(i);
-            int y = TOP_MARGIN + i * ROW_HEIGHT - scrollOffset;
+            int y = TOP_MARGIN + 24 + i * ROW_HEIGHT - scrollOffset;
             row.field.setY(y);
             boolean visible = y >= 24 && y + 18 <= height - BOTTOM_MARGIN;
             row.field.visible = visible;
@@ -152,7 +152,7 @@ public class AutoQiqiConfigScreen extends Screen {
         }
 
         AutoQiqiConfig.save();
-        AutoQiqiClient.log("Config", "Saved home settings from config screen");
+        AutoQiqiClient.logDebug("Config", "Saved home settings from config screen");
     }
 
     private record WorldRow(String worldName, TextFieldWidget field) {}

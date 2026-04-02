@@ -12,7 +12,6 @@ import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection.MoveTile;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleTargetSelection;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
-import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 
@@ -28,31 +27,35 @@ public abstract class BattleMoveSelectionMixin {
         if (self.getRequest().getResponse() != null) return;
 
         if (CaptureEngine.get().isActive()) {
-            AutoQiqiClient.log("Mixin", "MoveSelection: CaptureEngine active");
+            AutoQiqiClient.logDebug("Mixin", "MoveSelection: CaptureEngine active");
             AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) {
-                    AutoQiqiClient.log("Mixin", "MoveSelection: stale request, skipping");
+                var current = self.getBattleGUI().getCurrentActionSelection();
+                if (!(current instanceof BattleMoveSelection currentSelection)) {
+                    AutoQiqiClient.logDebug("Mixin", "MoveSelection: no longer on move selection, skipping");
+                    return;
+                }
+                if (currentSelection.getRequest().getResponse() != null) {
+                    AutoQiqiClient.logDebug("Mixin", "MoveSelection: response already set, skipping");
                     return;
                 }
 
-                List<MoveTile> selectable = self.getMoveTiles().stream()
+                List<MoveTile> selectable = currentSelection.getMoveTiles().stream()
                         .filter(t -> t.getSelectable()).toList();
 
-                AutoQiqiClient.log("Mixin", "MoveSelection: " + selectable.size() + " selectable moves: "
+                AutoQiqiClient.logDebug("Mixin", "MoveSelection: " + selectable.size() + " selectable moves: "
                         + selectable.stream().map(t -> t.getMove().getMove()).toList());
 
                 MoveTile chosen = CaptureEngine.get().chooseMoveFromTiles(selectable);
                 if (chosen != null) {
-                    AutoQiqiClient.log("Mixin", "MoveSelection: clicking move '" + chosen.getMove().getMove() + "'");
-                    if (self.getRequest().getActivePokemon().getFormat()
+                    AutoQiqiClient.logDebug("Mixin", "MoveSelection: clicking move '" + chosen.getMove().getMove() + "'");
+                    if (currentSelection.getRequest().getActivePokemon().getFormat()
                             .getBattleType().getPokemonPerSide() == 1) {
                         chosen.onClick();
                     } else {
-                        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-                        self.getBattleGUI().changeActionSelection(
+                        currentSelection.playDownSound(MinecraftClient.getInstance().getSoundManager());
+                        currentSelection.getBattleGUI().changeActionSelection(
                                 new BattleTargetSelection(
-                                        self.getBattleGUI(), self.getRequest(),
+                                        currentSelection.getBattleGUI(), currentSelection.getRequest(),
                                         chosen.getMove(), null, null));
                     }
                 } else {
@@ -62,44 +65,19 @@ public abstract class BattleMoveSelectionMixin {
                     boolean shouldThrow = (engine.getCurrentAction() == com.cobblemoon.autoqiqi.battle.CaptureAction.THROW_BALL
                             || engine.hasEnoughFalseSwipesForCapture());
                     if (battle != null && shouldThrow) {
-                        AutoQiqiClient.log("Mixin", "MoveSelection: switching to ball throw (minimize + prepare)");
+                        AutoQiqiClient.logDebug("Mixin", "MoveSelection: switching to ball throw (minimize + prepare)");
                         battle.setMinimised(true);
                         engine.prepareBallThrow();
                     } else {
-                        AutoQiqiClient.log("Mixin", "MoveSelection: no valid move found, backing out");
-                        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-                        self.getBattleGUI().changeActionSelection(null);
+                        AutoQiqiClient.logDebug("Mixin", "MoveSelection: no valid move found, backing out");
+                        currentSelection.playDownSound(MinecraftClient.getInstance().getSoundManager());
+                        currentSelection.getBattleGUI().changeActionSelection(null);
                     }
                 }
             }, config.battleSelectDelay);
             return;
         }
 
-        if (AutoQiqiClient.shouldAutoFight()) {
-            AutoQiqiClient.runLater(() -> {
-                if (self.getBattleGUI().getCurrentActionSelection() != self
-                        || self.getRequest().getResponse() != null) return;
-
-                List<MoveTile> tiles = self.getMoveTiles().stream()
-                        .filter(t -> t.getSelectable()).toList();
-                MoveTile chosen = BattleDecisionRouter.chooseMove(tiles);
-
-                if (chosen != null) {
-                    if (self.getRequest().getActivePokemon().getFormat()
-                            .getBattleType().getPokemonPerSide() == 1) {
-                        chosen.onClick();
-                    } else {
-                        self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-                        self.getBattleGUI().changeActionSelection(
-                                new BattleTargetSelection(
-                                        self.getBattleGUI(), self.getRequest(),
-                                        chosen.getMove(), null, null));
-                    }
-                } else {
-                    self.playDownSound(MinecraftClient.getInstance().getSoundManager());
-                    self.getBattleGUI().changeActionSelection(null);
-                }
-            }, config.battleSelectDelay);
-        }
+        // Autofight move selection: do nothing here. Only the client tick calls performMoveSelection (single path, no race when unfocused).
     }
 }

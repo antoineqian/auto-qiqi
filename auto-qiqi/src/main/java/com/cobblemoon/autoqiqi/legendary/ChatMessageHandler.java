@@ -68,12 +68,12 @@ public class ChatMessageHandler {
             eventNowPattern = Pattern.compile(config.eventNowPattern);
             legendarySpawnPattern = Pattern.compile(config.legendarySpawnPattern);
         } catch (Exception e) {
-            System.err.println("[Auto-Qiqi] Failed to compile regex patterns: " + e.getMessage());
+            AutoQiqiClient.logDebug("Chat", "Failed to compile regex patterns: " + e.getMessage());
         }
     }
 
     public void setPendingPoll(String worldName) {
-        AutoQiqiClient.log("Chat", "setPendingPoll: waiting for timer response for '" + worldName + "'");
+        AutoQiqiClient.logDebug("Chat", "setPendingPoll: waiting for timer response for '" + worldName + "'");
         this.pendingPollWorld = worldName;
         this.pendingPollGlobal = false;
         this.pendingPollTimestamp = System.currentTimeMillis();
@@ -81,7 +81,7 @@ public class ChatMessageHandler {
 
     /** Wait for the next timer message and apply it to the global (single) timer. */
     public void setPendingPollGlobal() {
-        AutoQiqiClient.log("Chat", "setPendingPollGlobal: waiting for global timer response");
+        AutoQiqiClient.logDebug("Chat", "setPendingPollGlobal: waiting for global timer response");
         this.pendingPollWorld = null;
         this.pendingPollGlobal = true;
         this.pendingPollTimestamp = System.currentTimeMillis();
@@ -106,10 +106,10 @@ public class ChatMessageHandler {
         // Entity clearance: "Les entités seront supprimées dans 1 minutes."
         if (stripped.contains("entit") && stripped.contains("supprim")) {
             if (stripped.contains("dans")) {
-                AutoQiqiClient.log("Chat", "Entity clearance warning detected — still engaging until clear happens");
+                AutoQiqiClient.logDebug("Chat", "Entity clearance warning detected — still engaging until clear happens");
             } else {
                 clearanceCooldownUntilMs = System.currentTimeMillis() + POST_CLEAR_COOLDOWN_MS;
-                AutoQiqiClient.log("Chat", "Entity clearance done, pausing target acquisition for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s");
+                AutoQiqiClient.logDebug("Chat", "Entity clearance done, pausing target acquisition for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s");
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.player != null) {
                     mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §eEntities cleared — pausing scans for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s"), false);
@@ -149,7 +149,7 @@ public class ChatMessageHandler {
         if (mondeMatcher.find()) {
             String currentWorld = mondeMatcher.group(1).toLowerCase();
             WorldTracker.get().setCurrentWorld(currentWorld);
-            AutoQiqiClient.log("Legendary", "Detected current world: " + currentWorld);
+            AutoQiqiClient.logDebug("Legendary", "Detected current world: " + currentWorld);
         }
 
         if (pendingPollGlobal
@@ -158,7 +158,7 @@ public class ChatMessageHandler {
             if (seconds != null) {
                 WorldTracker.get().updateGlobalTimer(seconds);
                 long waitMs = System.currentTimeMillis() - pendingPollTimestamp;
-                AutoQiqiClient.log("Chat", "Global timer parsed: " + seconds + "s (response took " + waitMs + "ms)");
+                AutoQiqiClient.logDebug("Chat", "Global timer parsed: " + seconds + "s (response took " + waitMs + "ms)");
                 pendingPollGlobal = false;
                 return isSuppressing();
             }
@@ -171,7 +171,7 @@ public class ChatMessageHandler {
                 String cleanWorld = pendingPollWorld.replaceAll("<--.*", "").trim();
                 WorldTracker.get().updateWorldTimer(cleanWorld, seconds);
                 long waitMs = System.currentTimeMillis() - pendingPollTimestamp;
-                AutoQiqiClient.log("Chat", "Timer parsed for " + cleanWorld + ": " + seconds + "s (response took " + waitMs + "ms)");
+                AutoQiqiClient.logDebug("Chat", "Timer parsed for " + cleanWorld + ": " + seconds + "s (response took " + waitMs + "ms)");
                 pendingPollWorld = null;
                 AutoSwitchEngine.get().onTimerResponseReceived();
                 return isSuppressing();
@@ -210,7 +210,7 @@ public class ChatMessageHandler {
 
         if (isSelfReference && coords != null) {
             pendingLegendaryCoords = coords;
-            AutoQiqiClient.log("Legendary", "Stored coords from 'pres de vous' message: ("
+            AutoQiqiClient.logDebug("Legendary", "Stored coords from 'pres de vous' message: ("
                     + (int)coords[0] + "," + (int)coords[1] + "," + (int)coords[2] + ")");
         }
 
@@ -220,7 +220,7 @@ public class ChatMessageHandler {
 
         if (isNearUs) {
             if (isDuplicate) {
-                AutoQiqiClient.log("Legendary", "Dedup: skipping second spawn message for " + pokemonName);
+                AutoQiqiClient.logDebug("Legendary", "Dedup: skipping second spawn message for " + pokemonName);
                 return;
             }
             lastLegendaryHandled = pokemonName;
@@ -277,7 +277,7 @@ public class ChatMessageHandler {
 
                     boolean inKillWhitelist = isInLegendaryKillWhitelist(name);
                     String action = alreadyCaught ? "KILL" : (inKillWhitelist ? "KILL (kill whitelist)" : "CAPTURE");
-                    AutoQiqiClient.log("Legendary", "Auto-engage: " + name + " Lv." + level
+                    AutoQiqiClient.logDebug("Legendary", "Auto-engage: " + name + " Lv." + level
                             + " dex=" + dexStatus + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
                             + " -> " + action);
 
@@ -302,7 +302,7 @@ public class ChatMessageHandler {
                         CaptureEngine.get().start(name, level, true, legendaryEntity);
                     }
                 } else {
-                    AutoQiqiClient.log("Legendary", "Auto-engage: could not find entity for " + pokemonName
+                    AutoQiqiClient.logDebug("Legendary", "Auto-engage: could not find entity for " + pokemonName
                             + (effectiveCoords != null ? " near coords (" + (int)effectiveCoords[0] + "," + (int)effectiveCoords[1] + "," + (int)effectiveCoords[2] + ")" : " (no coords)"));
                     client.player.sendMessage(
                             Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
@@ -384,12 +384,12 @@ public class ChatMessageHandler {
         }
 
         if (bestMatch != null) {
-            AutoQiqiClient.log("Legendary", "Found legendary entity: " + PokemonScanner.getPokemonName(bestMatch)
+            AutoQiqiClient.logDebug("Legendary", "Found legendary entity: " + PokemonScanner.getPokemonName(bestMatch)
                     + " dist=" + String.format("%.1f", bestDist)
                     + " dex=" + PokemonScanner.getPokedexStatus(bestMatch)
                     + " pos=(" + (int)bestMatch.getX() + "," + (int)bestMatch.getY() + "," + (int)bestMatch.getZ() + ")");
         } else {
-            AutoQiqiClient.log("Legendary", "No matching entity found among " + candidates.size()
+            AutoQiqiClient.logDebug("Legendary", "No matching entity found among " + candidates.size()
                     + " pokemon in range (looking for '" + cleanName + "')");
         }
 
@@ -404,7 +404,7 @@ public class ChatMessageHandler {
         pokemonName = pokemonName.replaceAll("(?i).*pleine\\.?\\s*", "").trim();
         if (pokemonName.isEmpty()) pokemonName = "Unknown";
 
-        AutoQiqiClient.log("Chat", "Capture confirmed via chat: " + pokemonName);
+        AutoQiqiClient.logDebug("Chat", "Capture confirmed via chat: " + pokemonName);
         AutoBattleEngine.get().recordCapture(pokemonName);
         CaptureEngine.get().onCaptureConfirmedByChat(pokemonName);
     }
@@ -414,9 +414,9 @@ public class ChatMessageHandler {
         String currentWorld = tracker.getCurrentWorld();
         if (currentWorld != null) {
             tracker.setEventActive(currentWorld, true);
-            AutoQiqiClient.log("Chat", "EVENT NOW detected in: " + currentWorld);
+            AutoQiqiClient.logDebug("Chat", "EVENT NOW detected in: " + currentWorld);
         } else {
-            AutoQiqiClient.log("Chat", "EVENT NOW detected but currentWorld is null!");
+            AutoQiqiClient.logDebug("Chat", "EVENT NOW detected but currentWorld is null!");
         }
     }
 

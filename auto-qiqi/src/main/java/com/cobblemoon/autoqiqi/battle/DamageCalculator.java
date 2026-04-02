@@ -34,12 +34,14 @@ public final class DamageCalculator {
      * Compute damage range for the best damaging move from attacker to defender.
      * Uses attacker's and defender's level and stats (with reflection fallback).
      * Returns null if no damaging move or stats unavailable.
+     * @param defenderSpeciesName optional; when set, species-based immunities (e.g. Heatran vs Fire) are applied.
      */
     public static DamageRange computeBestMoveDamage(
             Pokemon attacker,
             ClientBattlePokemon defender,
             List<String> defenderTypes,
-            List<String> attackerTypes
+            List<String> attackerTypes,
+            String defenderSpeciesName
     ) {
         if (attacker == null || defender == null || defenderTypes == null) return null;
         int defenderHp = getMaxHp(defender);
@@ -51,7 +53,7 @@ public final class DamageCalculator {
         int defDef = getStat(defender, Stat.DEFENSE);
         int defSpD = getStat(defender, Stat.SPECIAL_DEFENSE);
 
-        BestMove best = findBestDamagingMove(attacker, defenderTypes, attackerTypes);
+        BestMove best = findBestDamagingMove(attacker, defenderTypes, attackerTypes, defenderSpeciesName);
         if (best == null) return null;
 
         boolean physical = isPhysical(best.template);
@@ -68,7 +70,7 @@ public final class DamageCalculator {
         int baseInt = (int) Math.floor(base);
 
         double stab = attackerTypes != null && attackerTypes.contains(best.moveType.toLowerCase()) ? 1.5 : 1.0;
-        double typeEff = TypeChart.getEffectiveness(best.moveType, defenderTypes);
+        double typeEff = TypeChart.getEffectiveness(best.moveType, defenderTypes, defenderSpeciesName);
 
         int dmgMin = applyModifiers(baseInt, RANDOM_MIN, stab, typeEff);
         int dmgMax = applyModifiers(baseInt, RANDOM_MAX, stab, typeEff);
@@ -82,13 +84,15 @@ public final class DamageCalculator {
     /**
      * Compute damage range for a specific move from attacker to defender.
      * Returns null if the move is status (power 0) or stats unavailable.
+     * @param defenderSpeciesName optional; when set, species-based immunities (e.g. Heatran vs Fire) are applied.
      */
     public static DamageRange computeMoveDamage(
             Pokemon attacker,
             ClientBattlePokemon defender,
             MoveTemplate moveTemplate,
             List<String> defenderTypes,
-            List<String> attackerTypes
+            List<String> attackerTypes,
+            String defenderSpeciesName
     ) {
         if (attacker == null || defender == null || moveTemplate == null || defenderTypes == null) return null;
         double power = moveTemplate.getPower();
@@ -114,7 +118,7 @@ public final class DamageCalculator {
         int baseInt = (int) Math.floor(base);
 
         double stab = attackerTypes != null && attackerTypes.contains(moveType) ? 1.5 : 1.0;
-        double typeEff = TypeChart.getEffectiveness(moveType, defenderTypes);
+        double typeEff = TypeChart.getEffectiveness(moveType, defenderTypes, defenderSpeciesName);
 
         int dmgMin = applyModifiers(baseInt, RANDOM_MIN, stab, typeEff);
         int dmgMax = applyModifiers(baseInt, RANDOM_MAX, stab, typeEff);
@@ -127,6 +131,7 @@ public final class DamageCalculator {
     }
 
     private static int applyModifiers(int baseDamage, double random, double stab, double typeEff) {
+        if (typeEff == 0) return 0; // immune
         double d = baseDamage * random * stab * typeEff;
         int result = (int) Math.floor(d);
         return Math.max(1, result);
@@ -144,7 +149,7 @@ public final class DamageCalculator {
         }
     }
 
-    private static BestMove findBestDamagingMove(Pokemon attacker, List<String> defenderTypes, List<String> attackerTypes) {
+    private static BestMove findBestDamagingMove(Pokemon attacker, List<String> defenderTypes, List<String> attackerTypes, String defenderSpeciesName) {
         BestMove best = null;
         double bestScore = 0;
         try {
@@ -157,7 +162,7 @@ public final class DamageCalculator {
                     double pow = tpl.getPower();
                     if (pow <= 0) continue;
                     String mType = tpl.getElementalType().getName().toLowerCase();
-                    double eff = TypeChart.getEffectiveness(mType, defenderTypes);
+                    double eff = TypeChart.getEffectiveness(mType, defenderTypes, defenderSpeciesName);
                     double stab = (attackerTypes != null && attackerTypes.contains(mType)) ? 1.5 : 1.0;
                     double score = pow * eff * stab;
                     if (score > bestScore) {
@@ -189,7 +194,7 @@ public final class DamageCalculator {
         }
     }
 
-    private enum Stat { ATTACK, DEFENSE, SPECIAL_ATTACK, SPECIAL_DEFENSE, SPEED, HP }
+    enum Stat { ATTACK, DEFENSE, SPECIAL_ATTACK, SPECIAL_DEFENSE, SPEED, HP }
 
     private static int getLevel(Object pokemonOrBattlePokemon) {
         try {
@@ -226,7 +231,7 @@ public final class DamageCalculator {
      * Get stat value via reflection (Cobblemon Pokemon/ClientBattlePokemon).
      * Fallback: estimate from level (formula for non-HP: (2*base*L/100+5), base=100).
      */
-    private static int getStat(Object pokemonOrBattlePokemon, Stat stat) {
+    static int getStat(Object pokemonOrBattlePokemon, Stat stat) {
         int level = getLevel(pokemonOrBattlePokemon);
         try {
             if (pokemonOrBattlePokemon instanceof Pokemon p) {

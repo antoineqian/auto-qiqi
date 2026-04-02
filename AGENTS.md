@@ -17,29 +17,16 @@
 
 ## Logging for Debuggability
 
-**Every significant action must be logged** so that behavior can be debugged a posteriori.
+**The mod does not write log files** (chat-only). Significant actions should still be reported via chat so behavior can be debugged.
 
-- Use `AutoQiqiClient.log("<module>", "<message>")` for in-game / stdout logging
-- Use `SessionLogger.get().log*()` for persistent session events (captures, world switches, errors)
-- Log state transitions, decisions, command sends, timer updates, and failures
-- Include enough context (e.g. world name, target, tick count) to reconstruct what happened from logs alone
+- Use **`AutoQiqiClient.log("<module>", "<message>")`** for all output — messages appear in **in-game chat** only (no file or stdout).
+- `SessionLogger.get().log*()` is a **no-op** (no session files, no session-stats).
+- Log state transitions, decisions, command sends, timer updates, and failures via `AutoQiqiClient.log`.
+- Include enough context (e.g. world name, target, tick count) so the user can reconstruct what happened from chat.
 
-## Bug Reports: Always Check Logs First
+## Bug Reports
 
-When the user reports an issue with battle, capture, or any mod behavior, **always check the actual game logs before proposing a fix**.
-
-### Discovering log locations
-
-Log paths are **not fixed**: they depend on the Minecraft launcher, profile, and install. Use the paths documented in [.cursor/rules/project-context.mdc](.cursor/rules/project-context.mdc) as the **current reference**. The mod resolves paths at runtime via `FabricLoader.getInstance().getGameDir()` (session logs under `auto-qiqi/`, game stdout under `logs/latest.log`).
-
-1. **Try the documented paths first** — read session log and `logs/latest.log` from the paths in project-context.
-2. **If logs are missing, not recent, or don’t match what the user says happened** (e.g. no recent entries, different profile, different launcher):
-   - Treat the documented paths as wrong or outdated.
-   - **Discover the real location**: e.g. search for `auto-qiqi/session-*.log` and `logs/latest.log` under common roots (e.g. `~/Library/Application Support/ModrinthApp/profiles/`, or other launcher data dirs). Use the profile/instance whose logs are most recent and consistent with the user’s report.
-   - **Update the documentation**: once you’ve found the correct instance/log paths, update [.cursor/rules/project-context.mdc](.cursor/rules/project-context.mdc) (and any log path mentions in this file) so future runs use the correct paths.
-3. Trace the **exact sequence of events** from the logs you found — do not assume the cause from the user’s description alone.
-4. Identify which code path actually executed (look for "Target acquired", "Decide #", mixin logs, scan results, etc.).
-5. Only then propose a fix that addresses the **actual root cause** seen in logs, not a hypothetical one.
+When the user reports an issue: **there are no log files**. Rely on the user's description and what they saw in chat; trace code paths and propose fixes from steps-to-reproduce.
 
 ## Versioning
 

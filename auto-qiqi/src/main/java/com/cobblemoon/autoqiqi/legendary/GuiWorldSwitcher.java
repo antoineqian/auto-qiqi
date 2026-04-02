@@ -46,7 +46,7 @@ public class GuiWorldSwitcher {
     public void onScreenOpened(HandledScreen<?> screen) {
         String title = screen.getTitle().getString();
         ScreenHandler handler = screen.getScreenHandler();
-        AutoQiqiClient.log("Legendary", "GUI opened: '" + title + "' slots=" + handler.slots.size());
+        AutoQiqiClient.logDebug("Legendary", "GUI opened: '" + title + "' slots=" + handler.slots.size());
 
         boolean shouldTrack = waitingForGui || expectingSubMenu;
         if (!shouldTrack && worldSlotMap.isEmpty()) {
@@ -129,7 +129,7 @@ public class GuiWorldSwitcher {
 
     private void processScreen(HandledScreen<?> screen) {
         if (expectingSubMenu) {
-            AutoQiqiClient.log("GUI", "processScreen: handling sub-menu for " + subMenuWorldName);
+            AutoQiqiClient.logDebug("GUI", "processScreen: handling sub-menu for " + subMenuWorldName);
             handleSubMenu(screen);
             return;
         }
@@ -139,7 +139,7 @@ public class GuiWorldSwitcher {
         int newMappings = worldSlotMap.size() - prevCount;
 
         if (!waitingForGui) {
-            AutoQiqiClient.log("GUI", "processScreen: not waiting for GUI, newMappings=" + newMappings + " learned=" + hasLearnedWorlds());
+            AutoQiqiClient.logDebug("GUI", "processScreen: not waiting for GUI, newMappings=" + newMappings + " learned=" + hasLearnedWorlds());
             screenProcessed = true;
             if (newMappings > 0 && hasLearnedWorlds()) {
                 AutoSwitchEngine.get().onWorldsLearned();
@@ -149,14 +149,14 @@ public class GuiWorldSwitcher {
 
         if (pendingWorldSwitch != null) {
             if (worldSlotMap.containsKey(pendingWorldSwitch.toLowerCase())) {
-                AutoQiqiClient.log("GUI", "processScreen: found slot for '" + pendingWorldSwitch + "', scheduling click");
+                AutoQiqiClient.logDebug("GUI", "processScreen: found slot for '" + pendingWorldSwitch + "', scheduling click");
                 pendingClickWorld = pendingWorldSwitch;
                 pendingWorldSwitch = null;
                 waitingForGui = false;
                 int delay = HumanDelay.guiClickTicks();
                 clickAtTick = ticksSinceScreenOpened + delay;
             } else {
-                AutoQiqiClient.log("GUI", "processScreen: '" + pendingWorldSwitch + "' NOT found in slot map! Available: " + worldSlotMap.keySet());
+                AutoQiqiClient.logDebug("GUI", "processScreen: '" + pendingWorldSwitch + "' NOT found in slot map! Available: " + worldSlotMap.keySet());
                 screenProcessed = true;
                 pendingWorldSwitch = null;
                 waitingForGui = false;
@@ -164,7 +164,7 @@ public class GuiWorldSwitcher {
                 AutoSwitchEngine.get().onGuiTimeout();
             }
         } else {
-            AutoQiqiClient.log("GUI", "processScreen: learning mode, newMappings=" + newMappings + " learned=" + hasLearnedWorlds());
+            AutoQiqiClient.logDebug("GUI", "processScreen: learning mode, newMappings=" + newMappings + " learned=" + hasLearnedWorlds());
             screenProcessed = true;
             waitingForGui = false;
             if (newMappings > 0 || hasLearnedWorlds()) {
@@ -236,21 +236,21 @@ public class GuiWorldSwitcher {
                 if (config.isHomeWorld(worldName)) continue;
                 if (worldNameMatches(itemName, worldName)) {
                     worldSlotMap.put(worldName.toLowerCase(), i);
-                    AutoQiqiClient.log("GUI", "Mapped slot " + i + " '" + itemName + "' -> " + worldName);
+                    AutoQiqiClient.logDebug("GUI", "Mapped slot " + i + " '" + itemName + "' -> " + worldName);
                     matchedCount++;
                     matched = true;
                     break;
                 }
             }
             if (!matched) {
-                AutoQiqiClient.log("GUI", "Slot " + i + " '" + itemName + "' -> no world match");
+                AutoQiqiClient.logDebug("GUI", "Slot " + i + " '" + itemName + "' -> no world match");
             }
         }
         int homeSkipped = 0;
         for (String worldName : config.worldNames) {
             if (config.isHomeWorld(worldName)) homeSkipped++;
         }
-        AutoQiqiClient.log("GUI", "readAndMapItems: " + matchedCount + " matched, "
+        AutoQiqiClient.logDebug("GUI", "readAndMapItems: " + matchedCount + " matched, "
                 + homeSkipped + " home-worlds skipped, total mapped=" + worldSlotMap.size());
     }
 
@@ -280,7 +280,7 @@ public class GuiWorldSwitcher {
     private void performClick(HandledScreen<?> screen, String worldName) {
         Integer slotIndex = worldSlotMap.get(worldName.toLowerCase());
         if (slotIndex == null) {
-            AutoQiqiClient.log("GUI", "performClick: no slot for '" + worldName + "', aborting");
+            AutoQiqiClient.logDebug("GUI", "performClick: no slot for '" + worldName + "', aborting");
             MinecraftClient.getInstance().setScreen(null);
             AutoSwitchEngine.get().onGuiTimeout();
             return;
@@ -288,7 +288,7 @@ public class GuiWorldSwitcher {
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.interactionManager == null || client.player == null) {
-            AutoQiqiClient.log("GUI", "performClick: no interactionManager or player, aborting");
+            AutoQiqiClient.logDebug("GUI", "performClick: no interactionManager or player, aborting");
             client.setScreen(null);
             AutoSwitchEngine.get().onGuiTimeout();
             return;
@@ -299,13 +299,13 @@ public class GuiWorldSwitcher {
         String mode = config.getTeleportMode(worldName);
         int button = "last".equalsIgnoreCase(mode) ? 1 : 0;
 
-        AutoQiqiClient.log("GUI", "performClick: slot=" + slotIndex + " world='" + worldName
+        AutoQiqiClient.logDebug("GUI", "performClick: slot=" + slotIndex + " world='" + worldName
                 + "' mode=" + mode + " button=" + button + " (syncId=" + syncId + ")");
         client.interactionManager.clickSlot(syncId, slotIndex, button, SlotActionType.PICKUP, client.player);
         client.setScreen(null);
 
         if (hasSubMenu(worldName)) {
-            AutoQiqiClient.log("GUI", "performClick: expecting sub-menu for " + worldName);
+            AutoQiqiClient.logDebug("GUI", "performClick: expecting sub-menu for " + worldName);
             expectingSubMenu = true;
             subMenuWorldName = worldName;
             waitingForGui = true;
@@ -325,11 +325,11 @@ public class GuiWorldSwitcher {
     }
 
     public void requestSwitch(String worldName) {
-        AutoQiqiClient.log("GUI", "requestSwitch: " + worldName);
+        AutoQiqiClient.logDebug("GUI", "requestSwitch: " + worldName);
         this.pendingWorldSwitch = worldName;
     }
     public void requestLearning() {
-        AutoQiqiClient.log("GUI", "requestLearning");
+        AutoQiqiClient.logDebug("GUI", "requestLearning");
         this.pendingWorldSwitch = null;
     }
     public void onMondeCommandSent() { this.waitingForGui = true; }

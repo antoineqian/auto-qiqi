@@ -45,7 +45,7 @@ jar {
     }
 }
 
-def modsDir = file("${System.getProperty('user.home')}/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.1.8/mods")
+def modsDir = file("/Users/antoineqian/Library/Application Support/ModrinthApp/profiles/Cobblemoon1.2.1/mods")
 tasks.register('deploy', Copy) {
     dependsOn remapJar
     from remapJar.archiveFile
@@ -57,7 +57,7 @@ tasks.register('deploy', Copy) {
     }
     doLast {
         println ""
-        println "  qiqi-timer installed to Cobblemoon1.1.8: ${remapJar.archiveFile.get().asFile.name}"
+        println "  qiqi-timer installed to Cobblemoon1.2.1: ${remapJar.archiveFile.get().asFile.name}"
         println ""
     }
 }

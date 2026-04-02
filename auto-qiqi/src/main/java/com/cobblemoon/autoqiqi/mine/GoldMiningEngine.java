@@ -152,7 +152,7 @@ public class GoldMiningEngine {
                     targetHotbar,
                     SlotActionType.SWAP,
                     player);
-            AutoQiqiClient.log("Mine", "Swapped pickaxe from inventory slot " + bestMain
+            AutoQiqiClient.logDebug("Mine", "Swapped pickaxe from inventory slot " + bestMain
                     + " to hotbar slot " + targetHotbar);
         }
         return targetHotbar;
@@ -193,14 +193,14 @@ public class GoldMiningEngine {
             try {
                 player.networkHandler.sendChatCommand("repair");
             } catch (Exception e) {
-                AutoQiqiClient.log("Mine", "repair send failed (network?): " + e.getMessage());
+                AutoQiqiClient.logDebug("Mine", "repair send failed (network?): " + e.getMessage());
             }
         }
         AutoQiqiConfig config = AutoQiqiConfig.get();
         config.goldMiningLastRepairTimeMs = System.currentTimeMillis();
         AutoQiqiConfig.save();
         repairPending = true;
-        AutoQiqiClient.log("Mine", "Sent /repair for pickaxe in slot " + slot);
+        AutoQiqiClient.logDebug("Mine", "Sent /repair for pickaxe in slot " + slot);
     }
 
     private void switchToPickaxe(ClientPlayerEntity player, int slot) {
@@ -245,14 +245,14 @@ public class GoldMiningEngine {
             if (repairPending) {
                 // Already sent repair last cycle, still low → repair probably failed/on server CD
                 repairPending = false;
-                AutoQiqiClient.log("Mine", pickName + " pickaxe still at "
+                AutoQiqiClient.logDebug("Mine", pickName + " pickaxe still at "
                         + String.format("%.0f%%", durability) + " after /repair — waiting");
                 scanCooldown = SCAN_INTERVAL_REPAIR_ON_CD;
                 return;
             }
 
             if (!isRepairOnCooldown()) {
-                AutoQiqiClient.log("Mine", pickName + " pickaxe at "
+                AutoQiqiClient.logDebug("Mine", pickName + " pickaxe at "
                         + String.format("%.0f%%", durability) + "%, sending /repair");
                 sendRepair(player, slot);
                 scanCooldown = SCAN_INTERVAL_AFTER_REPAIR;
@@ -260,7 +260,7 @@ public class GoldMiningEngine {
             } else {
                 long remainMs = AutoQiqiConfig.get().goldMiningRepairCooldownMs
                         - (System.currentTimeMillis() - AutoQiqiConfig.get().goldMiningLastRepairTimeMs);
-                AutoQiqiClient.log("Mine", pickName + " pickaxe at "
+                AutoQiqiClient.logDebug("Mine", pickName + " pickaxe at "
                         + String.format("%.0f%%", durability) + "%, /repair on cooldown ("
                         + (remainMs / 60_000) + "m left) — pausing mining");
                 scanCooldown = SCAN_INTERVAL_REPAIR_ON_CD;
@@ -281,7 +281,7 @@ public class GoldMiningEngine {
         targetOre = ores.get(0);
         state = State.WALKING;
         stuckTicks = 0;
-        AutoQiqiClient.log("Mine", "Found nether gold ore at " + fmt(targetOre)
+        AutoQiqiClient.logDebug("Mine", "Found nether gold ore at " + fmt(targetOre)
                 + " (" + String.format("%.1f", distanceTo(player, targetOre)) + " blocks)"
                 + " — using " + getPickaxeName(player, slot) + " pickaxe");
     }
@@ -290,7 +290,7 @@ public class GoldMiningEngine {
         ClientPlayerEntity player = client.player;
 
         if (!isNetherGoldOre(client, targetOre)) {
-            AutoQiqiClient.log("Mine", "Target ore gone while walking, rescanning");
+            AutoQiqiClient.logDebug("Mine", "Target ore gone while walking, rescanning");
             releaseMovement(client);
             targetOre = null;
             state = State.IDLE;
@@ -307,7 +307,7 @@ public class GoldMiningEngine {
             if (pickaxeSlot >= 0) {
                 float dur = getDurabilityPercent(player, pickaxeSlot);
                 if (dur < AutoQiqiConfig.get().goldMiningDurabilitySafetyMargin) {
-                    AutoQiqiClient.log("Mine", "Pickaxe too damaged to mine ("
+                    AutoQiqiClient.logDebug("Mine", "Pickaxe too damaged to mine ("
                             + String.format("%.0f%%", dur) + "), returning to IDLE");
                     targetOre = null;
                     state = State.IDLE;
@@ -319,7 +319,7 @@ public class GoldMiningEngine {
 
             state = State.MINING;
             miningTicks = 0;
-            AutoQiqiClient.log("Mine", "In range, mining " + fmt(targetOre));
+            AutoQiqiClient.logDebug("Mine", "In range, mining " + fmt(targetOre));
             return;
         }
 
@@ -330,7 +330,7 @@ public class GoldMiningEngine {
         }
 
         if (stuckTicks > WALK_STUCK_TIMEOUT) {
-            AutoQiqiClient.log("Mine", "Stuck walking to " + fmt(targetOre) + ", skipping");
+            AutoQiqiClient.logDebug("Mine", "Stuck walking to " + fmt(targetOre) + ", skipping");
             releaseMovement(client);
             targetOre = null;
             state = State.IDLE;
@@ -352,7 +352,7 @@ public class GoldMiningEngine {
         if (!isNetherGoldOre(client, targetOre)) {
             client.options.attackKey.setPressed(false);
             sessionOresMined++;
-            AutoQiqiClient.log("Mine", "Ore mined! (" + sessionOresMined + " this session)");
+            AutoQiqiClient.logDebug("Mine", "Ore mined! (" + sessionOresMined + " this session)");
             state = State.PICKUP_WAIT;
             pickupWaitTicks = PICKUP_WAIT_DURATION;
             return;
@@ -360,7 +360,7 @@ public class GoldMiningEngine {
 
         miningTicks++;
         if (miningTicks > MAX_MINING_TICKS) {
-            AutoQiqiClient.log("Mine", "Mining timeout on " + fmt(targetOre) + ", skipping");
+            AutoQiqiClient.logDebug("Mine", "Mining timeout on " + fmt(targetOre) + ", skipping");
             client.options.attackKey.setPressed(false);
             targetOre = null;
             state = State.IDLE;

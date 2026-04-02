@@ -58,11 +58,11 @@ public class WorldTracker {
         if (data != null) {
             long oldRemaining = data.isTimerKnown() ? data.getEstimatedRemainingSeconds() : -1;
             data.updateTimer(remainingSeconds);
-            AutoQiqiClient.log("WorldTracker", "Timer updated: " + resolved
+            AutoQiqiClient.logDebug("WorldTracker", "Timer updated: " + resolved
                     + " " + oldRemaining + "s -> " + remainingSeconds + "s"
                     + (remainingSeconds <= 0 ? " [EVENT/EXPIRED]" : ""));
         } else {
-            AutoQiqiClient.log("WorldTracker", "Timer update IGNORED: no entry for '" + worldName + "' (resolved: '" + resolved + "')");
+            AutoQiqiClient.logDebug("WorldTracker", "Timer update IGNORED: no entry for '" + worldName + "' (resolved: '" + resolved + "')");
         }
     }
 
@@ -70,7 +70,7 @@ public class WorldTracker {
     public void updateGlobalTimer(long remainingSeconds) {
         long oldRemaining = globalTimer.isTimerKnown() ? globalTimer.getEstimatedRemainingSeconds() : -1;
         globalTimer.updateTimer(remainingSeconds);
-        AutoQiqiClient.log("WorldTracker", "Global timer: " + oldRemaining + "s -> " + remainingSeconds + "s"
+        AutoQiqiClient.logDebug("WorldTracker", "Global timer: " + oldRemaining + "s -> " + remainingSeconds + "s"
                 + (remainingSeconds <= 0 ? " [EVENT/EXPIRED]" : ""));
     }
 
@@ -87,7 +87,7 @@ public class WorldTracker {
         WorldTimerData data = worldTimers.get(worldName);
         if (data != null) {
             data.setEventActive(active);
-            AutoQiqiClient.log("WorldTracker", "Event " + (active ? "ACTIVE" : "cleared") + " for " + worldName);
+            AutoQiqiClient.logDebug("WorldTracker", "Event " + (active ? "ACTIVE" : "cleared") + " for " + worldName);
         }
     }
 
@@ -95,7 +95,7 @@ public class WorldTracker {
     public void setCurrentWorld(String world) {
         String canonical = resolveWorldName(world);
         if (canonical != null && !canonical.equals(this.currentWorld)) {
-            AutoQiqiClient.log("WorldTracker", "Current world: " + this.currentWorld + " -> " + canonical);
+            AutoQiqiClient.logDebug("WorldTracker", "Current world: " + this.currentWorld + " -> " + canonical);
         }
         this.currentWorld = canonical;
     }
@@ -107,7 +107,7 @@ public class WorldTracker {
 
         for (WorldTimerData data : worldTimers.values()) {
             if (data.isEventActive() && !data.getWorldName().equals(currentWorld)) {
-                AutoQiqiClient.log("WorldTracker", "getWorldToSwitchTo: " + data.getWorldName() + " has active event");
+                AutoQiqiClient.logDebug("WorldTracker", "getWorldToSwitchTo: " + data.getWorldName() + " has active event");
                 return data.getWorldName();
             }
         }
@@ -126,7 +126,7 @@ public class WorldTracker {
             }
         }
         if (closest != null) {
-            AutoQiqiClient.log("WorldTracker", "getWorldToSwitchTo: " + closest + " within threshold (" + closestTime + "s remaining)");
+            AutoQiqiClient.logDebug("WorldTracker", "getWorldToSwitchTo: " + closest + " within threshold (" + closestTime + "s remaining)");
         }
         return closest;
     }
@@ -166,7 +166,7 @@ public class WorldTracker {
     }
 
     public void markAllForRepoll() {
-        AutoQiqiClient.log("WorldTracker", "markAllForRepoll: resetting all " + worldTimers.size() + " timers");
+        AutoQiqiClient.logDebug("WorldTracker", "markAllForRepoll: resetting all " + worldTimers.size() + " timers");
         for (WorldTimerData data : worldTimers.values()) {
             if (data.isTimerKnown()) data.updateTimer(-1);
         }

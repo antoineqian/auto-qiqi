@@ -34,14 +34,14 @@ public class DirectionGuide {
     public void setTarget(Entity entity) {
         this.target = entity;
         if (entity != null) {
-            AutoQiqiClient.log("Guide", "Direction guide -> " + PokemonScanner.getPokemonName(entity)
+            AutoQiqiClient.logDebug("Guide", "Direction guide -> " + PokemonScanner.getPokemonName(entity)
                     + " at " + String.format("%.1f", entity.getPos().x) + "," + String.format("%.1f", entity.getPos().z));
         }
     }
 
     public void stop() {
         if (target != null) {
-            AutoQiqiClient.log("Guide", "Direction guide cleared");
+            AutoQiqiClient.logDebug("Guide", "Direction guide cleared");
         }
         this.target = null;
     }

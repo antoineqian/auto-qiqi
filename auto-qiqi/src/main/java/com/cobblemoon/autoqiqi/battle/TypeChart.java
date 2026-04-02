@@ -3,14 +3,22 @@ package com.cobblemoon.autoqiqi.battle;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Full Gen 6+ (18-type) effectiveness chart.
  * Only non-1.0 entries are stored; lookups default to neutral (1.0).
+ * Species-based overrides (e.g. Heatran immune to Fire in Cobblemon) are applied when defender species is provided.
  */
 public final class TypeChart {
 
     private static final Map<String, Map<String, Double>> CHART = new HashMap<>();
+
+    /** Species (internal name, lowercase) that are immune to specific attack types (e.g. Heatran: Fire). */
+    private static final Map<String, Set<String>> SPECIES_ATTACK_IMMUNITIES = new HashMap<>();
+    static {
+        SPECIES_ATTACK_IMMUNITIES.put("heatran", Set.of("fire"));
+    }
 
     static {
         // Normal
@@ -101,8 +109,21 @@ public final class TypeChart {
      * E.g. Fire vs Grass/Steel = 2.0 * 2.0 = 4.0
      */
     public static double getEffectiveness(String attackType, List<String> defenderTypes) {
+        return getEffectiveness(attackType, defenderTypes, null);
+    }
+
+    /**
+     * Same as {@link #getEffectiveness(String, List)} but applies species-based overrides when defender species is known.
+     * E.g. Heatran is immune to Fire in Cobblemon, so Fire vs Heatran returns 0.
+     */
+    public static double getEffectiveness(String attackType, List<String> defenderTypes, String defenderSpeciesName) {
         if (attackType == null || defenderTypes == null || defenderTypes.isEmpty()) return 1.0;
-        Map<String, Double> row = CHART.get(attackType.toLowerCase());
+        String atk = attackType.toLowerCase();
+        if (defenderSpeciesName != null && !defenderSpeciesName.isEmpty()) {
+            Set<String> immunities = SPECIES_ATTACK_IMMUNITIES.get(defenderSpeciesName.toLowerCase());
+            if (immunities != null && immunities.contains(atk)) return 0.0;
+        }
+        Map<String, Double> row = CHART.get(atk);
         double mult = 1.0;
         for (String def : defenderTypes) {
             if (row != null) {
@@ -118,9 +139,16 @@ public final class TypeChart {
      * against the defender's type combination.
      */
     public static double getBestStabEffectiveness(List<String> attackerTypes, List<String> defenderTypes) {
+        return getBestStabEffectiveness(attackerTypes, defenderTypes, null);
+    }
+
+    /**
+     * Same as {@link #getBestStabEffectiveness(List, List)} but applies species-based overrides when defender species is known.
+     */
+    public static double getBestStabEffectiveness(List<String> attackerTypes, List<String> defenderTypes, String defenderSpeciesName) {
         double best = 0;
         for (String atkType : attackerTypes) {
-            double eff = getEffectiveness(atkType, defenderTypes);
+            double eff = getEffectiveness(atkType, defenderTypes, defenderSpeciesName);
             if (eff > best) best = eff;
         }
         return best;

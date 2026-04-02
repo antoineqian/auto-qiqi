@@ -84,13 +84,13 @@ public class PokemonWalker {
         this.stuckTicks = 0;
         this.beelineStuckTriedAstar = false;
         this.timedOut = false;
-        AutoQiqiClient.log("Walker", "Start walking to " + PokemonScanner.getPokemonName(targetEntity)
+        AutoQiqiClient.logDebug("Walker", "Start walking to " + PokemonScanner.getPokemonName(targetEntity)
                 + " at " + fmtPos(targetEntity.getPos()));
     }
 
     public void stop() {
         if (active) {
-            AutoQiqiClient.log("Walker", "Stopped (recalcs=" + recalcCount + ")");
+            AutoQiqiClient.logDebug("Walker", "Stopped (recalcs=" + recalcCount + ")");
         }
         this.active = false;
         this.target = null;
@@ -139,7 +139,7 @@ public class PokemonWalker {
         long elapsed = System.currentTimeMillis() - walkStartMs;
         if (elapsed > WALK_TOTAL_TIMEOUT_MS) {
             String name = PokemonScanner.getPokemonName(target);
-            AutoQiqiClient.log("Walker", "TIMEOUT after " + (elapsed / 1000) + "s walking to " + name);
+            AutoQiqiClient.logDebug("Walker", "TIMEOUT after " + (elapsed / 1000) + "s walking to " + name);
             player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cTimeout: impossible d'atteindre §e" + name + "§c en " + (WALK_TOTAL_TIMEOUT_MS / 1000) + "s."), false);
             timedOut = true;
             stop();
@@ -155,7 +155,7 @@ public class PokemonWalker {
             String mode = (path != null && waypointIndex < path.size()) ? "A*" : "beeline";
             String wpInfo = (path != null && path.size() > 0) ? " wp=" + waypointIndex + "/" + path.size() : "";
             double targetMoved = lastTargetPos != null ? Math.sqrt(target.getPos().squaredDistanceTo(lastTargetPos)) : 0;
-            AutoQiqiClient.log("Walker", "move: " + mode + wpInfo
+            AutoQiqiClient.logDebug("Walker", "move: " + mode + wpInfo
                     + " dist=" + String.format("%.1f", distToTarget)
                     + " collision=" + player.horizontalCollision
                     + " targetMoved=" + String.format("%.1f", targetMoved) + "m");
@@ -163,7 +163,7 @@ public class PokemonWalker {
 
         if (distToTarget <= ARRIVAL_DISTANCE) {
             String name = PokemonScanner.getPokemonName(target);
-            AutoQiqiClient.log("Walker", "Arrived near " + name + " (dist=" + String.format("%.1f", distToTarget) + ")");
+            AutoQiqiClient.logDebug("Walker", "Arrived near " + name + " (dist=" + String.format("%.1f", distToTarget) + ")");
             player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §aArrive pres de §e" + name + "§a !"), false);
             lastWalkTargetEntityId = target.getId();
             lastWalkTargetGraceTicks = MANUAL_WALK_GRACE_TICKS;
@@ -176,7 +176,7 @@ public class PokemonWalker {
             if (player.horizontalCollision) {
                 stuckTicks++;
                 if (stuckTicks >= BEELINE_STUCK_REPATH_TICKS) {
-                    AutoQiqiClient.log("Walker", "Beeline stuck for " + stuckTicks + " ticks, falling back to A*");
+                    AutoQiqiClient.logDebug("Walker", "Beeline stuck for " + stuckTicks + " ticks, falling back to A*");
                     beelineStuckTriedAstar = true;
                     stuckTicks = 0;
                     computePath(client, player);
@@ -212,14 +212,14 @@ public class PokemonWalker {
         } else if (distToTarget <= BEELINE_DISTANCE * 2) {
             moveDirectToTarget(client, player);
         } else {
-            AutoQiqiClient.log("Walker", "No path available, beelining (dist=" + String.format("%.1f", distToTarget) + ")");
+            AutoQiqiClient.logDebug("Walker", "No path available, beelining (dist=" + String.format("%.1f", distToTarget) + ")");
             moveDirectToTarget(client, player);
         }
     }
 
     private void computePath(MinecraftClient client, ClientPlayerEntity player) {
         if (recalcCount >= MAX_RECALCS) {
-            AutoQiqiClient.log("Walker", "Max recalcs (" + MAX_RECALCS + ") reached, giving up A*");
+            AutoQiqiClient.logDebug("Walker", "Max recalcs (" + MAX_RECALCS + ") reached, giving up A*");
             path = null;
             return;
         }
@@ -227,7 +227,7 @@ public class PokemonWalker {
         BlockPos start = player.getBlockPos();
         BlockPos goal = target.getBlockPos();
 
-        AutoQiqiClient.log("Walker", "Computing path #" + (recalcCount + 1)
+        AutoQiqiClient.logDebug("Walker", "Computing path #" + (recalcCount + 1)
                 + " player=" + fmtBlock(start) + " target=" + fmtBlock(goal)
                 + " dist=" + String.format("%.1f", player.distanceTo(target)));
 
@@ -239,16 +239,16 @@ public class PokemonWalker {
         recalcCount++;
 
         if (path == null) {
-            AutoQiqiClient.log("Walker", "A* returned NO path");
+            AutoQiqiClient.logDebug("Walker", "A* returned NO path");
         } else {
-            AutoQiqiClient.log("Walker", "A* returned " + path.size() + " waypoints");
+            AutoQiqiClient.logDebug("Walker", "A* returned " + path.size() + " waypoints");
         }
     }
 
     private boolean shouldRepath() {
         if (lastTargetPos != null && target.getPos().squaredDistanceTo(lastTargetPos) > REPATH_TARGET_MOVED * REPATH_TARGET_MOVED) {
             double moved = Math.sqrt(target.getPos().squaredDistanceTo(lastTargetPos));
-            AutoQiqiClient.log("Walker", "Target moved " + String.format("%.1f", moved) + "m (was " + fmtPos(lastTargetPos) + "), repathing");
+            AutoQiqiClient.logDebug("Walker", "Target moved " + String.format("%.1f", moved) + "m (was " + fmtPos(lastTargetPos) + "), repathing");
             recalcCount = Math.max(0, recalcCount - 1);
             return true;
         }
@@ -257,7 +257,7 @@ public class PokemonWalker {
             MinecraftClient client = MinecraftClient.getInstance();
             String playerPos = client.player != null ? fmtPos(client.player.getPos()) : "?";
             String wpInfo = (path != null && waypointIndex < path.size()) ? fmtPos(path.get(waypointIndex)) : "none";
-            AutoQiqiClient.log("Walker", "STUCK for " + stuckMs + "ms! player=" + playerPos
+            AutoQiqiClient.logDebug("Walker", "STUCK for " + stuckMs + "ms! player=" + playerPos
                     + " waypoint[" + waypointIndex + "]=" + wpInfo
                     + " collision=" + (client.player != null && client.player.horizontalCollision));
             return true;
@@ -293,7 +293,7 @@ public class PokemonWalker {
             if (stuckTicks % JIGGLE_COMMIT_TICKS == 0) {
                 jiggleDirection = -jiggleDirection;
                 double d = player.distanceTo(target);
-                AutoQiqiClient.log("Walker", "stuck recovery (A*): strafe " + (jiggleDirection > 0 ? "left" : "right") + " wp=" + waypointIndex + " dist=" + String.format("%.1f", d) + " collision=true");
+                AutoQiqiClient.logDebug("Walker", "stuck recovery (A*): strafe " + (jiggleDirection > 0 ? "left" : "right") + " wp=" + waypointIndex + " dist=" + String.format("%.1f", d) + " collision=true");
             }
             // Walk sideways + forward + jump to get around
             client.options.forwardKey.setPressed(true);
@@ -341,7 +341,7 @@ public class PokemonWalker {
             if (stuckTicks % JIGGLE_COMMIT_TICKS == 0) {
                 jiggleDirection = -jiggleDirection;
                 double d = player.distanceTo(target);
-                AutoQiqiClient.log("Walker", "stuck recovery: strafe " + (jiggleDirection > 0 ? "left" : "right") + " dist=" + String.format("%.1f", d) + " collision=true");
+                AutoQiqiClient.logDebug("Walker", "stuck recovery: strafe " + (jiggleDirection > 0 ? "left" : "right") + " dist=" + String.format("%.1f", d) + " collision=true");
             }
 
             // Walk mostly sideways with some forward to go around the obstacle

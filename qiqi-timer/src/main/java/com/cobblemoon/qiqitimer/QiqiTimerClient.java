@@ -16,22 +16,27 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Qiqi-Timer: polls /nextleg periodically, shows the legendary timer in the bottom-right HUD,
- * and optionally sends key J when the timer reaches the 1-minute mark.
+ * and optionally sends key J when the timer reaches the threshold (default 30 sec left).
  */
 public class QiqiTimerClient implements ClientModInitializer {
 
     private static KeyBinding toggleAutohopKey;
 
+    private static final int SECOND_J_DELAY_TICKS = 20 * 15; // 15 seconds
+
     private long tickCount = 0;
     private long lastPollTick = 0;
     /** True once we've sent J this cycle (remaining <= threshold); reset when remaining > threshold. */
     private boolean sentJThisCycle = false;
+    /** Tick at which to send the second J (after probs recompute). 0 = no schedule. */
+    private long scheduledSecondJTick = 0;
 
     @Override
     public void onInitializeClient() {
-        QiqiTimerConfig.get();
+        QiqiTimerConfig config = QiqiTimerConfig.get();
+        int defaultKey = config.toggleAutohopKeyCode != 0 ? config.toggleAutohopKeyCode : GLFW.GLFW_KEY_O;
         toggleAutohopKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.qiqitimer.toggle_autohop", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_O, "category.qiqitimer"));
+                "key.qiqitimer.toggle_autohop", InputUtil.Type.KEYSYM, defaultKey, "category.qiqitimer"));
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
         HudRenderCallback.EVENT.register(this::renderHud);
     }
@@ -57,17 +62,23 @@ public class QiqiTimerClient implements ClientModInitializer {
 
         if (remaining > threshold) {
             sentJThisCycle = false;
+            scheduledSecondJTick = 0;
         } else if (config.sendJAt1MinLeft && remaining >= 0 && remaining <= threshold && !sentJThisCycle
-                && client.getWindow() != null) {
-            if (isInBattle(client)) {
-                log("Send K/J skipped (in battle), remaining=" + remaining + "s");
-            } else {
-                // K reloads legendary percentages, then J (e.g. resume / world menu)
-                sendKey("key.keyboard.k");
-                sendKey("key.keyboard.j");
-                sentJThisCycle = true;
-                log("Sent key K then J (remaining=" + remaining + "s)");
+                && !isInBattle(client)) {
+            // K then J: works even when window not focused by invoking auto-qiqi action directly when present
+            sendKey("key.keyboard.k");
+            sendJOrInvokeNextlegAction(client);
+            sentJThisCycle = true;
+            scheduledSecondJTick = tickCount + SECOND_J_DELAY_TICKS; // J again after probs recompute
+            log("Sent key K then J (remaining=" + remaining + "s), second J in 15s");
+        }
+        // Second J 15s after first (probs have been recomputed)
+        if (scheduledSecondJTick > 0 && tickCount >= scheduledSecondJTick) {
+            if (!isInBattle(client)) {
+                sendJOrInvokeNextlegAction(client);
+                log("Sent second J (probs recomputed)");
             }
+            scheduledSecondJTick = 0;
         }
 
         int intervalTicks = Math.max(20, config.pollIntervalSeconds * 20);
@@ -90,6 +101,26 @@ public class QiqiTimerClient implements ClientModInitializer {
         KeyBinding.setKeyPressed(key, true);
         KeyBinding.onKeyPressed(key);
         KeyBinding.setKeyPressed(key, false);
+    }
+
+    /**
+     * Runs the "J" legendary hop action: when auto-qiqi is present, invokes its 1-min action directly
+     * so it works even when the game window is not focused. Falls back to sending key J otherwise.
+     */
+    private static void sendJOrInvokeNextlegAction(MinecraftClient client) {
+        if (invokeAutoQiqiNextlegAction(client)) return;
+        sendKey("key.keyboard.j");
+    }
+
+    /** Invokes AutoQiqiClient.invokeNextlegOneMinuteAction(client) via reflection. Returns true if invoked. */
+    private static boolean invokeAutoQiqiNextlegAction(MinecraftClient client) {
+        try {
+            Class<?> c = Class.forName("com.cobblemoon.autoqiqi.AutoQiqiClient");
+            c.getMethod("invokeNextlegOneMinuteAction", MinecraftClient.class).invoke(null, client);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private static void log(String message) {

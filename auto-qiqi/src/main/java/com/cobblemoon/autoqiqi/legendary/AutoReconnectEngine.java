@@ -70,7 +70,7 @@ public class AutoReconnectEngine {
         if (phase == Phase.DISABLED) {
             phase = Phase.MONITORING;
             consecutiveFailures = 0;
-            AutoQiqiClient.log("Reconnect", "Auto-reconnect enabled, monitoring for disconnects");
+            AutoQiqiClient.logDebug("Reconnect", "Auto-reconnect enabled, monitoring for disconnects");
             SessionLogger.get().logInfo("Auto-reconnect enabled");
         }
     }
@@ -78,7 +78,7 @@ public class AutoReconnectEngine {
     public void disable() {
         phase = Phase.DISABLED;
         resetLobbyGui();
-        AutoQiqiClient.log("Reconnect", "Auto-reconnect disabled");
+        AutoQiqiClient.logDebug("Reconnect", "Auto-reconnect disabled");
         SessionLogger.get().logInfo("Auto-reconnect disabled");
     }
 
@@ -121,20 +121,20 @@ public class AutoReconnectEngine {
     private void tickMonitoring(MinecraftClient client) {
         Screen screen = client.currentScreen;
         if (screen instanceof DisconnectedScreen) {
-            AutoQiqiClient.log("Reconnect", "Disconnect detected (DisconnectedScreen), starting reconnect flow");
+            AutoQiqiClient.logDebug("Reconnect", "Disconnect detected (DisconnectedScreen), starting reconnect flow");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Disconnect detected, starting reconnect");
             transition(Phase.WAIT_BEFORE_DISMISS);
         } else if (screen instanceof TitleScreen && client.player == null) {
-            AutoQiqiClient.log("Reconnect", "Title screen detected while not connected, starting reconnect flow");
+            AutoQiqiClient.logDebug("Reconnect", "Title screen detected while not connected, starting reconnect flow");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Title screen detected, starting reconnect");
             transition(Phase.WAIT_BEFORE_DISMISS);
         } else if (screen != null && hasBackToServerListButton(screen)) {
-            AutoQiqiClient.log("Reconnect", "Error/disconnect screen with 'Retour à la liste des serveurs' detected, clicking it");
+            AutoQiqiClient.logDebug("Reconnect", "Error/disconnect screen with 'Retour à la liste des serveurs' detected, clicking it");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Error screen (back to server list) detected");
             transition(Phase.CLICK_BACK_TO_SERVER_LIST);
         } else if (client.player == null && screen != null) {
             // Unknown screen when disconnected (e.g. ConnectScreen, custom login, or obfuscated class)
-            AutoQiqiClient.log("Reconnect", "Disconnected with unknown screen: " + screen.getClass().getSimpleName()
+            AutoQiqiClient.logDebug("Reconnect", "Disconnected with unknown screen: " + screen.getClass().getSimpleName()
                     + ", will force title after delay");
             SessionLogger.get().logEvent("AUTO_RECONNECT", "Unknown disconnect screen: " + screen.getClass().getSimpleName());
             transition(Phase.WAIT_BEFORE_DISMISS);
@@ -146,12 +146,12 @@ public class AutoReconnectEngine {
     private void tickWaitBeforeDismiss(MinecraftClient client) {
         Screen screen = client.currentScreen;
         if (screen instanceof TitleScreen) {
-            AutoQiqiClient.log("Reconnect", "Title screen visible, proceeding to Rejoindre");
+            AutoQiqiClient.logDebug("Reconnect", "Title screen visible, proceeding to Rejoindre");
             transition(Phase.CLICK_REJOINDRE);
             return;
         }
         if (client.player != null && client.world != null) {
-            onSuccess();
+            onSuccess(client);
             return;
         }
         long elapsed = System.currentTimeMillis() - phaseStartMs;
@@ -160,7 +160,7 @@ public class AutoReconnectEngine {
             if (screen instanceof DisconnectedScreen) {
                 transition(Phase.DISMISS_DISCONNECT);
             } else if (screen != null) {
-                AutoQiqiClient.log("Reconnect", "Forcing TitleScreen from unexpected screen: "
+                AutoQiqiClient.logDebug("Reconnect", "Forcing TitleScreen from unexpected screen: "
                         + screen.getClass().getSimpleName());
                 client.setScreen(new TitleScreen());
                 transition(Phase.CLICK_REJOINDRE);
@@ -177,7 +177,7 @@ public class AutoReconnectEngine {
         if (screen instanceof TitleScreen) {
             transition(Phase.CLICK_REJOINDRE);
         } else if (screen instanceof DisconnectedScreen) {
-            AutoQiqiClient.log("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen");
+            AutoQiqiClient.logDebug("Reconnect", "Dismissing DisconnectedScreen -> TitleScreen");
             client.setScreen(new TitleScreen());
             transition(Phase.CLICK_REJOINDRE);
         } else {
@@ -193,7 +193,7 @@ public class AutoReconnectEngine {
             transition(Phase.CLICK_REJOINDRE);
             return;
         }
-        AutoQiqiClient.log("Reconnect", "Forcing TitleScreen from " + screen.getClass().getSimpleName());
+        AutoQiqiClient.logDebug("Reconnect", "Forcing TitleScreen from " + screen.getClass().getSimpleName());
         client.setScreen(new TitleScreen());
         transition(Phase.CLICK_REJOINDRE);
     }
@@ -217,7 +217,7 @@ public class AutoReconnectEngine {
         Screen screen = client.currentScreen;
         if (!(screen instanceof TitleScreen)) {
             if (screen instanceof ConnectScreen) {
-                AutoQiqiClient.log("Reconnect", "Already on ConnectScreen, waiting for connection");
+                AutoQiqiClient.logDebug("Reconnect", "Already on ConnectScreen, waiting for connection");
                 transition(Phase.WAIT_CONNECT);
                 return;
             }
@@ -232,7 +232,7 @@ public class AutoReconnectEngine {
             if (child instanceof PressableWidget widget) {
                 String label = widget.getMessage().getString();
                 if (label.toLowerCase().contains(buttonText.toLowerCase())) {
-                    AutoQiqiClient.log("Reconnect", "Found button '" + label + "', clicking");
+                    AutoQiqiClient.logDebug("Reconnect", "Found button '" + label + "', clicking");
                     widget.onPress();
                     transition(Phase.WAIT_CONNECT);
                     return;
@@ -247,14 +247,14 @@ public class AutoReconnectEngine {
 
     private void tickWaitConnect(MinecraftClient client) {
         if (client.player != null && client.world != null) {
-            AutoQiqiClient.log("Reconnect", "Connected to server, waiting for lobby to load");
+            AutoQiqiClient.logDebug("Reconnect", "Connected to server, waiting for lobby to load");
             transition(Phase.WAIT_LOBBY_LOAD);
             return;
         }
 
         Screen screen = client.currentScreen;
         if (screen instanceof DisconnectedScreen) {
-            AutoQiqiClient.log("Reconnect", "Connection failed (DisconnectedScreen), will retry");
+            AutoQiqiClient.logDebug("Reconnect", "Connection failed (DisconnectedScreen), will retry");
             onFailure("connection failed");
             return;
         }
@@ -262,7 +262,7 @@ public class AutoReconnectEngine {
         long timeoutMs = AutoQiqiConfig.get().reconnectWaitConnectionSeconds * 1000L;
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         if (elapsed >= timeoutMs) {
-            AutoQiqiClient.log("Reconnect", "Timeout waiting for connection (" + (timeoutMs / 1000) + "s)");
+            AutoQiqiClient.logDebug("Reconnect", "Timeout waiting for connection (" + (timeoutMs / 1000) + "s)");
             onFailure("timeout: wait for connection");
         }
     }
@@ -271,14 +271,14 @@ public class AutoReconnectEngine {
 
     private void tickWaitLobbyLoad(MinecraftClient client) {
         if (client.player == null || client.world == null) {
-            AutoQiqiClient.log("Reconnect", "Lost connection during lobby load");
+            AutoQiqiClient.logDebug("Reconnect", "Lost connection during lobby load");
             onFailure("disconnected during lobby load");
             return;
         }
 
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         if (elapsed >= LOBBY_LOAD_DELAY_MS) {
-            AutoQiqiClient.log("Reconnect", "Lobby load delay elapsed, sending right-click");
+            AutoQiqiClient.logDebug("Reconnect", "Lobby load delay elapsed, sending right-click");
             transition(Phase.RIGHT_CLICK_LOBBY);
         }
     }
@@ -293,20 +293,20 @@ public class AutoReconnectEngine {
 
         if (client.currentScreen != null) {
             if (client.currentScreen instanceof HandledScreen<?>) {
-                AutoQiqiClient.log("Reconnect", "GUI already open, proceeding to click item");
+                AutoQiqiClient.logDebug("Reconnect", "GUI already open, proceeding to click item");
                 activeLobbyScreen = (HandledScreen<?>) client.currentScreen;
                 lobbyGuiTicksSinceOpen = 0;
                 lobbyGuiItemsDetected = false;
                 transition(Phase.CLICK_GUI_ITEM);
                 return;
             }
-            AutoQiqiClient.log("Reconnect", "Screen open during right-click phase: "
+            AutoQiqiClient.logDebug("Reconnect", "Screen open during right-click phase: "
                     + client.currentScreen.getClass().getSimpleName() + ", waiting...");
             checkTimeout(Phase.MONITORING, "right-click lobby (screen blocking)");
             return;
         }
 
-        AutoQiqiClient.log("Reconnect", "Sending right-click in lobby");
+        AutoQiqiClient.logDebug("Reconnect", "Sending right-click in lobby");
         client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
         transition(Phase.WAIT_LOBBY_GUI);
     }
@@ -316,7 +316,7 @@ public class AutoReconnectEngine {
     private void tickWaitLobbyGui(MinecraftClient client) {
         Screen screen = client.currentScreen;
         if (screen instanceof HandledScreen<?> hs) {
-            AutoQiqiClient.log("Reconnect", "Lobby GUI opened: " + screen.getTitle().getString());
+            AutoQiqiClient.logDebug("Reconnect", "Lobby GUI opened: " + screen.getTitle().getString());
             activeLobbyScreen = hs;
             lobbyGuiTicksSinceOpen = 0;
             lobbyGuiItemsDetected = false;
@@ -337,11 +337,11 @@ public class AutoReconnectEngine {
     private void tickClickGuiItem(MinecraftClient client) {
         if (activeLobbyScreen == null || client.currentScreen != activeLobbyScreen) {
             if (client.player != null && client.world != null && client.currentScreen == null) {
-                AutoQiqiClient.log("Reconnect", "GUI closed, player in world — assuming success");
-                onSuccess();
+                AutoQiqiClient.logDebug("Reconnect", "GUI closed, player in world — assuming success");
+                onSuccess(client);
                 return;
             }
-            AutoQiqiClient.log("Reconnect", "Lobby GUI disappeared unexpectedly");
+            AutoQiqiClient.logDebug("Reconnect", "Lobby GUI disappeared unexpectedly");
             onFailure("lobby GUI closed unexpectedly");
             return;
         }
@@ -362,7 +362,7 @@ public class AutoReconnectEngine {
         }
 
         if (lobbyGuiTicksSinceOpen >= GUI_TIMEOUT_TICKS) {
-            AutoQiqiClient.log("Reconnect", "Lobby GUI timed out waiting for items");
+            AutoQiqiClient.logDebug("Reconnect", "Lobby GUI timed out waiting for items");
             client.setScreen(null);
             onFailure("lobby GUI timeout");
         }
@@ -383,20 +383,20 @@ public class AutoReconnectEngine {
         for (int i = 0; i < guiSlots; i++) {
             if (!handler.slots.get(i).getStack().isEmpty()) {
                 String name = handler.slots.get(i).getStack().getName().getString();
-                AutoQiqiClient.log("Reconnect", "Lobby GUI slot " + i + ": '" + name + "'");
+                AutoQiqiClient.logDebug("Reconnect", "Lobby GUI slot " + i + ": '" + name + "'");
                 if (targetSlot < 0) targetSlot = i;
             }
         }
 
         if (targetSlot < 0) {
-            AutoQiqiClient.log("Reconnect", "No non-empty slot found in lobby GUI");
+            AutoQiqiClient.logDebug("Reconnect", "No non-empty slot found in lobby GUI");
             client.setScreen(null);
             onFailure("no item in lobby GUI");
             return;
         }
 
         int syncId = handler.syncId;
-        AutoQiqiClient.log("Reconnect", "Clicking lobby GUI slot " + targetSlot
+        AutoQiqiClient.logDebug("Reconnect", "Clicking lobby GUI slot " + targetSlot
                 + " (syncId=" + syncId + ")");
         client.interactionManager.clickSlot(syncId, targetSlot, 0, SlotActionType.PICKUP, client.player);
         client.setScreen(null);
@@ -412,11 +412,11 @@ public class AutoReconnectEngine {
             if (elapsed >= 2_000) {
                 String home = AutoQiqiConfig.get().reconnectHome;
                 if (home != null && !home.isBlank()) {
-                    AutoQiqiClient.log("Reconnect", "In world 2s, sending /home " + home);
+                    AutoQiqiClient.logDebug("Reconnect", "In world 2s, sending /home " + home);
                     transition(Phase.SEND_HOME);
                     return;
                 }
-                onSuccess();
+                onSuccess(client);
                 return;
             }
         }
@@ -440,11 +440,11 @@ public class AutoReconnectEngine {
         }
         String home = AutoQiqiConfig.get().reconnectHome;
         if (home == null || home.isBlank()) {
-            onSuccess();
+            onSuccess(client);
             return;
         }
         String cmd = "/home " + home.trim();
-        AutoQiqiClient.log("Reconnect", "Sending " + cmd);
+        AutoQiqiClient.logDebug("Reconnect", "Sending " + cmd);
         SessionLogger.get().logEvent("AUTO_RECONNECT", "Send /home " + home.trim());
         client.player.networkHandler.sendChatMessage(cmd);
         transition(Phase.WAIT_AFTER_HOME);
@@ -463,8 +463,8 @@ public class AutoReconnectEngine {
         long warmupMs = AutoQiqiConfig.get().homeTeleportWarmupSeconds * 1000L;
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         if (elapsed >= warmupMs) {
-            AutoQiqiClient.log("Reconnect", "/home warmup done, reconnect complete");
-            onSuccess();
+            AutoQiqiClient.logDebug("Reconnect", "/home warmup done, reconnect complete");
+            onSuccess(client);
         }
     }
 
@@ -482,7 +482,7 @@ public class AutoReconnectEngine {
     }
 
     private void transition(Phase newPhase) {
-        AutoQiqiClient.log("Reconnect", "Phase: " + phase + " -> " + newPhase);
+        AutoQiqiClient.logDebug("Reconnect", "Phase: " + phase + " -> " + newPhase);
         phase = newPhase;
         phaseStartMs = System.currentTimeMillis();
     }
@@ -490,7 +490,7 @@ public class AutoReconnectEngine {
     private void checkTimeout(Phase fallbackPhase, String context) {
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         if (elapsed >= PHASE_TIMEOUT_MS) {
-            AutoQiqiClient.log("Reconnect", "Timeout in phase " + phase + " (" + context + ")");
+            AutoQiqiClient.logDebug("Reconnect", "Timeout in phase " + phase + " (" + context + ")");
             onFailure("timeout: " + context);
         }
     }
@@ -503,20 +503,24 @@ public class AutoReconnectEngine {
         return (backoff + jitter) * 1000L;
     }
 
-    private void onSuccess() {
-        AutoQiqiClient.log("Reconnect", "Reconnect successful! Failures reset. Returning to MONITORING.");
+    private void onSuccess(MinecraftClient client) {
+        AutoQiqiClient.logDebug("Reconnect", "Reconnect successful! Failures reset. Returning to MONITORING.");
         SessionLogger.get().logEvent("AUTO_RECONNECT", "Reconnect successful after "
                 + consecutiveFailures + " failures");
         consecutiveFailures = 0;
         resetLobbyGui();
         transition(Phase.MONITORING);
+        // Same as when qiqi timer hits 1 min: resume/toggle legendary and optionally open world menu
+        if (client != null) {
+            AutoQiqiClient.invokeNextlegOneMinuteAction(client);
+        }
     }
 
     private void onFailure(String reason) {
         consecutiveFailures++;
         AutoQiqiConfig config = AutoQiqiConfig.get();
 
-        AutoQiqiClient.log("Reconnect", "Reconnect attempt failed (" + reason
+        AutoQiqiClient.logDebug("Reconnect", "Reconnect attempt failed (" + reason
                 + "), failure #" + consecutiveFailures + "/" + config.reconnectMaxRetries);
         SessionLogger.get().logEvent("AUTO_RECONNECT",
                 "Attempt failed: " + reason + " (#" + consecutiveFailures + ")");
@@ -524,7 +528,7 @@ public class AutoReconnectEngine {
         resetLobbyGui();
 
         if (consecutiveFailures >= config.reconnectMaxRetries) {
-            AutoQiqiClient.log("Reconnect", "Max retries reached, disabling auto-reconnect");
+            AutoQiqiClient.logDebug("Reconnect", "Max retries reached, disabling auto-reconnect");
             SessionLogger.get().logEvent("AUTO_RECONNECT",
                     "Max retries (" + config.reconnectMaxRetries + ") reached, giving up");
             disable();
@@ -538,7 +542,7 @@ public class AutoReconnectEngine {
         long elapsed = System.currentTimeMillis() - phaseStartMs;
         long delayMs = getReconnectDelayMs();
         if (elapsed >= delayMs) {
-            AutoQiqiClient.log("Reconnect", "Cooldown elapsed (" + (delayMs / 1000)
+            AutoQiqiClient.logDebug("Reconnect", "Cooldown elapsed (" + (delayMs / 1000)
                     + "s), retrying reconnect");
             transition(Phase.MONITORING);
         }
