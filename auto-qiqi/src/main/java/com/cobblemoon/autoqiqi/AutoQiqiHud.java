@@ -2,7 +2,9 @@ package com.cobblemoon.autoqiqi;
 
 import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
+import com.cobblemoon.autoqiqi.battle.BattleIntelHud;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
+import com.cobblemoon.autoqiqi.battle.SmogonData;
 import com.cobblemoon.autoqiqi.battle.TrainerBattleEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.legendary.*;
@@ -29,7 +31,8 @@ public class AutoQiqiHud {
         if (client.getDebugHud().shouldShowDebugHud()) return;
 
         renderStatusHud(context, client);
-        renderBattleAdvisor(context, client);
+        int advisorBottomY = renderBattleAdvisor(context, client);
+        renderBattleIntel(context, client, advisorBottomY);
         renderLegendaryHud(context, client);
     }
 
@@ -118,9 +121,9 @@ public class AutoQiqiHud {
     // Top-center: battle advisor (any battle), 10% below top
     // ========================
 
-    private static void renderBattleAdvisor(DrawContext context, MinecraftClient client) {
+    private static int renderBattleAdvisor(DrawContext context, MinecraftClient client) {
         TrainerBattleEngine.AdvisorInfo info = TrainerBattleEngine.get().getAdvisorInfo();
-        if (info == null) return;
+        if (info == null) return -1;
 
         TextRenderer tr = client.textRenderer;
         int screenWidth = client.getWindow().getScaledWidth();
@@ -169,6 +172,48 @@ public class AutoQiqiHud {
             int w4 = tr.getWidth(line4.replaceAll("§.", ""));
             maxW = Math.max(maxW, w4);
         }
+
+        // Smogon data lines
+        String smogonLine1 = null; // roles + likely item
+        String smogonLine2 = null; // common moves
+        String smogonLine3 = null; // speed / scarf warning
+
+        // Extract internal name for Smogon lookup
+        String oppInternal = null;
+        try {
+            var battle = com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle();
+            if (battle != null) {
+                var bp = battle.getSide2().getActors().get(0).getActivePokemon().get(0).getBattlePokemon();
+                if (bp != null) oppInternal = bp.getSpecies().getName();
+            }
+        } catch (Exception ignored) {}
+
+        SmogonData.SmogonEntry smogon = oppInternal != null ? SmogonData.get(oppInternal) : null;
+        if (smogon != null) {
+            // Line 1: roles + likely item
+            smogonLine1 = "§8[OU] §d" + smogon.rolesDisplay() + " §8| §6" + smogon.itemDisplay();
+            int ws1 = tr.getWidth(smogonLine1.replaceAll("§.", ""));
+            maxW = Math.max(maxW, ws1);
+
+            // Line 2: common moves
+            smogonLine2 = "§8Moves: §7" + smogon.movesDisplay();
+            int ws2 = tr.getWidth(smogonLine2.replaceAll("§.", ""));
+            maxW = Math.max(maxW, ws2);
+
+            // Line 3: speed tier / scarf warning
+            if (smogon.likelyScarfUser()) {
+                smogonLine3 = "§c⚠ Likely Choice Scarf user!";
+            } else if (smogon.likelyChoiceLocked()) {
+                smogonLine3 = "§e⚠ Likely Choice locked (" + smogon.likelyItem() + ")";
+            } else if (smogon.isCommonlyMaxSpeed()) {
+                smogonLine3 = "§b↑ Commonly max Speed (252 Spe " + smogon.speed().nature() + ")";
+            }
+            if (smogonLine3 != null) {
+                int ws3 = tr.getWidth(smogonLine3.replaceAll("§.", ""));
+                maxW = Math.max(maxW, ws3);
+            }
+        }
+
         int x = (screenWidth - maxW) / 2;
 
         drawBg(context, tr, line1, x, y, 0xFFFFFFFF);
@@ -181,7 +226,34 @@ public class AutoQiqiHud {
         }
         if (line4 != null) {
             drawBg(context, tr, line4, x, y, 0xFFFFFF55);
+            y += lineHeight;
         }
+        // Smogon info block (slightly separated)
+        if (smogonLine1 != null) {
+            y += 4; // small gap
+            drawBg(context, tr, smogonLine1, x, y, 0xFFDD88FF);
+            y += lineHeight;
+        }
+        if (smogonLine2 != null) {
+            drawBg(context, tr, smogonLine2, x, y, 0xFFAAAAAA);
+            y += lineHeight;
+        }
+        if (smogonLine3 != null) {
+            drawBg(context, tr, smogonLine3, x, y, 0xFFFFFF55);
+            y += lineHeight;
+        }
+        return y;
+    }
+
+    // ========================
+    // Center: battle intel table
+    // ========================
+
+    private static void renderBattleIntel(DrawContext context, MinecraftClient client, int advisorBottomY) {
+        if (advisorBottomY < 0) return; // no advisor = no battle
+        TextRenderer tr = client.textRenderer;
+        int screenWidth = client.getWindow().getScaledWidth();
+        BattleIntelHud.render(context, tr, screenWidth, advisorBottomY);
     }
 
     // ========================

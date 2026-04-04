@@ -66,6 +66,7 @@ public class TrainerBattleEngine {
         turnCount = 0;
         lastOpponentKey = "";
         attacksAgainstCurrentOpponent = 0;
+        BattleIntelData.get().invalidate();
     }
 
     /**

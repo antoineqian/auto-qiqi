@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.LinkedHashMap;
 
 /**
  * Unified configuration for all Auto-Qiqi features.
@@ -31,6 +32,8 @@ public class AutoQiqiConfig {
     // ========================
 
     public String battleMode = "ROAMING";
+    /** Roaming flavor: "DEFAULT" = normal roaming (bosses, uncaught, legendaries), "LEG_ONLY" = only engage legendaries (ignore bosses and regular uncaught). Reload with /pk reload. */
+    public String roamingFlavor = "DEFAULT";
     public long battleSelectDelay = 200;
     public double battleSwitchChance = 0.0;
     public int battleHealEveryN = 3;
@@ -70,17 +73,47 @@ public class AutoQiqiConfig {
     /** When true, at 1 min left on nextleg timer also send the world menu command (e.g. /monde) so the world selection GUI opens. */
     public boolean roamingNextlegOpenMondeAt1Min = true;
 
-    /** Legendary Pokemon in this list get one Master Ball after 5 Ultra Balls (and after False Swipe/Thunder Wave setup). If Master Ball is not in hotbar, Ultra Balls continue. Empty = no Master Ball. Names must match the game language; comparison is case-insensitive. */
-    public List<String> legendaryCaptureWhitelist = new ArrayList<>(List.of(
-            "Mewtwo", "Rayquaza", "Groudon", "Ethernatos", "Giratina", "Koraidon", "Miraidon",
-            "Lugia", "Kyogre", "Latios", "Dialga", "Palkia", "Zekrom", "Kyurem", "Yveltal", "Nécrozma"
-    ));
-
     /** Legendaries in this list are always targeted for kill (never capture), even when uncaught. Used in ROAMING and when a legendary spawns near the player. Names match game language; comparison is case-insensitive. */
     public List<String> legendaryKillWhitelist = new ArrayList<>(List.of(
             "Yveltal", "Groudon", "Koraidon", "Heatran", "Kyurem", "Genesect", "Registeel",
             "Ogerpon", "Tokopiyon", "Amovénus", "Boréas", "Kyogre", "Giratina", "Pêchaminus",
             "Regieleki", "Terrakium", "Rayquaza"
+    ));
+
+    /** Pokemon values for auto-hop EV calculation (EV = value × probability). */
+    public Map<String, Double> autohopValues = new LinkedHashMap<>(Map.ofEntries(
+            Map.entry("Kyogre", 5.0),
+            Map.entry("Necrozma", 0.6),
+            Map.entry("Rayquaza", 4.0),
+            Map.entry("Groudon", 1.0),
+            Map.entry("Giratina", 1.0),
+            Map.entry("Genesect", 0.2),
+            Map.entry("Yveltal", 2.0),
+            Map.entry("Amovénus", 2.0),
+            Map.entry("Boréas", 3.0),
+            Map.entry("Péchaminus", 3.0),
+            Map.entry("Marshadow", 1.2),
+            Map.entry("Terrakium", 2.0),
+            Map.entry("Regieleki", 3.0),
+            Map.entry("Registeel", 3.0),
+            Map.entry("Kyurem", 5.0),
+            Map.entry("Koraidon", 1.5),
+            Map.entry("Miraidon", 1.0),
+            Map.entry("Heatran", 1.0),
+            Map.entry("Ogerpon", 0.4),
+            Map.entry("Tokopiyon", 1.0),
+            Map.entry("Darkrai", 1.0),
+            Map.entry("Xerneas", 0.4),
+            Map.entry("Type:0", 0.5),
+            Map.entry("Zarude", 0.6),
+            Map.entry("Spectreval", 0.6),
+            Map.entry("Magearna", 0.4),
+            Map.entry("Palkia", 0.4)
+    ));
+
+    /** Time-of-day conditions for auto-hop: pokemon name -> "min-max" tick range (0-24000).
+     *  0=sunrise(6AM), 6000=noon, 12000=sunset(6PM), 13000=night starts, 18000=midnight, 23000=night ends. */
+    public Map<String, String> autohopTimeConditions = new LinkedHashMap<>(Map.ofEntries(
     ));
 
     public List<String> worldNames = new ArrayList<>(List.of(
@@ -126,6 +159,9 @@ public class AutoQiqiConfig {
     /** Cooldown (seconds) before re-attempting capture of a Pokemon that just escaped/failed. Prevents immediate retry loops. */
     public int failedCaptureCooldownSeconds = 60;
     public String worldDetectPattern = "(?i)(?:monde|world)\\s*:?\\s*(\\S+)";
+
+    /** Minecraft ticks per real second for day/night cycle prediction. Vanilla = 20. Adjust if server uses a custom day cycle. */
+    public int dayTickRate = 20;
 
     public int hudColor = 0xFFFFFF00;
     public int hudColorUrgent = 0xFFFF4444;

@@ -148,10 +148,10 @@ public class CaptureEngine {
         s.targetLevel = level;
         s.targetIsLegendary = isLegendary;
         s.targetEntity = entity;
-        if (isLegendary && isInLegendaryCaptureWhitelist(name)) {
+        if (isLegendary) {
             s.targetInMasterBallWhitelist = true;
             s.activeBallSequence = LEGENDARY_BALLS;
-            AutoQiqiClient.logDebug("Capture", "Whitelisted legendary: will use Master Ball after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra Balls (if in hotbar)");
+            AutoQiqiClient.logDebug("Capture", "Legendary: will use Master Ball after " + ULTRA_BALLS_BEFORE_MASTER_WHITELIST + " Ultra Balls (if in hotbar)");
         } else {
             s.activeBallSequence = level >= LEGENDARY_LEVEL_THRESHOLD ? LEGENDARY_BALLS : (level >= 50 ? HIGH_LEVEL_BALLS : LOW_LEVEL_BALLS);
         }
@@ -211,16 +211,6 @@ public class CaptureEngine {
         return true;
     }
 
-    private static boolean isInLegendaryCaptureWhitelist(String name) {
-        if (name == null || name.isBlank()) return false;
-        List<String> list = AutoQiqiConfig.get().legendaryCaptureWhitelist;
-        if (list == null || list.isEmpty()) return false;
-        String lower = name.toLowerCase();
-        for (String entry : list) {
-            if (entry != null && entry.trim().equalsIgnoreCase(lower)) return true;
-        }
-        return false;
-    }
 
     public boolean isActive() { return session != null; }
     public Phase getPhase() { return session != null ? session.phase : Phase.IDLE; }
@@ -534,7 +524,6 @@ public class CaptureEngine {
             KeyBinding.setKeyPressed(key, true);
             KeyBinding.onKeyPressed(key);
             s.pendingKeyRelease = key;
-            AutoQiqiClient.logDebug("Capture", "Send-out key pressed");
         } else {
             AutoQiqiClient.logDebug("Capture", "Could not find Cobblemon send-out keybinding");
         }
@@ -752,7 +741,6 @@ public class CaptureEngine {
         AutoQiqiClient.logDebug("Capture", "Throwing ball (aimed for " + s.throwAimTicks + " ticks)");
         if (client.interactionManager != null) {
             client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-            AutoQiqiClient.logDebug("Capture", "interactItem called (ball thrown)");
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logBallThrow(
                     s.targetName, s.pendingBallName != null ? s.pendingBallName : "unknown", s.totalBallsThrown);
         }
@@ -948,8 +936,7 @@ public class CaptureEngine {
 
         double dist = client.player.distanceTo(s.droppedBallEntity);
         if (dist <= 1.5) {
-            AutoQiqiClient.logDebug("Capture", "Close enough to ball (dist=" + String.format("%.1f", dist) + "), waiting for auto-pickup");
-            return;
+            return; // close enough, wait for auto-pickup
         }
 
         if (s.pickupTicks > MAX_PICKUP_TICKS) {
@@ -1439,7 +1426,6 @@ public class CaptureEngine {
             if (bp == null) return -1;
             float hpVal = (float) bp.getHpValue();
             float maxHp = (float) bp.getMaxHp();
-            AutoQiqiClient.logDebug("Capture", "HP_DEBUG_ACTIVE: hpValue=" + hpVal + " maxHp=" + maxHp);
             return hpVal / maxHp * 100f;
         } catch (Exception e) { return -1; }
     }
@@ -1458,9 +1444,6 @@ public class CaptureEngine {
             float maxHp = (float) bp.getMaxHp();
             float ratioPercent = hpValue * 100f;
             float divPercent = (maxHp > 0) ? hpValue / maxHp * 100f : -1;
-            AutoQiqiClient.logDebug("Capture", "HP_DEBUG_OPP: hpValue=" + hpValue + " maxHp=" + maxHp
-                    + " asRatio=" + String.format("%.1f", ratioPercent) + "%"
-                    + " asDivided=" + String.format("%.1f", divPercent) + "%");
             // Disambiguate: if maxHp looks like an integer stat (> 1), treat hpValue as absolute HP.
             // Otherwise (maxHp <= 1), treat hpValue as a 0-1 ratio.
             // Using maxHp avoids the edge case where hpValue == 1.0 (exactly 1 HP remaining).

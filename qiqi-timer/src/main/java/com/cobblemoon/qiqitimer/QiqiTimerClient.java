@@ -22,14 +22,10 @@ public class QiqiTimerClient implements ClientModInitializer {
 
     private static KeyBinding toggleAutohopKey;
 
-    private static final int SECOND_J_DELAY_TICKS = 20 * 15; // 15 seconds
-
     private long tickCount = 0;
     private long lastPollTick = 0;
-    /** True once we've sent J this cycle (remaining <= threshold); reset when remaining > threshold. */
-    private boolean sentJThisCycle = false;
-    /** Tick at which to send the second J (after probs recompute). 0 = no schedule. */
-    private long scheduledSecondJTick = 0;
+    /** True once we've triggered auto-hop this cycle; reset when remaining > threshold. */
+    private boolean sentAutoHopThisCycle = false;
 
     @Override
     public void onInitializeClient() {
@@ -46,11 +42,22 @@ public class QiqiTimerClient implements ClientModInitializer {
         QiqiTimerConfig config = QiqiTimerConfig.get();
 
         if (toggleAutohopKey.wasPressed()) {
-            config.sendJAt1MinLeft = !config.sendJAt1MinLeft;
+            config.autoHopEnabled = !config.autoHopEnabled;
             config.save();
-            log("Autohop (send J at 30 sec): " + (config.sendJAt1MinLeft ? "ON" : "OFF"));
+            log("Auto-hop rotation: " + (config.autoHopEnabled ? "ON" : "OFF"));
             if (client.player != null) {
-                client.player.sendMessage(Text.literal("[Qiqi-Timer] Autohop: " + (config.sendJAt1MinLeft ? "ON" : "OFF")), false);
+                client.player.sendMessage(Text.literal("[Qiqi-Timer] Auto-hop: " + (config.autoHopEnabled ? "ON" : "OFF")), false);
+            }
+            if (config.autoHopEnabled) {
+                sentAutoHopThisCycle = false;
+                long remaining = NextlegTimerState.get().getEstimatedRemainingSeconds();
+                int threshold = Math.max(0, config.autoHopThresholdSeconds);
+                if (remaining >= 0 && remaining <= threshold && !isInBattle(client)) {
+                    log("[AutoHop-debug] Toggle ON with timer already under threshold — invoking immediately (remaining=" + remaining + "s)");
+                    if (invokeAutoHopRotation(client)) {
+                        sentAutoHopThisCycle = true;
+                    }
+                }
             }
         }
 
@@ -58,27 +65,28 @@ public class QiqiTimerClient implements ClientModInitializer {
 
         tickCount++;
         long remaining = NextlegTimerState.get().getEstimatedRemainingSeconds();
-        int threshold = Math.max(0, config.sendJThresholdSeconds);
+        int autoHopThreshold = Math.max(0, config.autoHopThresholdSeconds);
+        debugLogTimerState(remaining, config);
 
-        if (remaining > threshold) {
-            sentJThisCycle = false;
-            scheduledSecondJTick = 0;
-        } else if (config.sendJAt1MinLeft && remaining >= 0 && remaining <= threshold && !sentJThisCycle
-                && !isInBattle(client)) {
-            // K then J: works even when window not focused by invoking auto-qiqi action directly when present
-            sendKey("key.keyboard.k");
-            sendJOrInvokeNextlegAction(client);
-            sentJThisCycle = true;
-            scheduledSecondJTick = tickCount + SECOND_J_DELAY_TICKS; // J again after probs recompute
-            log("Sent key K then J (remaining=" + remaining + "s), second J in 15s");
+        // Log auto-hop decision every 5 seconds when timer is in the interesting range
+        if (tickCount % 100 == 0 && remaining >= 0 && remaining <= autoHopThreshold + 30) {
+            boolean inBattle = isInBattle(client);
+            log("[AutoHop-debug] remaining=" + remaining + "s threshold=" + autoHopThreshold
+                    + "s enabled=" + config.autoHopEnabled + " sentThisCycle=" + sentAutoHopThisCycle
+                    + " inBattle=" + inBattle);
         }
-        // Second J 15s after first (probs have been recomputed)
-        if (scheduledSecondJTick > 0 && tickCount >= scheduledSecondJTick) {
-            if (!isInBattle(client)) {
-                sendJOrInvokeNextlegAction(client);
-                log("Sent second J (probs recomputed)");
+
+        if (remaining > autoHopThreshold) {
+            sentAutoHopThisCycle = false;
+        } else if (config.autoHopEnabled && remaining >= 0 && remaining <= autoHopThreshold
+                && !sentAutoHopThisCycle && !isInBattle(client)) {
+            log("[AutoHop-debug] All conditions met — invoking auto-hop rotation (remaining=" + remaining + "s)");
+            if (invokeAutoHopRotation(client)) {
+                sentAutoHopThisCycle = true;
+                log("Auto-hop rotation triggered (remaining=" + remaining + "s)");
+            } else {
+                log("[AutoHop-debug] invokeAutoHopRotation returned false — reflection failed");
             }
-            scheduledSecondJTick = 0;
         }
 
         int intervalTicks = Math.max(20, config.pollIntervalSeconds * 20);
@@ -96,35 +104,32 @@ public class QiqiTimerClient implements ClientModInitializer {
         }
     }
 
-    private static void sendKey(String translationKey) {
-        InputUtil.Key key = InputUtil.fromTranslationKey(translationKey);
-        KeyBinding.setKeyPressed(key, true);
-        KeyBinding.onKeyPressed(key);
-        KeyBinding.setKeyPressed(key, false);
-    }
-
-    /**
-     * Runs the "J" legendary hop action: when auto-qiqi is present, invokes its 1-min action directly
-     * so it works even when the game window is not focused. Falls back to sending key J otherwise.
-     */
-    private static void sendJOrInvokeNextlegAction(MinecraftClient client) {
-        if (invokeAutoQiqiNextlegAction(client)) return;
-        sendKey("key.keyboard.j");
-    }
-
-    /** Invokes AutoQiqiClient.invokeNextlegOneMinuteAction(client) via reflection. Returns true if invoked. */
-    private static boolean invokeAutoQiqiNextlegAction(MinecraftClient client) {
+    /** Invokes AutoQiqiClient.invokeAutoHopRotation(client) via reflection. Returns true if invoked. */
+    private static boolean invokeAutoHopRotation(MinecraftClient client) {
         try {
             Class<?> c = Class.forName("com.cobblemoon.autoqiqi.AutoQiqiClient");
-            c.getMethod("invokeNextlegOneMinuteAction", MinecraftClient.class).invoke(null, client);
+            c.getMethod("invokeAutoHopRotation", MinecraftClient.class).invoke(null, client);
             return true;
         } catch (Throwable t) {
+            log("invokeAutoHopRotation: reflection failed (" + t.getMessage() + ")");
             return false;
         }
     }
 
     private static void log(String message) {
         System.out.println("[Qiqi-Timer] " + message);
+    }
+
+    // Log timer state every 30 seconds for debugging
+    private long lastTimerDebugTick = 0;
+
+    private void debugLogTimerState(long remaining, QiqiTimerConfig config) {
+        if (tickCount - lastTimerDebugTick >= 600) { // every 30s (600 ticks)
+            lastTimerDebugTick = tickCount;
+            long rawRemaining = NextlegTimerState.get().getEstimatedRemainingSeconds();
+            log("[Timer-debug] estimated=" + rawRemaining + "s formatted=" + NextlegTimerState.get().getFormattedTime()
+                    + " autoHopEnabled=" + config.autoHopEnabled + " sentThisCycle=" + sentAutoHopThisCycle);
+        }
     }
 
     /** Returns true if the player is in a Cobblemon battle (uses reflection; no dependency). On failure we assume in battle so we never send J by mistake. */

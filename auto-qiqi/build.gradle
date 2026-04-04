@@ -24,6 +24,9 @@ dependencies {
     modCompileOnly "com.cobblemon:fabric:1.7.0+1.21.1-SNAPSHOT"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
 
+    // Optional: CobblemonExtendedBattleUI for revealed moves/items/abilities tracking
+    compileOnly files("../CobblemonExtendedBattleUI/build/libs/cobblemonextendedbattleui-0.9.0.jar")
+
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
     testImplementation "org.mockito:mockito-core:5.14.2"
     testImplementation "org.mockito:mockito-junit-jupiter:5.14.2"

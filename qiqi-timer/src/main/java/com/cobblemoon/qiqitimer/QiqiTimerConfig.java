@@ -79,4 +79,10 @@ public class QiqiTimerConfig {
 
     /** GLFW key code for the "Toggle Autohop" keybinding default. Default 79 = O. See GLFW key constants (e.g. key.keyboard.o = 79). */
     public int toggleAutohopKeyCode = 79;
+
+    /** Enable auto-hop rotation (visits auto_ homes, ranks by EV, teleports to best). Replaces old K+J autohop. */
+    public boolean autoHopEnabled = true;
+
+    /** Trigger auto-hop rotation when remaining seconds is at or below this. Default 90 = 1m30s. */
+    public int autoHopThresholdSeconds = 90;
 }

@@ -54,6 +54,7 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static KeyBinding toggleModKey;
     private static KeyBinding towerStartKey;
     private static KeyBinding stopAllKey;
+    private static KeyBinding toggleAutoHopKey;
 
     private static final int PERIODIC_SCAN_INTERVAL = 600; // 30 seconds
 
@@ -96,6 +97,11 @@ public class AutoQiqiClient implements ClientModInitializer {
     // Debug mode: /pk debug toggles verbose chat logging
     private static boolean debugMode = false;
 
+    // Tick rate calibration: /pk tickrate
+    private long tickrateStartMs = 0;
+    private long tickrateStartTime = 0;
+    private static final long TICKRATE_MEASURE_MS = 30_000; // measure over 30 seconds
+
     /** Debounce log when auto-closing Game Menu for unfocused autofight (log at most once per 5s). */
     private long lastUnfocusedCloseLogTick = -1000;
     private static final int UNFOCUSED_CLOSE_LOG_DEBOUNCE_TICKS = 100;
@@ -125,6 +131,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logInfo("Auto-Qiqi v" + BuildConstants.VERSION + " initialized (new session)");
 
         AutoQiqiConfig.load();
+        com.cobblemoon.autoqiqi.battle.SmogonData.load();
         AutoBattleEngine.get().setMode(BattleMode.fromString(AutoQiqiConfig.get().battleMode));
         WorldTracker.get().refreshWorldList();
         if (AutoQiqiConfig.get().autoReconnectEnabled) {
@@ -377,6 +384,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                 legendaryPauseStartMs = 0;
             }
             AutoSwitchEngine.get().tick();
+            com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().tick();
             PokemonWalker.get().tick();
             TowerNpcEngine.get().tick();
 
@@ -390,6 +398,9 @@ public class AutoQiqiClient implements ClientModInitializer {
 
             // Periodic Pokedex scan
             tickPeriodicScan(client);
+
+            // Tick rate calibration
+            tickTickrateMeasurement();
         });
 
         HudRenderCallback.EVENT.register((context, renderTickCounter) -> {
@@ -412,6 +423,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         toggleModKey = reg("key.autoqiqi.toggle_mod", GLFW.GLFW_KEY_L);
         towerStartKey = reg("key.autoqiqi.tower_start", GLFW.GLFW_KEY_I);
         stopAllKey = reg("key.autoqiqi.stop_all", GLFW.GLFW_KEY_O);
+        toggleAutoHopKey = reg("key.autoqiqi.toggle_autohop", GLFW.GLFW_KEY_P);
     }
 
     private static KeyBinding reg(String translationKey, int key) {
@@ -458,6 +470,12 @@ public class AutoQiqiClient implements ClientModInitializer {
             config.legendaryEnabled = !config.legendaryEnabled;
             AutoQiqiConfig.save();
             msg(client, "Legendary: " + (config.legendaryEnabled ? "ENABLED" : "DISABLED"));
+        }
+
+        if (toggleAutoHopKey.wasPressed()) {
+            var hop = com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get();
+            hop.setDisabled(!hop.isDisabled());
+            msg(client, "§6[Auto-Hop]§r " + (hop.isDisabled() ? "§cDÉSACTIVÉ" : "§aACTIVÉ"));
         }
 
         if (towerStartKey.wasPressed()) {
@@ -511,6 +529,14 @@ public class AutoQiqiClient implements ClientModInitializer {
                 logDebug("Battle", "Roaming: " + mondeCmd + " failed at 1min: " + e.getMessage());
             }
         }
+    }
+
+    /**
+     * Entry point for auto-hop rotation, called via reflection from qiqi-timer.
+     * Visits all auto_ homes, polls /nextleg, ranks by EV, and teleports to the best.
+     */
+    public static void invokeAutoHopRotation(MinecraftClient client) {
+        com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().startRotation();
     }
 
     // ========================
@@ -629,6 +655,10 @@ public class AutoQiqiClient implements ClientModInitializer {
                             .executes(context -> { executeReload(); return 1; }))
                     .then(ClientCommandManager.literal("version")
                             .executes(context -> { executeVersion(); return 1; }))
+                    .then(ClientCommandManager.literal("tickrate")
+                            .executes(context -> { executeTickrate(); return 1; }))
+                    .then(ClientCommandManager.literal("smogon")
+                            .executes(context -> { executeSmogonInfo(); return 1; }))
             );
         });
     }
@@ -652,8 +682,6 @@ public class AutoQiqiClient implements ClientModInitializer {
                 bossNames.append(PokemonScanner.getPokemonName(e));
             }
         }
-
-        logDebug("Scan", "Periodic: " + total + " wild nearby, " + uncaught + " uncaught, " + bosses + " boss(es).");
 
         if (bosses > 0) {
             client.player.sendMessage(
@@ -1177,6 +1205,55 @@ public class AutoQiqiClient implements ClientModInitializer {
         msg(client, "§fAuto-Qiqi §av" + BuildConstants.VERSION);
     }
 
+    private void executeSmogonInfo() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        int count = com.cobblemoon.autoqiqi.battle.SmogonData.size();
+        msg(client, "§dSmogon OU §7| §f" + count + " §7Pokemon loaded (Gen 9 OU, all gens included)");
+    }
+
+    private void executeTickrate() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
+
+        if (tickrateStartMs > 0) {
+            msg(client, "§eMesure déjà en cours...");
+            return;
+        }
+
+        tickrateStartMs = System.currentTimeMillis();
+        tickrateStartTime = client.world.getTimeOfDay();
+        msg(client, "§eMesure du tick rate en cours... §7(30 secondes)");
+    }
+
+    private void tickTickrateMeasurement() {
+        if (tickrateStartMs <= 0) return;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
+
+        long elapsed = System.currentTimeMillis() - tickrateStartMs;
+        if (elapsed < TICKRATE_MEASURE_MS) return;
+
+        long endTime = client.world.getTimeOfDay();
+        tickrateStartMs = 0;
+
+        long timeDelta = endTime - tickrateStartTime;
+        // Handle day wrap-around
+        if (timeDelta < 0) timeDelta += 24000;
+
+        double realSeconds = elapsed / 1000.0;
+        double ticksPerSecond = timeDelta / realSeconds;
+        int rounded = (int) Math.round(ticksPerSecond);
+
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        msg(client, "§a[Tick Rate] §fRésultat: §e" + String.format("%.1f", ticksPerSecond)
+                + " ticks/s §7(mesuré sur " + String.format("%.1f", realSeconds) + "s, delta=" + timeDelta + " ticks)");
+        msg(client, "§7Config actuelle: §fdayTickRate=" + config.dayTickRate
+                + (rounded != config.dayTickRate
+                ? " §c⚠ Décalage détecté ! Suggéré: §f" + rounded
+                : " §a✓ Correct"));
+    }
+
     // ========================
     // Capture commands
     // ========================
@@ -1303,9 +1380,9 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (AutoBattleEngine.get().getMode() == BattleMode.TRAINER && TowerNpcEngine.get().isLoopEnabled()) {
             return true;
         }
-        // Berserk and Roaming always auto-fight (no attribution needed — the mod fights everything)
+        // Berserk always auto-fights (no attribution needed — the mod fights everything)
         BattleMode mode = AutoBattleEngine.get().getMode();
-        if (mode == BattleMode.BERSERK || mode == BattleMode.ROAMING) {
+        if (mode == BattleMode.BERSERK) {
             return true;
         }
         if (mode != BattleMode.OFF) {

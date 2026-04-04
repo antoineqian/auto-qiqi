@@ -8,6 +8,8 @@ import com.cobblemoon.autoqiqi.npc.TowerNpcEngine;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.common.TimerParser;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
+import com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine;
+import com.cobblemoon.autoqiqi.legendary.autohop.SpawnParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
@@ -17,6 +19,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.Box;
 
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +44,11 @@ public class ChatMessageHandler {
 
     /** When true, next timer parse updates the global (single) timer instead of a world. */
     private boolean pendingPollGlobal = false;
+
+    /** When set, next timer+apparitions parse is for auto-hop rotation. */
+    private boolean pendingAutoHopPoll = false;
+    private String pendingAutoHopHome = null;
+    private long pendingAutoHopTimestamp = 0;
 
     private boolean suppressNextChatMessages = false;
     private long suppressUntil = 0;
@@ -85,6 +93,22 @@ public class ChatMessageHandler {
         this.pendingPollWorld = null;
         this.pendingPollGlobal = true;
         this.pendingPollTimestamp = System.currentTimeMillis();
+    }
+
+    /** Cancel any pending global poll (used when auto-hop takes over to prevent interference). */
+    public void clearPendingPollGlobal() {
+        if (this.pendingPollGlobal) {
+            AutoQiqiClient.logDebug("Chat", "clearPendingPollGlobal: cancelled stale global poll");
+        }
+        this.pendingPollGlobal = false;
+    }
+
+    /** Wait for the next timer+apparitions message for auto-hop rotation. */
+    public void setPendingAutoHopPoll(String homeName) {
+        AutoQiqiClient.logDebug("Chat", "setPendingAutoHopPoll: waiting for auto-hop response for '" + homeName + "'");
+        this.pendingAutoHopPoll = true;
+        this.pendingAutoHopHome = homeName;
+        this.pendingAutoHopTimestamp = System.currentTimeMillis();
     }
 
     public void suppressMessages(long durationMs) {
@@ -150,6 +174,22 @@ public class ChatMessageHandler {
             String currentWorld = mondeMatcher.group(1).toLowerCase();
             WorldTracker.get().setCurrentWorld(currentWorld);
             AutoQiqiClient.logDebug("Legendary", "Detected current world: " + currentWorld);
+        }
+
+        // Auto-hop poll: parse both timer and apparitions from the same message
+        if (pendingAutoHopPoll
+                && (System.currentTimeMillis() - pendingAutoHopTimestamp) < POLL_TIMEOUT_MS) {
+            Long seconds = tryParseTimer(stripped);
+            if (seconds != null) {
+                Map<String, Double> spawns = SpawnParser.parse(stripped);
+                String home = pendingAutoHopHome;
+                pendingAutoHopPoll = false;
+                pendingAutoHopHome = null;
+                AutoQiqiClient.logDebug("Chat", "Auto-hop poll parsed for " + home
+                        + ": timer=" + seconds + "s, spawns=" + spawns);
+                AutoHopEngine.get().onPollResponse(home, seconds, spawns);
+                return isSuppressing();
+            }
         }
 
         if (pendingPollGlobal
@@ -262,6 +302,13 @@ public class ChatMessageHandler {
         // Pause and auto-engage when legendary is near us — including "pres de vous" (isSelfReference) and "pres de [playerName]".
         if (isNearUs) {
             AutoSwitchEngine.get().pauseForCapture(pokemonName);
+            if (!AutoHopEngine.get().isDisabled()) {
+                AutoQiqiClient.logDebug("Legendary", "Disabling auto-hop — legendary spawned near us: " + pokemonName);
+                AutoHopEngine.get().setDisabled(true);
+                if (client.player != null) {
+                    client.player.sendMessage(Text.literal("§c[Auto-Hop]§r Désactivé (légendaire apparu). Réactivez manuellement."), false);
+                }
+            }
 
             double[] effectiveCoords = coords != null ? coords : pendingLegendaryCoords;
             pendingLegendaryCoords = null;
