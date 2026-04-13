@@ -9,7 +9,6 @@ import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonS
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection.SwitchTile;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleTargetSelection;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
-import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 
 import net.minecraft.client.MinecraftClient;
 
@@ -20,10 +19,11 @@ import net.minecraft.client.MinecraftClient;
  * inactive they call this router so all "who decides" logic lives in one place.
  * <ul>
  *   <li><strong>TRAINER</strong>: {@link TrainerBattleEngine} for general action, move, and switch.</li>
- *   <li><strong>BERSERK</strong>: Random (with switch chance) for general action; {@link TrainerBattleEngine}
- *       for move and switch (smart picks to secure KOs).</li>
- *   <li><strong>ROAMING</strong>: Random for general action, move, and switch.</li>
+ *   <li><strong>BERSERK</strong>: always FIGHT; {@link TrainerBattleEngine} for move and switch
+ *       (smart picks to secure KOs).</li>
  * </ul>
+ * ROAMING is engage-only — {@link com.cobblemoon.autoqiqi.AutoQiqiClient#shouldAutoFight()} returns
+ * false for it, so this router is never invoked in that mode.
  */
 public final class BattleDecisionRouter {
 
@@ -49,16 +49,9 @@ public final class BattleDecisionRouter {
         if (mode == BattleMode.TRAINER) {
             AutoQiqiClient.logDebug("Mixin", "GeneralAction: Trainer mode, auto-fighting");
             choice = TrainerBattleEngine.get().decideGeneralAction(forceSwitch, trapped);
-        } else if (mode == BattleMode.BERSERK) {
-            // BERSERK: always fight, never switch
-            choice = TrainerBattleEngine.GeneralChoice.FIGHT;
         } else {
-            // ROAMING: random FIGHT/SWITCH
-            if (trapped || Math.random() >= AutoQiqiConfig.get().battleSwitchChance) {
-                choice = TrainerBattleEngine.GeneralChoice.FIGHT;
-            } else {
-                choice = TrainerBattleEngine.GeneralChoice.SWITCH;
-            }
+            // BERSERK: always fight, never switch. (ROAMING never reaches here — shouldAutoFight=false.)
+            choice = TrainerBattleEngine.GeneralChoice.FIGHT;
         }
 
         // Never open switch screen when only one Pokemon left (no one to switch to)
@@ -80,17 +73,12 @@ public final class BattleDecisionRouter {
 
     /**
      * Chooses a move. Call only when not in capture mode and shouldAutoFight.
-     * TRAINER and BERSERK use {@link TrainerBattleEngine#chooseBestMove}; ROAMING uses random.
+     * TRAINER and BERSERK use {@link TrainerBattleEngine#chooseBestMove}.
      */
     public static MoveTile chooseMove(List<MoveTile> tiles) {
         BattleMode mode = AutoBattleEngine.get().getMode();
-        MoveTile chosen;
-        if (mode == BattleMode.TRAINER || mode == BattleMode.BERSERK) {
-            AutoQiqiClient.logDebug("Mixin", "MoveSelection: " + (mode == BattleMode.TRAINER ? "Trainer" : "Berserk") + " mode, " + tiles.size() + " selectable moves");
-            chosen = TrainerBattleEngine.get().chooseBestMove(tiles);
-        } else {
-            chosen = tiles.isEmpty() ? null : tiles.get((int) (Math.random() * tiles.size()));
-        }
+        AutoQiqiClient.logDebug("Mixin", "MoveSelection: " + (mode == BattleMode.TRAINER ? "Trainer" : "Berserk") + " mode, " + tiles.size() + " selectable moves");
+        MoveTile chosen = TrainerBattleEngine.get().chooseBestMove(tiles);
         if (chosen != null) {
             TrainerBattleEngine.get().recordAttackAgainstCurrentOpponent();
         }
@@ -158,7 +146,7 @@ public final class BattleDecisionRouter {
 
     /**
      * Chooses a switch target. Call only when not in capture mode and shouldAutoFight.
-     * TRAINER uses {@link TrainerBattleEngine#chooseBestSwitch}; BERSERK and ROAMING use random.
+     * TRAINER uses {@link TrainerBattleEngine#chooseBestSwitch}; BERSERK picks randomly.
      */
     public static SwitchTile chooseSwitch(List<SwitchTile> tiles) {
         BattleMode mode = AutoBattleEngine.get().getMode();

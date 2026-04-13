@@ -9,17 +9,18 @@ import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.common.TimerParser;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine;
-import com.cobblemoon.autoqiqi.legendary.autohop.SpawnParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Box;
 
+import com.cobblemoon.autoqiqi.common.MovementHelper;
+
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,11 +45,6 @@ public class ChatMessageHandler {
 
     /** When true, next timer parse updates the global (single) timer instead of a world. */
     private boolean pendingPollGlobal = false;
-
-    /** When set, next timer+apparitions parse is for auto-hop rotation. */
-    private boolean pendingAutoHopPoll = false;
-    private String pendingAutoHopHome = null;
-    private long pendingAutoHopTimestamp = 0;
 
     private boolean suppressNextChatMessages = false;
     private long suppressUntil = 0;
@@ -103,14 +99,6 @@ public class ChatMessageHandler {
         this.pendingPollGlobal = false;
     }
 
-    /** Wait for the next timer+apparitions message for auto-hop rotation. */
-    public void setPendingAutoHopPoll(String homeName) {
-        AutoQiqiClient.logDebug("Chat", "setPendingAutoHopPoll: waiting for auto-hop response for '" + homeName + "'");
-        this.pendingAutoHopPoll = true;
-        this.pendingAutoHopHome = homeName;
-        this.pendingAutoHopTimestamp = System.currentTimeMillis();
-    }
-
     public void suppressMessages(long durationMs) {
         this.suppressNextChatMessages = true;
         this.suppressUntil = System.currentTimeMillis() + durationMs;
@@ -126,6 +114,7 @@ public class ChatMessageHandler {
     public boolean onChatMessage(String message, Text textObject) {
         String stripped = TimerParser.stripFormatting(message);
         if (stripped.contains("[Auto-Qiqi]") || stripped.contains("[AutoLeg]")) return false;
+
 
         // Entity clearance: "Les entités seront supprimées dans 1 minutes."
         if (stripped.contains("entit") && stripped.contains("supprim")) {
@@ -151,9 +140,87 @@ public class ChatMessageHandler {
             handleCaptureSuccess(stripped);
         }
 
-        if (!AutoQiqiConfig.get().legendaryEnabled) return false;
+        // Teleport confirmation: walk in random direction for 0.5s then advance auto-hop
+        if (stripped.contains("Téléportation terminée") || stripped.contains("Teleportation terminee")) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player != null) {
+                Random rng = new Random();
+                // Pick a random yaw and start walking forward
+                float randomYaw = mc.player.getYaw() + rng.nextFloat() * 360f - 180f;
+                mc.player.setYaw(randomYaw);
+                mc.options.forwardKey.setPressed(true);
+                AutoQiqiClient.logDebug("Chat", "Teleport confirmed — random walk for 0.5s");
+                // After 10 ticks (0.5s), stop walking and advance state
+                mc.execute(() -> {
+                    new Thread(() -> {
+                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        mc.execute(() -> {
+                            MovementHelper.releaseMovementKeys(mc);
+                            // Send /nextleg to update ranking after every tp
+                            if (mc.player != null) {
+                                mc.player.networkHandler.sendCommand("nextleg");
+                            }
+                            AutoHopEngine.get().onTeleportConfirmed();
+                        });
+                    }).start();
+                });
+            } else {
+                AutoHopEngine.get().onTeleportConfirmed();
+            }
+        }
 
-        if (legendarySpawnPattern != null && AutoQiqiConfig.get().legendarySpawnSoundEnabled) {
+        // TPA request detection (on alt account): auto-accept incoming TPA only from trusted players.
+        // Match known French phrasings for /tpahere requests.
+        if (stripped.contains("a demandé que vous vous téléportiez")
+                || stripped.contains("a demande que vous vous teleportiez")
+                || stripped.contains("demande de téléportation")
+                || stripped.contains("demande de teleportation")) {
+            // Extract sender: look for a player name at the start, or after "de "
+            String sender = null;
+            // Try: "PlayerName a demandé que vous ..."
+            Matcher tpaMatcher = Pattern.compile("^(.+?)\\s+a demande?é? que vous").matcher(stripped);
+            if (tpaMatcher.find()) {
+                sender = tpaMatcher.group(1).trim();
+            }
+            // Try: "Demande de téléportation de PlayerName"
+            if (sender == null) {
+                Matcher fromMatcher = Pattern.compile("(?:demande|requête).*?de\\s+([A-Za-z0-9_]+)", Pattern.CASE_INSENSITIVE).matcher(stripped);
+                if (fromMatcher.find()) {
+                    sender = fromMatcher.group(1).trim();
+                }
+            }
+            // Fallback: check if any trusted name appears in the message
+            if (sender == null) {
+                String lower = stripped.toLowerCase();
+                if (lower.contains("qiqiqlann")) sender = "Qiqiqlann";
+                else if (lower.contains("ketamaxxing")) sender = "KetaMaxxing";
+            }
+            boolean trusted = sender != null
+                    && (sender.toLowerCase().contains("qiqiqlann") || sender.toLowerCase().contains("ketamaxxing"));
+            if (trusted) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.player != null) {
+                    mc.player.sendMessage(Text.literal("§6[Auto-Hop]§r TPA reçue de §e" + sender + "§r — /tpaccept (délai)"), false);
+                    // Small delay (1-2s) before accepting to look more natural
+                    new Thread(() -> {
+                        try { Thread.sleep(1000 + new Random().nextInt(1000)); } catch (InterruptedException ignored) {}
+                        mc.execute(() -> {
+                            if (mc.player != null) {
+                                mc.player.networkHandler.sendCommand("tpaccept");
+                            }
+                        });
+                    }).start();
+                }
+            }
+        }
+
+        // TPA completion detection (on main account): alt has teleported to us
+        if (stripped.contains("s'est téléporté") || stripped.contains("s'est teleporte")
+                || stripped.contains("a accepté votre demande") || stripped.contains("a accepte votre demande")) {
+            AutoHopEngine.get().onTpaCompleted();
+        }
+
+        if (legendarySpawnPattern != null) {
             Matcher spawnMatcher = legendarySpawnPattern.matcher(stripped);
             if (spawnMatcher.find()) {
                 handleLegendarySpawn(spawnMatcher.group(1).trim(), spawnMatcher.group(2).trim(), stripped);
@@ -174,22 +241,6 @@ public class ChatMessageHandler {
             String currentWorld = mondeMatcher.group(1).toLowerCase();
             WorldTracker.get().setCurrentWorld(currentWorld);
             AutoQiqiClient.logDebug("Legendary", "Detected current world: " + currentWorld);
-        }
-
-        // Auto-hop poll: parse both timer and apparitions from the same message
-        if (pendingAutoHopPoll
-                && (System.currentTimeMillis() - pendingAutoHopTimestamp) < POLL_TIMEOUT_MS) {
-            Long seconds = tryParseTimer(stripped);
-            if (seconds != null) {
-                Map<String, Double> spawns = SpawnParser.parse(stripped);
-                String home = pendingAutoHopHome;
-                pendingAutoHopPoll = false;
-                pendingAutoHopHome = null;
-                AutoQiqiClient.logDebug("Chat", "Auto-hop poll parsed for " + home
-                        + ": timer=" + seconds + "s, spawns=" + spawns);
-                AutoHopEngine.get().onPollResponse(home, seconds, spawns);
-                return isSuppressing();
-            }
         }
 
         if (pendingPollGlobal
@@ -213,12 +264,43 @@ public class ChatMessageHandler {
                 long waitMs = System.currentTimeMillis() - pendingPollTimestamp;
                 AutoQiqiClient.logDebug("Chat", "Timer parsed for " + cleanWorld + ": " + seconds + "s (response took " + waitMs + "ms)");
                 pendingPollWorld = null;
-                AutoSwitchEngine.get().onTimerResponseReceived();
                 return isSuppressing();
             }
         }
 
+        // Parse "Apparitions possibles: Giratina: 75.00%, Genesect: 25.00%"
+        if (stripped.contains("Apparitions possibles")) {
+            Map<String, Double> spawns = parseSpawnProbabilities(stripped);
+            if (!spawns.isEmpty()) {
+                AutoQiqiClient.logDebug("Chat", "Spawn probabilities parsed: " + spawns);
+                AutoHopEngine.get().onSpawnProbabilitiesParsed(spawns);
+            }
+        }
+
         return false;
+    }
+
+    private static final Pattern SPAWN_PROB_PATTERN = Pattern.compile(
+            "([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ:0-9 -]+?):\\s*(\\d+[.,]\\d+)%");
+
+    private Map<String, Double> parseSpawnProbabilities(String message) {
+        // Extract everything after "Apparitions possibles:"
+        int idx = message.indexOf("Apparitions possibles");
+        if (idx < 0) return Map.of();
+        String tail = message.substring(idx);
+
+        Map<String, Double> result = new LinkedHashMap<>();
+        Matcher m = SPAWN_PROB_PATTERN.matcher(tail);
+        while (m.find()) {
+            String name = m.group(1).trim();
+            // Skip the "Apparitions possibles" key itself
+            if (name.toLowerCase().contains("apparitions")) continue;
+            try {
+                double prob = Double.parseDouble(m.group(2).replace(',', '.'));
+                result.put(name, prob);
+            } catch (NumberFormatException ignored) {}
+        }
+        return result;
     }
 
     private static boolean isDefeatMessage(String stripped) {
@@ -246,6 +328,11 @@ public class ChatMessageHandler {
         boolean isNearUs = isSelfReference || nearPlayer.equalsIgnoreCase(ourName);
         AutoQiqiConfig config = AutoQiqiConfig.get();
 
+        // Check if the legendary spawned near the alt account
+        String altName = config.autohopTpaAltAccount;
+        boolean isNearAlt = altName != null && !altName.isEmpty()
+                && nearPlayer.equalsIgnoreCase(altName) && !isNearUs;
+
         double[] coords = parseCoordinates(fullMessage);
 
         if (isSelfReference && coords != null) {
@@ -258,7 +345,7 @@ public class ChatMessageHandler {
         boolean isDuplicate = pokemonName.equalsIgnoreCase(lastLegendaryHandled)
                 && (now - lastLegendaryHandledAt) < LEGENDARY_DEDUP_MS;
 
-        if (isNearUs) {
+        if (isNearUs || isNearAlt) {
             if (isDuplicate) {
                 AutoQiqiClient.logDebug("Legendary", "Dedup: skipping second spawn message for " + pokemonName);
                 return;
@@ -268,40 +355,13 @@ public class ChatMessageHandler {
         }
 
         String currentWorld = WorldTracker.get().getCurrentWorld();
-        if (isNearUs && !isDuplicate) {
+        if ((isNearUs || isNearAlt) && !isDuplicate) {
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logLegendarySpawn(
-                    pokemonName, currentWorld != null ? currentWorld : "unknown", true);
-        }
-
-        boolean shouldPlaySound = config.legendarySpawnSoundEnabled
-                && (!config.legendarySpawnSoundOnlyForMe || isNearUs);
-
-        if (shouldPlaySound && !isDuplicate) {
-            int repeats = isNearUs
-                    ? Math.max(1, Math.min(5, config.legendarySpawnSoundRepeats))
-                    : 1;
-
-            new Thread(() -> {
-                for (int i = 0; i < repeats; i++) {
-                    client.execute(() -> {
-                        if (client.player != null && client.world != null) {
-                            client.world.playSound(
-                                    client.player.getX(), client.player.getY(), client.player.getZ(),
-                                    SoundEvents.UI_TOAST_CHALLENGE_COMPLETE,
-                                    SoundCategory.MASTER,
-                                    1.0f, 1.0f, false);
-                        }
-                    });
-                    if (i < repeats - 1) {
-                        try { Thread.sleep(600); } catch (InterruptedException e) { break; }
-                    }
-                }
-            }, "AutoQiqi-Sound").start();
+                    pokemonName, currentWorld != null ? currentWorld : "unknown", isNearUs);
         }
 
         // Pause and auto-engage when legendary is near us — including "pres de vous" (isSelfReference) and "pres de [playerName]".
         if (isNearUs) {
-            AutoSwitchEngine.get().pauseForCapture(pokemonName);
             if (!AutoHopEngine.get().isDisabled()) {
                 AutoQiqiClient.logDebug("Legendary", "Disabling auto-hop — legendary spawned near us: " + pokemonName);
                 AutoHopEngine.get().setDisabled(true);
@@ -319,41 +379,47 @@ public class ChatMessageHandler {
                 if (legendaryEntity != null) {
                     String name = PokemonScanner.getPokemonName(legendaryEntity);
                     int level = PokemonScanner.getPokemonLevel(legendaryEntity);
-                    String dexStatus = PokemonScanner.getPokedexStatus(legendaryEntity);
-                    boolean alreadyCaught = "CAUGHT".equals(dexStatus);
 
-                    boolean inKillWhitelist = isInLegendaryKillWhitelist(name);
-                    String action = alreadyCaught ? "KILL" : (inKillWhitelist ? "KILL (kill whitelist)" : "CAPTURE");
-                    AutoQiqiClient.logDebug("Legendary", "Auto-engage: " + name + " Lv." + level
-                            + " dex=" + dexStatus + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
-                            + " -> " + action);
-
-                    if (alreadyCaught || inKillWhitelist) {
-                        if (alreadyCaught) {
-                            client.player.sendMessage(
-                                    Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                            + " §e§ldetecte ! §7[DEX] Deja capture — combat pour tuer."),
-                                    false);
-                        } else {
-                            client.player.sendMessage(
-                                    Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                            + " §e§ldetecte ! §7[Liste kill] Combat pour tuer."),
-                                    false);
-                        }
-                        AutoBattleEngine.get().forceTarget(legendaryEntity, false);
-                    } else {
+                    if (level > 0 && level != 70) {
+                        AutoQiqiClient.logDebug("Legendary", "Skipping " + name + " Lv." + level + " — expected Lv.70 for wild legendary");
                         client.player.sendMessage(
-                                Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                        + " §e§ldetecte ! §7Auto-capture en cours..."),
-                                false);
-                        CaptureEngine.get().start(name, level, true, legendaryEntity);
+                                Text.literal("§d§l[Auto-Qiqi] §e" + name + " Lv." + level + " §c— pas niveau 70, ignore."), false);
+                        return;
                     }
+
+                    AutoQiqiClient.logDebug("Legendary", "Auto-engage: " + name + " Lv." + level
+                            + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
+                            + " -> ENGAGE (manual battle)");
+
+                    client.player.sendMessage(
+                            Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                    + " §e§ldetecte ! §7Engagement auto — combat manuel."),
+                            false);
+                    AutoBattleEngine.get().forceTarget(legendaryEntity);
                 } else {
                     AutoQiqiClient.logDebug("Legendary", "Auto-engage: could not find entity for " + pokemonName
                             + (effectiveCoords != null ? " near coords (" + (int)effectiveCoords[0] + "," + (int)effectiveCoords[1] + "," + (int)effectiveCoords[2] + ")" : " (no coords)"));
                     client.player.sendMessage(
                             Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
                                     + " §e§lest apparu pres de vous ! §c§lEntite introuvable, capture manuelle requise. §7[J] pour reprendre"),
+                            false);
+                }
+            });
+        } else if (isNearAlt) {
+            // Legendary spawned on alt account — disable auto-hop until kill/capture
+            if (!AutoHopEngine.get().isDisabled()) {
+                AutoQiqiClient.logDebug("Legendary", "Disabling auto-hop — legendary spawned near alt (" + altName + "): " + pokemonName);
+                AutoHopEngine.get().setDisabled(true);
+                if (client.player != null) {
+                    client.player.sendMessage(Text.literal(
+                            "§c[Auto-Hop]§r Désactivé (légendaire apparu sur §e" + altName + "§r)."), false);
+                }
+            }
+            client.execute(() -> {
+                if (client.player != null) {
+                    client.player.sendMessage(
+                            Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                    + " §e§lest apparu sur l'alt §b" + altName + "§e§l !"),
                             false);
                 }
             });
@@ -383,16 +449,6 @@ public class ChatMessageHandler {
             }
         }
         return null;
-    }
-
-    private static boolean isInLegendaryKillWhitelist(String pokemonName) {
-        List<String> list = AutoQiqiConfig.get().legendaryKillWhitelist;
-        if (list == null || list.isEmpty()) return false;
-        String name = pokemonName.toLowerCase();
-        for (String entry : list) {
-            if (name.contains(entry.toLowerCase())) return true;
-        }
-        return false;
     }
 
     private Entity findLegendaryEntity(MinecraftClient client, String pokemonName, double[] coords) {

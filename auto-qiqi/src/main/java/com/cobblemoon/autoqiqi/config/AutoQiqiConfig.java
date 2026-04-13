@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.LinkedHashMap;
+
 
 /**
  * Unified configuration for all Auto-Qiqi features.
@@ -32,8 +32,6 @@ public class AutoQiqiConfig {
     // ========================
 
     public String battleMode = "ROAMING";
-    /** Roaming flavor: "DEFAULT" = normal roaming (bosses, uncaught, legendaries), "LEG_ONLY" = only engage legendaries (ignore bosses and regular uncaught). Reload with /pk reload. */
-    public String roamingFlavor = "DEFAULT";
     public long battleSelectDelay = 200;
     public double battleSwitchChance = 0.0;
     public int battleHealEveryN = 3;
@@ -46,13 +44,16 @@ public class AutoQiqiConfig {
     /** Pokemon in this list always show as [WANT] in /pk scan, even if already caught. Case-insensitive. Reload with /pk reload. */
     public List<String> scanCaptureWhitelist = new ArrayList<>();
 
+    /** Species for which all alternate forms are already captured. These won't trigger [FORM] alerts. Case-insensitive. */
+    public List<String> formCompleteIgnoreList = new ArrayList<>();
+
     // ========================
     // Legendary
     // ========================
 
-    public boolean legendaryEnabled = true;
-    public boolean legendaryAutoSwitch = false;
-    public boolean legendaryHudVisible = true;
+    public boolean predictionHudVisible = true;
+    public int predictionHudMaxResults = 8;
+    public int predictionRecomputeIntervalSeconds = 5;
 
     public int switchBeforeSeconds = 90;
     public int switchBeforeJitterSeconds = 10;
@@ -67,9 +68,11 @@ public class AutoQiqiConfig {
     /** Seconds between /afk sends in roaming. */
     public int roamingAfkIntervalSeconds = 60;
     /** Seconds between /nextleg polls in roaming when using single global timer. */
-    public int roamingNextlegPollIntervalSeconds = 60;
+    public int roamingNextlegPollIntervalSeconds = 15;
     /** Move camera this many seconds before timer expiry to disable AFK and become eligible for legendary spawn. */
     public int roamingCameraMoveSecondsBefore = 30;
+    /** While engaged in a legendary battle, minimize the battle UI and nudge the camera every N seconds so the server doesn't flag us AFK. Default 540 = 9 min. Set 0 to disable. */
+    public int roamingInBattleAntiAfkIntervalSeconds = 540;
     /** When true, at 1 min left on nextleg timer also send the world menu command (e.g. /monde) so the world selection GUI opens. */
     public boolean roamingNextlegOpenMondeAt1Min = true;
 
@@ -80,40 +83,30 @@ public class AutoQiqiConfig {
             "Regieleki", "Terrakium", "Rayquaza"
     ));
 
-    /** Pokemon values for auto-hop EV calculation (EV = value × probability). */
-    public Map<String, Double> autohopValues = new LinkedHashMap<>(Map.ofEntries(
-            Map.entry("Kyogre", 5.0),
-            Map.entry("Necrozma", 0.6),
-            Map.entry("Rayquaza", 4.0),
-            Map.entry("Groudon", 1.0),
-            Map.entry("Giratina", 1.0),
-            Map.entry("Genesect", 0.2),
-            Map.entry("Yveltal", 2.0),
-            Map.entry("Amovénus", 2.0),
-            Map.entry("Boréas", 3.0),
-            Map.entry("Péchaminus", 3.0),
-            Map.entry("Marshadow", 1.2),
-            Map.entry("Terrakium", 2.0),
-            Map.entry("Regieleki", 3.0),
-            Map.entry("Registeel", 3.0),
-            Map.entry("Kyurem", 5.0),
-            Map.entry("Koraidon", 1.5),
-            Map.entry("Miraidon", 1.0),
-            Map.entry("Heatran", 1.0),
-            Map.entry("Ogerpon", 0.4),
-            Map.entry("Tokopiyon", 1.0),
-            Map.entry("Darkrai", 1.0),
-            Map.entry("Xerneas", 0.4),
-            Map.entry("Type:0", 0.5),
-            Map.entry("Zarude", 0.6),
-            Map.entry("Spectreval", 0.6),
-            Map.entry("Magearna", 0.4),
-            Map.entry("Palkia", 0.4)
-    ));
+    /** Trigger auto-hop rotation when remaining seconds is at or below this. Default 180 = 3m. */
+    public int autoHopThresholdSeconds = 180;
 
-    /** Time-of-day conditions for auto-hop: pokemon name -> "min-max" tick range (0-24000).
-     *  0=sunrise(6AM), 6000=noon, 12000=sunset(6PM), 13000=night starts, 18000=midnight, 23000=night ends. */
-    public Map<String, String> autohopTimeConditions = new LinkedHashMap<>(Map.ofEntries(
+    /** Seconds to wait after legendary battle (capture/kill) before re-enabling auto-hop (loot pickup time). */
+    public int autohopReEnableDelaySeconds = 5;
+
+    /** Whether to /tpahere the alt account after auto-hop teleports (and safety TPs). */
+    public boolean autohopTpaEnabled = false;
+    /** Alt account name to /tpahere after auto-hop teleports to best world. Empty = disabled. */
+    public String autohopTpaAltAccount = "KetaMaxxing";
+
+    /** Auto-hop mode: "auto" = only auto* homes, "all" = all homes, "off" = disabled. */
+    public String autohopMode = "auto";
+
+    /** Reconnect every N rotations to flush client-side dimension caches (0 = disabled).
+     *  World-hopping accumulates client caches that slow down subsequent hops;
+     *  a disconnect+reconnect clears them without a full game restart. */
+    public int autohopReconnectEveryNRotations = 5;
+
+    /** Round-robin homes for auto-hop when LegendTracker is not installed. Map of display name → teleport command. */
+    public Map<String, String> autohopHomes = new LinkedHashMap<>(Map.of(
+            "end", "/home end",
+            "nether", "/home nether",
+            "overworld", "/home overworld"
     ));
 
     public List<String> worldNames = new ArrayList<>(List.of(
@@ -128,12 +121,6 @@ public class AutoQiqiConfig {
 
     public List<String> worldsWithSubMenu = new ArrayList<>();
 
-    public Map<String, String> homeWorlds = new HashMap<>(Map.of(
-            "ressources (overworld)", "overworld",
-            "ressources (nether)", "nether",
-            "ressources (end)", "end"
-    ));
-
     public Map<String, String> worldArrivalHome = new HashMap<>();
 
     public String defaultTeleportMode = "last";
@@ -144,14 +131,11 @@ public class AutoQiqiConfig {
     public String eventNowPattern = "(?i)un\\s+pokémon\\s+légendaire\\s+(?:est\\s+apparu|vient\\s+d'apparaître)";
     public String legendarySpawnPattern = "(?i)(.+?)\\s+est\\s+apparu.*?pr[eè]s\\s+de\\s+(\\S+)";
 
-    public boolean legendarySpawnSoundEnabled = true;
-    public boolean legendarySpawnSoundOnlyForMe = false;
-    public int legendarySpawnSoundRepeats = 3;
     public boolean pauseOnLegendarySpawn = true;
     public int pauseDurationSeconds = 300;
     public int repollCooldownSeconds = 30;
     public int eventRepollWaitSeconds = 15;
-    public int commandDelayMinMs = 500;
+    public int commandDelayMinMs = 200;
     public int commandDelayMaxMs = 4000;
     public int homeTeleportWarmupSeconds = 4;
     /** If true, verify we are in the expected dimension (nether/overworld/end) before setting currentWorld after /home. Set false for servers with custom resource dimensions. */
@@ -179,39 +163,12 @@ public class AutoQiqiConfig {
     public String reconnectButtonText = "Rejoindre";
     /** Button text to click to leave the disconnect/error screen (FR: "Retour à la liste des serveurs", EN: "Back to server list"). */
     public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
-    /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). Same idea as legendary homeWorlds. */
+    /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). */
     public String reconnectHome = "end";
     /** Warp command to send after reconnect when in Trainer (tower) mode (e.g. "/warp Tour-de-Combat"). */
     public String reconnectTowerWarp = "/warp Tour-de-Combat";
     /** Delay (ms) after sending the tower warp before restarting the tower loop. */
     public long reconnectTowerWarpDelayMs = 5000;
-
-    // ========================
-    // Mining (Nether Gold Ore)
-    // ========================
-
-    public boolean goldMiningEnabled = false;
-    public int goldMiningDurabilitySafetyMargin = 10;
-    public long goldMiningRepairCooldownMs = 21_600_000L; // 6 hours
-    public long goldMiningLastRepairTimeMs = 0L;
-
-    // ========================
-    // Fish
-    // ========================
-
-    public boolean fishEnabled = true;
-    public boolean fishMultiRod = false;
-    public boolean fishNoBreak = false;
-    public boolean fishPersistentMode = false;
-    public boolean fishAutoAim = true;
-    public boolean fishUseSoundDetection = false;
-    public boolean fishForceMPDetection = false;
-    public long fishRecastDelay = 1500;
-    public String fishClearLagRegex = "\\[ClearLag\\] Removed [0-9]+ Entities!";
-    public int fishDurabilitySafetyMargin = 10;
-    public boolean fishAutoRepair = true;
-    public long fishRepairCooldownMs = 21_600_000L; // 6 hours
-    public long lastRepairTimeMs = 0L;
 
     // ========================
     // Teleport mode helpers
@@ -232,18 +189,6 @@ public class AutoQiqiConfig {
         save();
     }
 
-    // ========================
-    // Home world helpers
-    // ========================
-
-    public boolean isHomeWorld(String worldName) {
-        return homeWorlds.containsKey(worldName.toLowerCase());
-    }
-
-    public String getHomeCommand(String worldName) {
-        return homeWorlds.get(worldName.toLowerCase());
-    }
-
     public String getArrivalHome(String worldName) {
         return worldArrivalHome.get(worldName.toLowerCase());
     }
@@ -262,31 +207,9 @@ public class AutoQiqiConfig {
             if (!worldNames.contains(sw)) worldNames.add(sw);
         }
 
-        if (homeWorlds == null) homeWorlds = new HashMap<>();
-        homeWorlds.putIfAbsent("ressources (overworld)", "overworld");
-        homeWorlds.putIfAbsent("ressources (nether)", "nether");
-        homeWorlds.putIfAbsent("ressources (end)", "end");
-
         worldsWithSubMenu.removeIf(w -> w.equalsIgnoreCase("Ressources"));
 
         if (worldArrivalHome == null) worldArrivalHome = new HashMap<>();
-    }
-
-    // ========================
-    // Fish config constraints
-    // ========================
-
-    public boolean enforceFishConstraints() {
-        boolean changed = false;
-        if (fishRecastDelay < 500) {
-            fishRecastDelay = 500;
-            changed = true;
-        }
-        if (fishClearLagRegex == null) {
-            fishClearLagRegex = "";
-            changed = true;
-        }
-        return changed;
     }
 
     /** Clamp Berserk scan range to sensible bounds. */
@@ -322,7 +245,6 @@ public class AutoQiqiConfig {
                 if (INSTANCE == null) {
                     INSTANCE = new AutoQiqiConfig();
                 }
-                INSTANCE.enforceFishConstraints();
                 INSTANCE.enforceBattleConstraints();
                 INSTANCE.migrateResourceWorlds();
                 save();

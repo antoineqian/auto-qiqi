@@ -41,43 +41,6 @@ class AutoQiqiConfigTest {
         assertEquals("spawn", config.getTeleportMode("unknownWorld"));
     }
 
-    // ── Fish constraints ──
-
-    @Test
-    void enforceFishConstraintsClampsLowRecastDelay() {
-        config.fishRecastDelay = 100;
-        boolean changed = config.enforceFishConstraints();
-
-        assertTrue(changed);
-        assertEquals(500, config.fishRecastDelay);
-    }
-
-    @Test
-    void enforceFishConstraintsNoChangeWhenValid() {
-        config.fishRecastDelay = 1500;
-        config.fishClearLagRegex = "test";
-        boolean changed = config.enforceFishConstraints();
-
-        assertFalse(changed);
-    }
-
-    @Test
-    void enforceFishConstraintsFixesNullRegex() {
-        config.fishClearLagRegex = null;
-        boolean changed = config.enforceFishConstraints();
-
-        assertTrue(changed);
-        assertEquals("", config.fishClearLagRegex);
-    }
-
-    @Test
-    void enforceFishConstraintsEdgeCaseExactly500() {
-        config.fishRecastDelay = 500;
-        boolean changed = config.enforceFishConstraints();
-        assertFalse(changed);
-        assertEquals(500, config.fishRecastDelay);
-    }
-
     // ── Default values ──
 
     @Test
@@ -89,11 +52,6 @@ class AutoQiqiConfigTest {
     void defaultWorldNamesPopulated() {
         assertFalse(config.worldNames.isEmpty());
         assertEquals(7, config.worldNames.size());
-    }
-
-    @Test
-    void defaultLegendaryEnabled() {
-        assertTrue(config.legendaryEnabled);
     }
 
     @Test

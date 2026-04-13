@@ -1,24 +1,21 @@
 package com.cobblemoon.autoqiqi;
 
+import com.cobblemon.mod.common.client.battle.ClientBattle;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleGeneralActionSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection;
 import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
-import com.cobblemoon.autoqiqi.battle.BattleScreenHelper;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfigScreen;
-import com.cobblemoon.autoqiqi.fish.AutofishEngine;
 import com.cobblemoon.autoqiqi.legendary.*;
-import com.cobblemoon.autoqiqi.mine.GoldMiningEngine;
 import com.cobblemoon.autoqiqi.npc.TowerGuiHandler;
 import com.cobblemoon.autoqiqi.npc.TowerNpcEngine;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -37,23 +34,30 @@ import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Main client entrypoint for Auto-Qiqi.
- * Merges AutoBattle, AutoLeg, and AutoWalk into one mod. (AutoFish disabled for now.)
+ * Merges AutoBattle, AutoLeg, and AutoWalk into one mod.
  */
 public class AutoQiqiClient implements ClientModInitializer {
     public static final String MOD_ID = "auto-qiqi";
 
     // Keybinds
     private static KeyBinding toggleBattleKey;
-    private static KeyBinding toggleHudKey;
-    private static KeyBinding toggleLegendaryKey;
-    private static KeyBinding forcePollKey;
-    private static KeyBinding toggleModKey;
     private static KeyBinding towerStartKey;
     private static KeyBinding stopAllKey;
+    private static KeyBinding togglePredictionKey;
     private static KeyBinding toggleAutoHopKey;
 
     private static final int PERIODIC_SCAN_INTERVAL = 600; // 30 seconds
@@ -67,11 +71,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     private int battleNullTicks = 0;
     private static final int BATTLE_END_DEBOUNCE_TICKS = 40; // 2 seconds at 20 tps
 
-    // Track whether CaptureEngine was ever active during a legendary pause,
-    // so we only auto-resume when a real capture finishes (not immediately).
-    private boolean captureSeenActiveDuringPause = false;
-    private long legendaryPauseStartMs = 0;
-    private static final long MIN_LEGENDARY_PAUSE_MS = 10_000; // 10 seconds minimum before auto-resume
 
     // Safety: release stuck keys on first tick
     private boolean firstTickDone = false;
@@ -87,11 +86,13 @@ public class AutoQiqiClient implements ClientModInitializer {
     private static final long BLOCKED_LOG_INTERVAL_MS = 300_000; // log every 5 minutes while blocked
     private long lastBlockedLogMs = 0;
 
-    // Manual vs mod engagement: only auto-fight when the mod started the battle (simulated send-out key)
+    // Manual vs mod engagement: only auto-fight when the mod started the battle (simulated send-out key).
+    // Attribution is tied to the Cobblemon battle UUID so it survives transient screen flips during long battles
+    // (e.g. legendary intros). When a new battle UUID appears, we claim it iff the last engagement was recent.
     private static long clientTickCounter = 0;
     private static long lastModEngagementTick = -1000;
-    private static Boolean currentBattleStartedByMod = null;
-    private boolean wasInBattleScreen = false;
+    private static UUID modOwnedBattleId = null;
+    private static UUID lastSeenBattleId = null;
     private static final int MOD_ENGAGEMENT_WINDOW_TICKS = 300; // ~15 seconds (lag between key and battle GUI)
 
     // Debug mode: /pk debug toggles verbose chat logging
@@ -132,8 +133,11 @@ public class AutoQiqiClient implements ClientModInitializer {
 
         AutoQiqiConfig.load();
         com.cobblemoon.autoqiqi.battle.SmogonData.load();
+        com.cobblemoon.autoqiqi.legendary.predict.SpawnConditionRegistry.load();
+        com.cobblemoon.autoqiqi.legendary.predict.BiomeTagMap.load();
         AutoBattleEngine.get().setMode(BattleMode.fromString(AutoQiqiConfig.get().battleMode));
         WorldTracker.get().refreshWorldList();
+        LegendTimerSync.get().start(AutoQiqiConfig.get().pollIntervalSeconds);
         if (AutoQiqiConfig.get().autoReconnectEnabled) {
             AutoReconnectEngine.get().enable();
         }
@@ -145,18 +149,31 @@ public class AutoQiqiClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             clientTickCounter++;
             trackBlockedState(client);
-            boolean nowInBattleScreen = BattleScreenHelper.isInBattleScreen(client);
-            // When leaving battle screen, clear battle attribution — but not when we're only showing the Game Menu
-            // (pause screen), so we keep attribution and will close the menu below for unfocused autofight
-            boolean isGameMenuScreen = isPauseOrGameMenuScreen(client.currentScreen);
-            boolean skipClearForUnfocused = wasInBattleScreen && !nowInBattleScreen && isGameMenuScreen
-                    && !client.isWindowFocused()
-                    && com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null;
-            if (wasInBattleScreen && !nowInBattleScreen && !skipClearForUnfocused) {
-                currentBattleStartedByMod = null;
+            // Battle attribution: tied to Cobblemon battle UUID so it survives transient screen flips
+            // (legendary intros, sub-screens, Game Menu, etc.). We claim a new battle iff the last
+            // simulated send-out was recent. Attribution only clears when the battle actually ends or
+            // its UUID changes — never on screen transitions.
+            ClientBattle activeBattle = com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle();
+            UUID activeBattleId = activeBattle != null ? activeBattle.getBattleId() : null;
+            if (activeBattleId == null) {
+                if (modOwnedBattleId != null) {
+                    logDebug("Battle", "Battle attribution cleared — battle ended (id=" + modOwnedBattleId + ")");
+                    modOwnedBattleId = null;
+                    BattleDecisionRouter.clearMoveSelectionDebounce();
+                }
+            } else if (!activeBattleId.equals(lastSeenBattleId)) {
+                // New battle started — decide attribution once, for this UUID
+                boolean recent = (clientTickCounter - lastModEngagementTick) <= MOD_ENGAGEMENT_WINDOW_TICKS;
+                if (recent) {
+                    modOwnedBattleId = activeBattleId;
+                    logDebug("Battle", "Battle attribution: mod (auto-fight) — id=" + activeBattleId);
+                } else {
+                    modOwnedBattleId = null;
+                    logDebug("Battle", "Battle attribution: manual (no auto-fight) — id=" + activeBattleId);
+                }
                 BattleDecisionRouter.clearMoveSelectionDebounce();
             }
-            wasInBattleScreen = nowInBattleScreen;
+            lastSeenBattleId = activeBattleId;
 
             // Unfocused autofight: close Game Menu when in battle or berserk scanning, and any autofight is enabled
             // Only do this when the window is NOT focused (i.e. Minecraft auto-opened the pause menu).
@@ -357,33 +374,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                 AutoBattleEngine.get().tick();
             }
 
-            // Legendary: auto-resume from pause after capture finishes.
-            // Guards: minimum pause duration + CaptureEngine must have been active and finished.
-            if (AutoSwitchEngine.get().isPaused()) {
-                if (legendaryPauseStartMs == 0) {
-                    legendaryPauseStartMs = System.currentTimeMillis();
-                    captureSeenActiveDuringPause = false;
-                }
-                if (CaptureEngine.get().isActive()) {
-                    captureSeenActiveDuringPause = true;
-                } else if (captureSeenActiveDuringPause) {
-                    long elapsed = System.currentTimeMillis() - legendaryPauseStartMs;
-                    if (elapsed >= MIN_LEGENDARY_PAUSE_MS) {
-                        captureSeenActiveDuringPause = false;
-                        legendaryPauseStartMs = 0;
-                        logDebug("Legendary", "Capture finished after " + (elapsed / 1000) + "s, auto-resuming legendary switching");
-                        AutoSwitchEngine.get().resumeFromPause();
-                        if (client.player != null) {
-                            client.player.sendMessage(
-                                    Text.literal("§6[Auto-Qiqi]§r §aCapture terminee, reprise du legendary."), false);
-                        }
-                    }
-                }
-            } else {
-                captureSeenActiveDuringPause = false;
-                legendaryPauseStartMs = 0;
-            }
-            AutoSwitchEngine.get().tick();
+            com.cobblemoon.autoqiqi.legendary.predict.LegendTrackerBridge.tick();
+            com.cobblemoon.autoqiqi.legendary.predict.SpawnPredictor.get().tick();
             com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().tick();
             PokemonWalker.get().tick();
             TowerNpcEngine.get().tick();
@@ -392,9 +384,6 @@ public class AutoQiqiClient implements ClientModInitializer {
             if (huntActive && System.currentTimeMillis() >= huntEndTimeMs) {
                 stopHunt(client, "duree ecoulee");
             }
-
-            // Gold mining (lowest priority – only in Nether when idle)
-            GoldMiningEngine.get().tick();
 
             // Periodic Pokedex scan
             tickPeriodicScan(client);
@@ -408,7 +397,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         });
 
         log("Init", "Auto-Qiqi v" + BuildConstants.VERSION + " initialized!");
-        log("Init", "Keybinds: K=battle, H=leg HUD, J=leg auto, U=force poll, L=leg mod, I=tower start");
+        log("Init", "Keybinds: K=battle, H=leg HUD, L=leg mod, I=tower, O=prediction, P=auto-hop, ;=stop all");
     }
 
     // ========================
@@ -417,12 +406,9 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     private void registerKeybindings() {
         toggleBattleKey = reg("key.autoqiqi.toggle_battle", GLFW.GLFW_KEY_K);
-        toggleHudKey = reg("key.autoqiqi.toggle_hud", GLFW.GLFW_KEY_H);
-        toggleLegendaryKey = reg("key.autoqiqi.toggle_legendary", GLFW.GLFW_KEY_J);
-        forcePollKey = reg("key.autoqiqi.force_poll", GLFW.GLFW_KEY_U);
-        toggleModKey = reg("key.autoqiqi.toggle_mod", GLFW.GLFW_KEY_L);
         towerStartKey = reg("key.autoqiqi.tower_start", GLFW.GLFW_KEY_I);
-        stopAllKey = reg("key.autoqiqi.stop_all", GLFW.GLFW_KEY_O);
+        stopAllKey = reg("key.autoqiqi.stop_all", GLFW.GLFW_KEY_SEMICOLON);
+        togglePredictionKey = reg("key.autoqiqi.toggle_prediction", GLFW.GLFW_KEY_O);
         toggleAutoHopKey = reg("key.autoqiqi.toggle_autohop", GLFW.GLFW_KEY_P);
     }
 
@@ -444,38 +430,23 @@ public class AutoQiqiClient implements ClientModInitializer {
             client.setScreen(new AutoQiqiConfigScreen());
         }
 
-        if (toggleHudKey.wasPressed()) {
+        if (togglePredictionKey.wasPressed()) {
             AutoQiqiConfig config = AutoQiqiConfig.get();
-            config.legendaryHudVisible = !config.legendaryHudVisible;
+            config.predictionHudVisible = !config.predictionHudVisible;
             AutoQiqiConfig.save();
-            msg(client, "Legendary HUD: " + (config.legendaryHudVisible ? "ON" : "OFF"));
-        }
-
-        if (toggleLegendaryKey.wasPressed()) {
-            invokeNextlegOneMinuteAction(client);
-        }
-
-        if (forcePollKey.wasPressed()) {
-            if (AutoSwitchEngine.get().isPaused()) {
-                AutoSwitchEngine.get().resumeFromPause();
-                msg(client, "Reprise ! Capture terminee.");
-            } else {
-                AutoSwitchEngine.get().forcePoll();
-                msg(client, "Force polling...");
-            }
-        }
-
-        if (toggleModKey.wasPressed()) {
-            AutoQiqiConfig config = AutoQiqiConfig.get();
-            config.legendaryEnabled = !config.legendaryEnabled;
-            AutoQiqiConfig.save();
-            msg(client, "Legendary: " + (config.legendaryEnabled ? "ENABLED" : "DISABLED"));
+            msg(client, "Prediction HUD: " + (config.predictionHudVisible ? "ON" : "OFF"));
         }
 
         if (toggleAutoHopKey.wasPressed()) {
             var hop = com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get();
-            hop.setDisabled(!hop.isDisabled());
+            boolean wasDisabled = hop.isDisabled();
+            hop.setDisabled(!wasDisabled);
             msg(client, "§6[Auto-Hop]§r " + (hop.isDisabled() ? "§cDÉSACTIVÉ" : "§aACTIVÉ"));
+            // If just enabled, force-start immediately (tick() will handle threshold check next tick,
+            // but forced bypasses legendary-nearby check)
+            if (wasDisabled && !hop.isDisabled()) {
+                hop.startRotationForced();
+            }
         }
 
         if (towerStartKey.wasPressed()) {
@@ -485,13 +456,6 @@ public class AutoQiqiClient implements ClientModInitializer {
                 msg(client, "§e[Tower]§r Tour arrêtée après le prochain combat.");
             } else if (TowerNpcEngine.get().tryStartTower()) {
                 AutoBattleEngine.get().setMode(BattleMode.TRAINER);
-                AutoQiqiConfig config = AutoQiqiConfig.get();
-                if (config.legendaryAutoSwitch) {
-                    config.legendaryAutoSwitch = false;
-                    AutoQiqiConfig.save();
-                    AutoSwitchEngine.get().cancelToIdle();
-                    msg(client, "§7[Tower]§r Legendary hop désactivé (mutuellement exclusif).");
-                }
                 msg(client, "§a[Tower]§r Tour démarrée (auto-combat activé). Appuyez sur I pour arrêter.");
             } else {
                 msg(client, "§c[Tower]§r Aucun NPC de tour trouvé (Directeur ou combat).");
@@ -499,48 +463,8 @@ public class AutoQiqiClient implements ClientModInitializer {
         }
     }
 
-    /**
-     * Runs when 1 min is left on the nextleg timer: same as pressing J (resume or toggle legendary),
-     * and optionally opens the world menu (e.g. /monde) so the user can switch world.
-     * Does nothing (no toggle, no /monde) while in a Cobblemon battle to avoid teleporting mid-fight.
-     */
-    public static void invokeNextlegOneMinuteAction(MinecraftClient client) {
-        if (com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null
-                || CaptureEngine.get().isActive()) {
-            logDebug("Battle", "1-min action skipped (in battle) — no toggle, no /monde");
-            return;
-        }
-        if (AutoSwitchEngine.get().isPaused()) {
-            AutoSwitchEngine.get().resumeFromPause();
-            msg(client, "Reprise ! Capture terminee.");
-        } else {
-            AutoQiqiConfig config = AutoQiqiConfig.get();
-            config.legendaryAutoSwitch = !config.legendaryAutoSwitch;
-            AutoQiqiConfig.save();
-            msg(client, "Legendary Auto-switch: " + (config.legendaryAutoSwitch ? "ON" : "OFF"));
-        }
-        if (client.player != null && AutoQiqiConfig.get().roamingNextlegOpenMondeAt1Min) {
-            String mondeCmd = AutoQiqiConfig.get().mondeCommand;
-            String cmd = mondeCmd.startsWith("/") ? mondeCmd.substring(1) : mondeCmd;
-            try {
-                client.player.networkHandler.sendChatCommand(cmd);
-                logDebug("Battle", "Roaming: sent " + mondeCmd + " (1 min left — open world menu)");
-            } catch (Exception e) {
-                logDebug("Battle", "Roaming: " + mondeCmd + " failed at 1min: " + e.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Entry point for auto-hop rotation, called via reflection from qiqi-timer.
-     * Visits all auto_ homes, polls /nextleg, ranks by EV, and teleports to the best.
-     */
-    public static void invokeAutoHopRotation(MinecraftClient client) {
-        com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().startRotation();
-    }
-
     // ========================
-    // Screen events (legendary GUI switching)
+    // Screen events
     // ========================
 
     private void registerScreenEvents() {
@@ -550,23 +474,16 @@ public class AutoQiqiClient implements ClientModInitializer {
 
             if (screen instanceof HandledScreen<?> handledScreen) {
                 TowerGuiHandler.get().onChestScreenOpened(handledScreen);
-                if (!TowerGuiHandler.get().isHandlingScreen()) {
-                    GuiWorldSwitcher.get().onScreenOpened(handledScreen);
-                }
             }
 
             ScreenEvents.afterTick(screen).register(s -> {
                 TowerGuiHandler.get().onAnyScreenTick(s);
                 if (s instanceof HandledScreen<?> hs) {
                     TowerGuiHandler.get().onChestScreenTick(hs);
-                    if (!TowerGuiHandler.get().isHandlingScreen()) {
-                        GuiWorldSwitcher.get().onScreenTick(hs);
-                    }
                 }
             });
 
             ScreenEvents.remove(screen).register(s -> {
-                GuiWorldSwitcher.get().onScreenClosed();
                 TowerGuiHandler.get().onScreenClosed();
             });
         });
@@ -623,34 +540,10 @@ public class AutoQiqiClient implements ClientModInitializer {
                                         executeHuntStart(DoubleArgumentType.getDouble(context, "hours"));
                                         return 1;
                                     })))
-                    .then(ClientCommandManager.literal("tp")
-                            .executes(context -> { executeTpShow(); return 1; })
-                            .then(ClientCommandManager.literal("default")
-                                    .then(ClientCommandManager.argument("mode", StringArgumentType.word())
-                                            .suggests((ctx, builder) -> {
-                                                builder.suggest("last");
-                                                builder.suggest("random");
-                                                return builder.buildFuture();
-                                            })
-                                            .executes(context -> {
-                                                executeTpDefault(StringArgumentType.getString(context, "mode"));
-                                                return 1;
-                                            })))
-                            .then(ClientCommandManager.argument("worldIndex", IntegerArgumentType.integer(1))
-                                    .then(ClientCommandManager.argument("mode", StringArgumentType.word())
-                                            .suggests((ctx, builder) -> {
-                                                builder.suggest("last");
-                                                builder.suggest("random");
-                                                return builder.buildFuture();
-                                            })
-                                            .executes(context -> {
-                                                executeTpWorld(
-                                                        IntegerArgumentType.getInteger(context, "worldIndex"),
-                                                        StringArgumentType.getString(context, "mode"));
-                                                return 1;
-                                            }))))
                     .then(ClientCommandManager.literal("reconnect")
                             .executes(context -> { executeReconnectToggle(); return 1; }))
+                    .then(ClientCommandManager.literal("cacheflush")
+                            .executes(context -> { executeCacheFlushReconnect(); return 1; }))
                     .then(ClientCommandManager.literal("reload")
                             .executes(context -> { executeReload(); return 1; }))
                     .then(ClientCommandManager.literal("version")
@@ -659,6 +552,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                             .executes(context -> { executeTickrate(); return 1; }))
                     .then(ClientCommandManager.literal("smogon")
                             .executes(context -> { executeSmogonInfo(); return 1; }))
+                    .then(ClientCommandManager.literal("reset")
+                            .executes(context -> { executeReset(); return 1; }))
             );
         });
     }
@@ -683,9 +578,23 @@ public class AutoQiqiClient implements ClientModInitializer {
             }
         }
 
+        int altForms = 0;
+        StringBuilder altFormNames = new StringBuilder();
+        for (Entity e : results) {
+            if (PokemonScanner.hasNotableAlternateForm(e)) {
+                altForms++;
+                if (altFormNames.length() > 0) altFormNames.append(", ");
+                altFormNames.append(PokemonScanner.getPokemonName(e));
+            }
+        }
+
         if (bosses > 0) {
             client.player.sendMessage(
                     Text.literal("§6[Auto-Qiqi]§r §c§lBoss: " + bossNames + "§r §7nearby!"), false);
+        }
+        if (altForms > 0) {
+            client.player.sendMessage(
+                    Text.literal("§6[Auto-Qiqi]§r §b[FORM] " + altFormNames + "§r §7nearby!"), false);
         }
         if (uncaught > 0) {
             client.player.sendMessage(
@@ -797,7 +706,7 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     /**
      * Called when the player sends a command starting with /warp.
-     * Turns off all automatic features (capture, walk, guide, battle, mining, legendary, hunt).
+     * Turns off all automatic features (capture, walk, guide, battle, legendary, hunt).
      */
     public static void stopAllAutomaticFeaturesForWarp() {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -811,12 +720,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         PokemonWalker.get().stop();
         DirectionGuide.get().stop();
         AutoBattleEngine.get().setMode(BattleMode.OFF);
-        GoldMiningEngine.get().reset();
 
-        AutoSwitchEngine.get().cancelToIdle();
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-        config.legendaryAutoSwitch = false;
-        AutoQiqiConfig.save();
         if (client.currentScreen != null) {
             client.setScreen(null);
         }
@@ -844,13 +748,6 @@ public class AutoQiqiClient implements ClientModInitializer {
             return;
         }
 
-        // Only close screen when we were in menu/teleport flow (not when paused for capture — that screen is the battle GUI)
-        boolean wasInLegendaryMenuFlow = false;
-        var run = AutoSwitchEngine.get().getCurrentRun();
-        if (run != null && run.state != LegendaryRunState.State.IDLE && run.state != LegendaryRunState.State.PAUSED_FOR_CAPTURE) {
-            wasInLegendaryMenuFlow = true;
-        }
-
         boolean stopped = false;
         if (CaptureEngine.get().isActive()) {
             CaptureEngine.get().stop();
@@ -872,26 +769,10 @@ public class AutoQiqiClient implements ClientModInitializer {
             msg(client, "§7Auto-battle OFF.");
             stopped = true;
         }
-        if (GoldMiningEngine.get().isActive()) {
-            int mined = GoldMiningEngine.get().getSessionOresMined();
-            GoldMiningEngine.get().reset();
-            msg(client, "§7Mining arrete." + (mined > 0 ? " §6" + mined + " ores mined." : ""));
+        if (com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().isActive()) {
+            com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().setDisabled(true);
+            msg(client, "§7Auto-hop rotation arretee.");
             stopped = true;
-        }
-        // Legendary: cancel world-switch flow and disable auto-switch so it stays cancelable in any situation
-        AutoSwitchEngine.get().cancelToIdle();
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-        if (config.legendaryAutoSwitch) {
-            config.legendaryAutoSwitch = false;
-            AutoQiqiConfig.save();
-            msg(client, "§7Legendary auto-switch OFF.");
-            stopped = true;
-        }
-        if (wasInLegendaryMenuFlow) {
-            stopped = true;
-            if (client.currentScreen != null) {
-                client.setScreen(null);
-            }
         }
         if (stopped) {
             log("Battle", "User executed /pk stop — all engines stopped");
@@ -909,12 +790,6 @@ public class AutoQiqiClient implements ClientModInitializer {
     private void executeHuntStart(double hours) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
-
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-
-        config.legendaryEnabled = true;
-        config.legendaryAutoSwitch = true;
-        AutoQiqiConfig.save();
 
         AutoBattleEngine.get().setMode(BattleMode.ROAMING);
 
@@ -982,23 +857,13 @@ public class AutoQiqiClient implements ClientModInitializer {
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MANUAL",
                 "Hunt stopped: " + reason);
 
-        boolean wasInLegendaryFlow = AutoSwitchEngine.get().getCurrentRun() != null
-                && AutoSwitchEngine.get().getCurrentRun().state != LegendaryRunState.State.IDLE;
-        AutoSwitchEngine.get().cancelToIdle();
         AutoQiqiConfig config = AutoQiqiConfig.get();
-        config.legendaryAutoSwitch = false;
-        AutoQiqiConfig.save();
-        if (wasInLegendaryFlow && client.currentScreen != null) {
-            client.setScreen(null);
-        }
-
         AutoBattleEngine engine = AutoBattleEngine.get();
         java.util.List<String> summary = engine.getSessionSummaryAndReset();
         engine.setMode(BattleMode.OFF);
 
         CaptureEngine.get().stop();
         PokemonWalker.get().stop();
-        GoldMiningEngine.get().reset();
 
         msg(client, "§e§l=== HUNT TERMINEE ===");
         msg(client, "§7Raison: §f" + reason);
@@ -1098,66 +963,6 @@ public class AutoQiqiClient implements ClientModInitializer {
         return String.format("%dh%02dm%02ds", hours, min, sec);
     }
 
-    private void executeTpShow() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null) return;
-
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-        msg(client, "§a=== Teleport Modes ===");
-        msg(client, "§7Default GUI mode: §f" + config.defaultTeleportMode);
-
-        List<String> worlds = config.worldNames;
-        for (int i = 0; i < worlds.size(); i++) {
-            String world = worlds.get(i);
-            if (config.isHomeWorld(world)) {
-                String homeCmd = config.getHomeCommand(world);
-                msg(client, "§e" + (i + 1) + ". §f" + world + " §7-> §b/home " + homeCmd);
-            } else {
-                String mode = config.getTeleportMode(world);
-                boolean isOverride = config.worldTeleportModes.containsKey(world.toLowerCase());
-                String suffix = isOverride ? " §e(override)" : " §8(default)";
-                String arrivalHome = config.getArrivalHome(world);
-                String arrivalSuffix = arrivalHome != null ? " §7+ §b/home " + arrivalHome : "";
-                msg(client, "§e" + (i + 1) + ". §f" + world + " §7-> §f" + mode + suffix + arrivalSuffix);
-            }
-        }
-        msg(client, "§7Usage: §f/pk tp default <last|random>");
-        msg(client, "§7        §f/pk tp <n> <last|random> §8(GUI worlds only)");
-    }
-
-    private void executeTpDefault(String mode) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null) return;
-        if (!"last".equalsIgnoreCase(mode) && !"random".equalsIgnoreCase(mode)) {
-            msg(client, "§cMode invalide. Utilise §flast§c ou §frandom§c.");
-            return;
-        }
-        AutoQiqiConfig.get().setDefaultTeleportMode(mode.toLowerCase());
-        msg(client, "§aDefault teleport mode: §f" + mode.toLowerCase());
-    }
-
-    private void executeTpWorld(int worldIndex, String mode) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null) return;
-        if (!"last".equalsIgnoreCase(mode) && !"random".equalsIgnoreCase(mode)) {
-            msg(client, "§cMode invalide. Utilise §flast§c ou §frandom§c.");
-            return;
-        }
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-        List<String> worlds = config.worldNames;
-        if (worldIndex < 1 || worldIndex > worlds.size()) {
-            msg(client, "§cIndex invalide (1-" + worlds.size() + "). Voir §f/pk tp§c.");
-            return;
-        }
-        String worldName = worlds.get(worldIndex - 1);
-        if (config.isHomeWorld(worldName)) {
-            msg(client, "§c" + worldName + " utilise /home, pas de mode GUI a configurer.");
-            return;
-        }
-        config.setTeleportMode(worldName, mode.toLowerCase());
-        msg(client, "§a" + worldName + " §7-> §f" + mode.toLowerCase());
-    }
-
     // ========================
     // Reconnect command
     // ========================
@@ -1181,6 +986,25 @@ public class AutoQiqiClient implements ClientModInitializer {
                 msg(client, "§7[Reconnect]§r OFF");
             }
         }
+    }
+
+    private void executeCacheFlushReconnect() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+
+        msg(client, "§6[Auto-Qiqi]§r Déconnexion pour vider le cache client...");
+
+        // Enable auto-reconnect and ensure it's monitoring before we disconnect
+        AutoQiqiConfig.get().autoReconnectEnabled = true;
+        AutoReconnectEngine.get().enable();
+
+        // Disconnect on next tick via setScreen(TitleScreen) — safer than
+        // closing the connection directly, which can race with other disconnects.
+        client.execute(() -> {
+            client.world.disconnect();
+            client.disconnect();
+            client.setScreen(new net.minecraft.client.gui.screen.TitleScreen());
+        });
     }
 
     // ========================
@@ -1210,6 +1034,36 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (client.player == null) return;
         int count = com.cobblemoon.autoqiqi.battle.SmogonData.size();
         msg(client, "§dSmogon OU §7| §f" + count + " §7Pokemon loaded (Gen 9 OU, all gens included)");
+    }
+
+    private void executeReset() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
+
+        // 1. Clear all mod-internal caches that accumulate over time
+        com.cobblemoon.autoqiqi.battle.AutoBattleEngine.get().clearCaches();
+        com.cobblemoon.autoqiqi.battle.CaptureEngine.clearCaches();
+        com.cobblemoon.autoqiqi.common.PokemonScanner.get().clearCaches();
+        com.cobblemoon.autoqiqi.legendary.WorldTracker.get().resetAllTimers();
+
+        // 2. Free memory FIRST so the chunk reload has headroom
+        System.gc();
+
+        long freeMb = Runtime.getRuntime().freeMemory() / (1024 * 1024);
+        long totalMb = Runtime.getRuntime().totalMemory() / (1024 * 1024);
+
+        // 3. Chunk reload (F3+A) temporarily doubles memory — skip if too tight
+        if (freeMb < 200) {
+            msg(client, "§a[Reset]§r Caches vidés, GC lancé, chunk reload §cskippé§r (RAM trop basse). §7RAM: " + freeMb + "/" + totalMb + " MB libre.");
+            log("Reset", "Chunk reload skipped: only " + freeMb + "MB free / " + totalMb + "MB total");
+        } else {
+            client.worldRenderer.reload();
+            // Second GC pass to clean up freed chunk buffers
+            System.gc();
+            freeMb = Runtime.getRuntime().freeMemory() / (1024 * 1024);
+            totalMb = Runtime.getRuntime().totalMemory() / (1024 * 1024);
+            msg(client, "§a[Reset]§r Caches + chunk cache vidés, GC lancé. §7RAM: " + freeMb + "/" + totalMb + " MB libre.");
+        }
     }
 
     private void executeTickrate() {
@@ -1318,42 +1172,9 @@ public class AutoQiqiClient implements ClientModInitializer {
         msg(client, "§7Capture mode OFF.");
     }
 
-    /**
-     * Returns true when capture-roaming is allowed during legendary mode.
-     * Capture targets are only pursued when we're camping in the world with the
-     * imminent timer (waiting for a legendary spawn). When we're in a different
-     * world, we must switch first — no capture until we're in the right place.
-     * If legendary mode is not active, always returns true.
-     * Bosses and whitelisted kills are always allowed regardless of this check.
-     */
+    /** Always true now that AutoSwitchEngine is removed — roaming capture is always allowed. */
     public static boolean canRoamCapture() {
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-        if (!config.legendaryEnabled || !config.legendaryAutoSwitch) return true;
-
-        WorldTracker tracker = WorldTracker.get();
-        if (!tracker.allTimersKnown()) return false;
-
-        String currentWorld = tracker.getCurrentWorld();
-        if (currentWorld == null) return false;
-
-        // We must NOT need to switch — we're already in the right world
-        String worldToSwitch = tracker.getWorldToSwitchTo();
-        if (worldToSwitch != null) {
-            logDebug("Capture", "canRoamCapture=false: need to switch to " + worldToSwitch + " (current=" + currentWorld + ")");
-            return false;
-        }
-
-        WorldTimerData data = tracker.getTimer(currentWorld);
-        if (data == null || !data.isTimerKnown()) return false;
-
-        // Only allow capture when we're in the imminent world: either event active
-        // or timer within switch threshold (camping, waiting for legendary).
-        boolean allowed = data.isEventActive() || tracker.currentWorldHasImminentEvent();
-        if (!allowed) {
-            logDebug("Capture", "canRoamCapture=false: not in imminent world (current=" + currentWorld
-                    + " remaining=" + data.getEstimatedRemainingSeconds() + "s)");
-        }
-        return allowed;
+        return true;
     }
 
     // ========================
@@ -1373,7 +1194,7 @@ public class AutoQiqiClient implements ClientModInitializer {
                 && client.world != null;
     }
 
-    /** True when battle actions should be automated. True for capture, tower (tour de combat) battles, or when the mod started the battle (simulated send-out); manually engaged wild battles are not auto-fought. */
+    /** True when battle actions should be automated. True for capture, tower (tour de combat) battles, or BERSERK; ROAMING engages legendaries but leaves in-battle decisions to the user. */
     public static boolean shouldAutoFight() {
         if (CaptureEngine.get().isActive()) return true;
         // Tour de combat (tower) mode: auto-fight trainer battles when tower loop is active
@@ -1385,16 +1206,8 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (mode == BattleMode.BERSERK) {
             return true;
         }
-        if (mode != BattleMode.OFF) {
-            if (currentBattleStartedByMod == null) {
-                currentBattleStartedByMod = (clientTickCounter - lastModEngagementTick) <= MOD_ENGAGEMENT_WINDOW_TICKS;
-                logDebug("Battle", "Battle attribution: " + (currentBattleStartedByMod ? "mod (auto-fight)" : "manual (no auto-fight)"));
-            }
-            if (!currentBattleStartedByMod) return false;
-            return true;
-        }
-        AutofishEngine fish = AutofishEngine.get();
-        return fish != null && fish.isFishBattleActive();
+        // ROAMING: engage-only — once the battle starts, the user controls moves/switches/balls.
+        return false;
     }
 
     /** Call right before simulating the send-out key so we attribute the ensuing battle to the mod. */
@@ -1463,8 +1276,7 @@ public class AutoQiqiClient implements ClientModInitializer {
         if (CaptureEngine.get().isActive()) return true;
         if (AutoBattleEngine.get().getMode() == BattleMode.TRAINER && TowerNpcEngine.get().isLoopEnabled()) return true;
         if (AutoBattleEngine.get().getMode() != BattleMode.OFF) return true;
-        AutofishEngine fish = AutofishEngine.get();
-        return fish != null && fish.isFishBattleActive();
+        return false;
     }
 
     /**
@@ -1478,18 +1290,54 @@ public class AutoQiqiClient implements ClientModInitializer {
         }).start();
     }
 
-    /** Sends message to in-game chat only (no file or stdout logging). Always shown. */
+    // ── File logger ──────────────────────────────────────────────────────
+    private static final DateTimeFormatter LOG_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static PrintWriter fileLogger;
+
+    private static synchronized PrintWriter getFileLogger() {
+        if (fileLogger == null) {
+            try {
+                Path logDir = Paths.get("logs", "auto-qiqi");
+                Files.createDirectories(logDir);
+                // Rotate: keep current session in latest.log, rename old one with timestamp
+                Path latestLog = logDir.resolve("latest.log");
+                if (Files.exists(latestLog) && Files.size(latestLog) > 0) {
+                    String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
+                    Files.move(latestLog, logDir.resolve("session-" + ts + ".log"));
+                }
+                fileLogger = new PrintWriter(new BufferedWriter(new FileWriter(latestLog.toFile(), true)), true);
+                fileLogger.println("[" + LocalDateTime.now().format(LOG_TIME_FMT) + "] [Init] Log file opened");
+            } catch (IOException e) {
+                System.err.println("[Auto-Qiqi] Failed to open log file: " + e.getMessage());
+            }
+        }
+        return fileLogger;
+    }
+
+    private static void writeToFile(String prefix, String message) {
+        PrintWriter pw = getFileLogger();
+        if (pw != null) {
+            pw.println("[" + LocalDateTime.now().format(LOG_TIME_FMT) + "] [" + prefix + "] " + message);
+        }
+    }
+
+    /** Sends message to in-game chat and writes to log file. Always shown. */
     public static void log(String prefix, String message) {
+        writeToFile(prefix, message);
         MinecraftClient c = MinecraftClient.getInstance();
         if (c != null && c.player != null) {
             c.player.sendMessage(Text.literal("§6[Auto-Qiqi/" + prefix + "]§r " + message), false);
         }
     }
 
-    /** Debug-level log: only shown when /pk debug is ON. */
+    /** Debug-level log: always written to file, only shown in chat when /pk debug is ON. */
     public static void logDebug(String prefix, String message) {
+        writeToFile(prefix, message);
         if (!debugMode) return;
-        log(prefix, message);
+        MinecraftClient c = MinecraftClient.getInstance();
+        if (c != null && c.player != null) {
+            c.player.sendMessage(Text.literal("§6[Auto-Qiqi/" + prefix + "]§r " + message), false);
+        }
     }
 
     public static boolean isDebugMode() { return debugMode; }

@@ -1,5 +1,10 @@
 # Agent Guidelines
 
+## Module Boundaries
+
+- **auto-qiqi** (`auto-qiqi/`): Automation engine — battle AI, legendary hunting, capture logic, walk/scan. Does **not** render battle UI or intel overlays.
+- **CobblemonExtendedBattleUI** (`CobblemonExtendedBattleUI/`): Battle display — tooltips, damage predictions, matchup HUD, type charts, Smogon intel. All battle-related UI/intel belongs here, not in auto-qiqi.
+
 ## Do Not Build
 
 **Agents must never run the build** (e.g. `./gradlew build` or any Gradle build command). Building is the user’s responsibility. Do not suggest or execute build steps to “verify” changes.

@@ -5,8 +5,6 @@ import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
-import com.cobblemoon.autoqiqi.fish.AutofishEngine;
-import com.cobblemoon.autoqiqi.legendary.AutoSwitchEngine;
 import com.cobblemoon.autoqiqi.legendary.ChatMessageHandler;
 import com.cobblemoon.autoqiqi.legendary.PokemonWalker;
 import com.cobblemoon.autoqiqi.legendary.WorldTracker;
@@ -33,15 +31,15 @@ import java.util.Map;
 /**
  * Handles <strong>battle mode</strong> and <strong>overworld targeting</strong> only:
  * scans for nearby wild Pokemon, walks toward the closest one, aims, and simulates
- * Cobblemon's send-out key to start a battle. Also decides when to hand off to
- * {@link CaptureEngine} for capture (e.g. in {@link BattleMode#ROAMING}).
+ * Cobblemon's send-out key to start a battle.
  * <p>
  * This engine does <em>not</em> make in-battle decisions (which move, fight vs switch).
  * Those are made by {@link TrainerBattleEngine} or {@link CaptureEngine}, and routed
  * via {@link com.cobblemoon.autoqiqi.battle.BattleDecisionRouter} from the battle GUI mixins.
  * <p>
- * Supports {@link BattleMode#BERSERK} (all wild), {@link BattleMode#ROAMING}
- * (auto-capture uncaught, recapture caught legendaries not in whitelist, kill bosses + whitelist), and {@link BattleMode#TRAINER}.
+ * Supports {@link BattleMode#BERSERK} (all wild, auto-fight),
+ * {@link BattleMode#ROAMING} (engage legendaries only — the user handles the battle manually
+ * once it starts), and {@link BattleMode#TRAINER}.
  */
 public class AutoBattleEngine {
     private static final AutoBattleEngine INSTANCE = new AutoBattleEngine();
@@ -60,14 +58,11 @@ public class AutoBattleEngine {
 
     private BattleMode mode = BattleMode.OFF;
     private Entity target;
-    private boolean targetForCapture = false;
     private int scanTimer = 0;
     private int cooldown = 0;
     private boolean wasInBattle = false;
     private boolean walking = false;
     private int battleCount = 0;
-    private boolean pausedFishingForBattle = false;
-
     private int aimTicks = 0;
     private boolean keySimulated = false;
     private int keySimulatedAtTick = 0;
@@ -126,7 +121,20 @@ public class AutoBattleEngine {
     private int sessionPokemonKills = 0;
     private final java.util.List<String> sessionCaptures = new java.util.ArrayList<>();
     private boolean lastFightWasBoss = false;
+    private boolean lastFightWasLegendary = false;
     private String lastTargetName = "Unknown";
+
+    // Pending forced target: survives wasInBattle reset so legendary engagement isn't lost
+    // when the spawn happens while another battle is in progress.
+    private Entity pendingForceTarget = null;
+
+    // Roaming in-battle anti-AFK: every N seconds of a legendary battle, minimize the battle UI,
+    // aim at the Pokémon, and re-press send-out to reopen the GUI. The brief trip to the
+    // overworld + camera motion resets the server-side AFK timer so we stay eligible.
+    private Entity activeLegendaryInBattle = null;
+    private long inBattleTicks = 0;
+    private long lastInBattleAntiAfkTick = 0;
+    private boolean inBattleAntiAfkPending = false;
 
     // Roaming nextleg/afk: single timer from /nextleg, /afk for points, camera move before expiry
     private long lastNextlegPollTick = 0;
@@ -143,7 +151,6 @@ public class AutoBattleEngine {
     public static AutoBattleEngine get() { return INSTANCE; }
     public Entity getTarget() { return target; }
     public boolean isWalking() { return walking; }
-    public boolean isTargetForCapture() { return targetForCapture; }
     public BattleMode getMode() { return mode; }
     public void setMode(BattleMode mode) {
         if (this.mode != mode) {
@@ -177,7 +184,6 @@ public class AutoBattleEngine {
 
     /**
      * Quick check for any boss within battle scan range.
-     * Used by AutoSwitchEngine to avoid switching worlds when a boss is present.
      */
     public boolean isBossNearby() {
         if (ChatMessageHandler.get().isEntityClearancePending()) return false;
@@ -203,7 +209,6 @@ public class AutoBattleEngine {
         }
         if (walking) stopWalking();
         target = null;
-        targetForCapture = false;
         cooldown = 20;
         losStrafeTicks = 0;
         aimOffsetIndex = 0;
@@ -216,7 +221,7 @@ public class AutoBattleEngine {
             pendingRelease = null;
         }
         target = null;
-        targetForCapture = false;
+        pendingForceTarget = null;
         cooldown = 0;
         wasInBattle = false;
         losStrafeTicks = 0;
@@ -224,25 +229,36 @@ public class AutoBattleEngine {
         keySimulated = false;
         aimOffsetIndex = 0;
         partyResetPressesLeft = 0;
-        pausedFishingForBattle = false;
         lastFightWasBoss = false;
+        lastFightWasLegendary = false;
         collectingLoot = false;
         lootTarget = null;
         lootTicks = 0;
         lastEngagedEntityId = -1;
         berserkEngageTicks = 0;
+        activeLegendaryInBattle = null;
+        inBattleTicks = 0;
+        lastInBattleAntiAfkTick = 0;
+        inBattleAntiAfkPending = false;
         engageBlacklist.clear();
     }
 
-    public void forceTarget(Entity entity, boolean forCapture) {
+    /** Clears accumulated caches without affecting battle state. Called by /pk reset. */
+    public void clearCaches() {
+        engageBlacklist.clear();
+        sessionCaptures.clear();
+        sessionBossKills = 0;
+        sessionPokemonKills = 0;
+    }
+
+    public void forceTarget(Entity entity) {
         this.target = entity;
-        this.targetForCapture = forCapture;
+        this.pendingForceTarget = entity;
         this.aimTicks = 0;
         this.keySimulated = false;
         this.losStrafeTicks = 0;
         this.cooldown = 0;
-        AutoQiqiClient.logDebug("Battle", "Force target set: " + PokemonScanner.getDisplayInfo(entity)
-                + " (forCapture=" + forCapture + ")");
+        AutoQiqiClient.logDebug("Battle", "Force target set: " + PokemonScanner.getDisplayInfo(entity));
     }
 
     public void recordCapture(String pokemonName) {
@@ -319,6 +335,15 @@ public class AutoBattleEngine {
         if (lootCollected > 0) {
             AutoQiqiClient.logDebug("Battle", "Loot collection done: " + lootCollected + " items");
         }
+
+        // Re-enable auto-hop after legendary kill (any mode — auto-hop was disabled on spawn)
+        if (lastFightWasLegendary && com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().isDisabled()) {
+            int delay = AutoQiqiConfig.get().autohopReEnableDelaySeconds;
+            AutoQiqiClient.logDebug("Battle", "Legendary killed — scheduling auto-hop re-enable in " + delay + "s");
+            com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().scheduleReEnable(delay);
+        }
+        lastFightWasLegendary = false;
+
         cooldown = POST_BATTLE_COOLDOWN;
     }
 
@@ -392,6 +417,64 @@ public class AutoBattleEngine {
             roamingCameraMoveDone = true;
             AutoQiqiClient.logDebug("Battle", "Roaming: CAMERA MOVED (timer=" + remaining + "s) — un-AFK for legendary eligibility, /afk suppressed until timer resets");
         }
+    }
+
+    /**
+     * While engaged in a ROAMING legendary battle, every N seconds minimize the battle UI,
+     * look at the Pokémon, and re-press send-out so the GUI comes back. The brief trip
+     * through the overworld + camera look packet resets the server-side AFK timer without
+     * affecting the (server-side) battle state.
+     */
+    private void tickRoamingInBattleAntiAfk(MinecraftClient client, ClientPlayerEntity player) {
+        if (mode != BattleMode.ROAMING) return;
+        if (activeLegendaryInBattle == null) return;
+
+        boolean battleActive = CobblemonClient.INSTANCE.getBattle() != null;
+        if (!battleActive) {
+            activeLegendaryInBattle = null;
+            inBattleTicks = 0;
+            lastInBattleAntiAfkTick = 0;
+            inBattleAntiAfkPending = false;
+            return;
+        }
+
+        int intervalSeconds = AutoQiqiConfig.get().roamingInBattleAntiAfkIntervalSeconds;
+        if (intervalSeconds <= 0) return;
+        long intervalTicks = intervalSeconds * 20L;
+
+        inBattleTicks++;
+        if (inBattleAntiAfkPending) return;
+        if (inBattleTicks - lastInBattleAntiAfkTick < intervalTicks) return;
+        lastInBattleAntiAfkTick = inBattleTicks;
+
+        var battle = CobblemonClient.INSTANCE.getBattle();
+        if (battle == null) return;
+
+        battle.setMinimised(true);
+        // Slight camera nudge to produce a look packet (matches tickRoamingNextlegAfk).
+        player.setYaw(player.getYaw() + 8.0f);
+        player.setPitch(net.minecraft.util.math.MathHelper.clamp(player.getPitch() + 4.0f, -90.0f, 90.0f));
+        AutoQiqiClient.logDebug("Battle", "Roaming anti-AFK: minimized + nudged camera (next in "
+                + intervalSeconds + "s)");
+        inBattleAntiAfkPending = true;
+
+        // Give the server a moment to register the camera packet, then press send-out to reopen
+        // the battle GUI (same trick used by CaptureEngine after a breakout).
+        AutoQiqiClient.runLater(() -> {
+            try {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.player == null) return;
+                if (activeLegendaryInBattle == null) return;
+                if (!activeLegendaryInBattle.isAlive() || activeLegendaryInBattle.isRemoved()) return;
+                if (CobblemonClient.INSTANCE.getBattle() == null) return;
+                if (mc.currentScreen != null) return; // user already reopened something
+                snapLookAtEntity(mc.player, activeLegendaryInBattle);
+                simulateSendOutKey(mc);
+                AutoQiqiClient.logDebug("Battle", "Roaming anti-AFK: reopened battle GUI");
+            } finally {
+                inBattleAntiAfkPending = false;
+            }
+        }, 800);
     }
 
     private Entity findNearbyLoot(MinecraftClient client, ClientPlayerEntity player) {
@@ -471,7 +554,6 @@ public class AutoBattleEngine {
         ClientPlayerEntity player = client.player;
 
         if (player == null || client.world == null || client.interactionManager == null) return;
-        if (AutoSwitchEngine.get().isWaitingForHomeTeleport()) return;
         if (player.isDead()) {
             if (walking) stopWalking();
             return;
@@ -484,16 +566,29 @@ public class AutoBattleEngine {
             return;
         }
 
-        if (client.currentScreen != null) {
+        // In-battle roaming anti-AFK — runs before the screen-based early returns because we
+        // briefly leave the battle screen (setMinimised) as part of the nudge itself.
+        tickRoamingInBattleAntiAfk(client, player);
+
+        // Use the Cobblemon battle object as the authoritative source for "in battle" — screen
+        // class names flip during legendary intros and other sub-screens, which used to cause
+        // false "battle finished" events mid-battle.
+        boolean inCobblemonBattle = BattleScreenHelper.isInBattleScreen(client);
+        if (inCobblemonBattle) {
             if (walking) stopWalking();
             if (collectingLoot) {
                 client.options.forwardKey.setPressed(false);
                 client.options.sprintKey.setPressed(false);
             }
-            String screenName = client.currentScreen.getClass().getName().toLowerCase();
-            if (screenName.contains("battle")) {
-                wasInBattle = true;
-                collectingLoot = false;
+            wasInBattle = true;
+            collectingLoot = false;
+            return;
+        }
+        if (client.currentScreen != null) {
+            if (walking) stopWalking();
+            if (collectingLoot) {
+                client.options.forwardKey.setPressed(false);
+                client.options.sprintKey.setPressed(false);
             }
             return;
         }
@@ -524,14 +619,6 @@ public class AutoBattleEngine {
                 }
             }
 
-            if (pausedFishingForBattle) {
-                pausedFishingForBattle = false;
-                AutofishEngine fish = AutofishEngine.get();
-                if (fish != null) {
-                    fish.resumeAfterBossBattle();
-                }
-            }
-
             if (mode != BattleMode.BERSERK) {
                 int upPresses = AutoQiqiConfig.get().postBattlePartyUpPresses;
                 if (upPresses > 0) {
@@ -541,9 +628,15 @@ public class AutoBattleEngine {
             }
 
             target = null;
-            targetForCapture = false;
             aimTicks = 0;
             keySimulated = false;
+
+            // Restore forced target that was set during the battle (e.g. legendary spawn while fighting)
+            if (pendingForceTarget != null && pendingForceTarget.isAlive() && !pendingForceTarget.isRemoved()) {
+                target = pendingForceTarget;
+                AutoQiqiClient.logDebug("Battle", "Restoring forced target after battle: " + PokemonScanner.getDisplayInfo(target));
+            }
+            pendingForceTarget = null;
 
             if (mode == BattleMode.BERSERK) {
                 cooldown = 20;
@@ -609,7 +702,6 @@ public class AutoBattleEngine {
 
         if (target != null && (!target.isAlive() || target.isRemoved())) {
             target = null;
-            targetForCapture = false;
             aimTicks = 0;
             keySimulated = false;
             if (walking) stopWalking();
@@ -621,14 +713,12 @@ public class AutoBattleEngine {
             if (walkerForYield.isActive() && walkerForYield.getTarget() != null && target.getId() == walkerForYield.getTarget().getId()) {
                 AutoQiqiClient.logDebug("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — user walking to it (manual)");
                 target = null;
-                targetForCapture = false;
                 aimTicks = 0;
                 keySimulated = false;
                 if (walking) stopWalking();
             } else if (walkerForYield.isInManualWalkGracePeriod() && target.getId() == walkerForYield.getLastWalkTargetEntityId()) {
                 AutoQiqiClient.logDebug("Battle", "Dropping target " + PokemonScanner.getDisplayInfo(target) + " — manual engagement grace");
                 target = null;
-                targetForCapture = false;
                 aimTicks = 0;
                 keySimulated = false;
                 if (walking) stopWalking();
@@ -641,19 +731,10 @@ public class AutoBattleEngine {
             scanTimer = SCAN_INTERVAL;
             if (target == null) return;
 
-            AutofishEngine fish = AutofishEngine.get();
-            if (fish != null && AutoQiqiConfig.get().fishEnabled && fish.isHoldingFishingRod()) {
-                fish.pauseForBossBattle();
-                pausedFishingForBattle = true;
-                AutoQiqiClient.logDebug("Battle", "Paused fishing to engage " + PokemonScanner.getDisplayInfo(target));
-            }
-
-            String action = targetForCapture ? "capture" : "fight";
             lastTargetName = PokemonScanner.getDisplayInfo(target);
             berserkEngageTicks = 0;
             roamingEngageTicks = 0;
-            AutoQiqiClient.logDebug("Battle", "Target acquired: " + lastTargetName
-                    + " (action=" + action + ")");
+            AutoQiqiClient.logDebug("Battle", "Target acquired: " + lastTargetName);
         }
 
         if (pendingRelease != null) {
@@ -668,55 +749,55 @@ public class AutoBattleEngine {
             berserkEngageTicks = 0;
             roamingEngageTicks = 0;
 
-            if (targetForCapture) {
-                MovementHelper.stopStrafe(client);
-                losStrafeTicks = 0;
-                engageForCapture(client, player);
-            } else {
-                boolean hasLOS = MovementHelper.hasLineOfSight(player, target);
+            boolean hasLOS = MovementHelper.hasLineOfSight(player, target);
 
-                if (!hasLOS && losStrafeTicks < 120) {
-                    losStrafeTicks++;
-                    if (losStrafeTicks == 1) {
-                        AutoQiqiClient.logDebug("Battle", "No LOS to target, strafing");
+            if (!hasLOS && losStrafeTicks < 120) {
+                losStrafeTicks++;
+                if (losStrafeTicks == 1) {
+                    AutoQiqiClient.logDebug("Battle", "No LOS to target, strafing");
+                }
+                if (losStrafeTicks % 30 == 0) losStrafeDir = -losStrafeDir;
+                MovementHelper.strafeSideways(client, target, player, losStrafeDir);
+                aimTicks = 0;
+                keySimulated = false;
+            } else {
+                if (losStrafeTicks > 0) {
+                    MovementHelper.stopStrafe(client);
+                    losStrafeTicks = 0;
+                }
+
+                snapLookAtEntity(player, target);
+                aimTicks++;
+
+                if (!keySimulated && aimTicks >= AIM_TICKS_BEFORE_PRESS) {
+                    boolean onTarget = isCrosshairOnTarget(client, target);
+                    if (!onTarget && aimTicks < AIM_TICKS_BEFORE_PRESS + 20) {
+                        if ((aimTicks - AIM_TICKS_BEFORE_PRESS) % 5 == 0) {
+                            aimOffsetIndex = (aimOffsetIndex + 1) % AIM_HEIGHT_FRACTIONS.length;
+                        }
+                        return;
                     }
-                    if (losStrafeTicks % 30 == 0) losStrafeDir = -losStrafeDir;
-                    MovementHelper.strafeSideways(client, target, player, losStrafeDir);
+                    lastFightWasBoss = PokemonScanner.isBoss(target);
+                    lastFightWasLegendary = PokemonScanner.isLegendary(target);
+                    lastEngagedEntityId = target.getId();
+                    if (mode == BattleMode.ROAMING && lastFightWasLegendary) {
+                        activeLegendaryInBattle = target;
+                        inBattleTicks = 0;
+                        lastInBattleAntiAfkTick = 0;
+                    }
+                    AutoQiqiClient.recordModEngagement();
+                    simulateSendOutKey(client);
+                    keySimulated = true;
+                    keySimulatedAtTick = aimTicks;
+                }
+
+                if (keySimulated && aimTicks >= keySimulatedAtTick + AIM_TICKS_AFTER_PRESS) {
+                    cooldown = ENGAGE_COOLDOWN;
+                    target = null;
+                    pendingForceTarget = null;
                     aimTicks = 0;
                     keySimulated = false;
-                } else {
-                    if (losStrafeTicks > 0) {
-                        MovementHelper.stopStrafe(client);
-                        losStrafeTicks = 0;
-                    }
-
-                    snapLookAtEntity(player, target);
-                    aimTicks++;
-
-                    if (!keySimulated && aimTicks >= AIM_TICKS_BEFORE_PRESS) {
-                        boolean onTarget = isCrosshairOnTarget(client, target);
-                        if (!onTarget && aimTicks < AIM_TICKS_BEFORE_PRESS + 20) {
-                            if ((aimTicks - AIM_TICKS_BEFORE_PRESS) % 5 == 0) {
-                                aimOffsetIndex = (aimOffsetIndex + 1) % AIM_HEIGHT_FRACTIONS.length;
-                            }
-                            return;
-                        }
-                        lastFightWasBoss = PokemonScanner.isBoss(target);
-                        lastEngagedEntityId = target.getId();
-                        AutoQiqiClient.recordModEngagement();
-                        simulateSendOutKey(client);
-                        keySimulated = true;
-                        keySimulatedAtTick = aimTicks;
-                    }
-
-                    if (keySimulated && aimTicks >= keySimulatedAtTick + AIM_TICKS_AFTER_PRESS) {
-                        cooldown = ENGAGE_COOLDOWN;
-                        target = null;
-                        targetForCapture = false;
-                        aimTicks = 0;
-                        keySimulated = false;
-                        aimOffsetIndex = 0;
-                    }
+                    aimOffsetIndex = 0;
                 }
             }
         } else {
@@ -729,10 +810,9 @@ public class AutoBattleEngine {
                 if (berserkEngageTicks >= BERSERK_ENGAGE_TIMEOUT) {
                     AutoQiqiClient.logDebug("Battle", "Berserk engage timeout (" + (BERSERK_ENGAGE_TIMEOUT / 20)
                             + "s) — skipping " + PokemonScanner.getDisplayInfo(target));
-                    engageBlacklist.put(target.getId(), Long.MAX_VALUE);
+                    engageBlacklist.put(target.getId(), globalTickCounter + BLACKLIST_DURATION_TICKS * 10);
                     if (walking) stopWalking();
                     target = null;
-                    targetForCapture = false;
                     berserkEngageTicks = 0;
                     scanTimer = 0;
                     return;
@@ -748,7 +828,6 @@ public class AutoBattleEngine {
                     engageBlacklist.put(target.getId(), globalTickCounter + BLACKLIST_DURATION_TICKS);
                     if (walking) stopWalking();
                     target = null;
-                    targetForCapture = false;
                     roamingEngageTicks = 0;
                     scanTimer = 0;
                     return;
@@ -760,35 +839,6 @@ public class AutoBattleEngine {
         } finally {
         wasCaptureActiveLastTick = CaptureEngine.get().isActive();
         }
-    }
-
-    private void engageForCapture(MinecraftClient client, ClientPlayerEntity player) {
-        String name = PokemonScanner.getPokemonName(target);
-        int level = PokemonScanner.getPokemonLevel(target);
-        boolean legendary = PokemonScanner.isLegendary(target);
-
-        if (CaptureEngine.isRecentlyFailed(name)) {
-            AutoQiqiClient.logDebug("Battle", "Skipping " + name + " - recently failed capture (cooldown)");
-            player.sendMessage(Text.literal("§6[Roaming]§r §c" + name + " a echappe recemment, attente avant reessai."), false);
-            target = null;
-            targetForCapture = false;
-            aimTicks = 0;
-            keySimulated = false;
-            return;
-        }
-
-        AutoQiqiClient.logDebug("Battle", "Handing off to CaptureEngine: " + name + " Lv." + level);
-        player.sendMessage(Text.literal(
-                "§6[Roaming]§r §bCapture auto: §e" + name + " Lv." + level
-                        + (legendary ? " §d[LEG]" : "")), false);
-
-        CaptureEngine.get().start(name, level, legendary, target);
-        PokemonWalker.get().startWalking(target);
-
-        target = null;
-        targetForCapture = false;
-        aimTicks = 0;
-        keySimulated = false;
     }
 
     private void snapLookAtEntity(ClientPlayerEntity player, Entity target) {
@@ -1027,118 +1077,46 @@ public class AutoBattleEngine {
                 if (best == null) best = e;
             }
         }
-        targetForCapture = false;
         return best;
     }
 
     /**
-     * ROAMING priority: boss (kill) > uncaught non-boss (capture) > uncaught legendary in legendaryKillWhitelist (kill) > uncaught legendary (capture) > caught legendary in whitelist (kill) > caught legendary not in whitelist (recapture) > whitelisted (kill).
-     * Bosses are ALWAYS targeted for kill (they cannot be captured in Cobblemon).
-     * Non-boss uncaught Pokemon are targeted for capture when canCapture is true.
-     * Uncaught legendaries in legendaryKillWhitelist are killed; other uncaught legendaries are captured.
-     * Caught legendaries in battleTargetWhitelist are killed; caught legendaries not in the whitelist are recaptured.
+     * ROAMING (LEG_ONLY, engage-only): pick the nearest legendary (uncaught preferred).
+     * Only legendaries are engaged — bosses and non-legendaries are ignored.
+     * In-battle decisions (fight / switch / capture) are left to the user.
      */
     private Entity findRoamingTarget(java.util.List<Entity> sortedCandidates, java.util.List<String> whitelist) {
-        boolean legOnly = "LEG_ONLY".equalsIgnoreCase(AutoQiqiConfig.get().roamingFlavor);
-        boolean canCapture = AutoQiqiClient.canRoamCapture();
-        java.util.List<String> legendaryKillList = AutoQiqiConfig.get().legendaryKillWhitelist;
-        Entity bestUncaught = null;
         Entity bestUncaughtLegendary = null;
-        Entity bestUncaughtLegendaryKill = null;  // uncaught legendary in legendaryKillWhitelist
-        Entity bestBoss = null;
-        Entity bestWhitelisted = null;
-        Entity bestCaughtLegendaryKill = null;   // caught legendary in whitelist
-        Entity bestCaughtLegendaryRecapture = null;  // caught legendary not in whitelist
-        int uncaughtCount = 0, bossCount = 0, whitelistedCount = 0, caughtCount = 0, caughtLegKillCount = 0, caughtLegRecapCount = 0, uncaughtLegKillCount = 0;
+        Entity bestCaughtLegendary = null;
+        int uncaughtLegCount = 0, caughtLegCount = 0;
 
         for (Entity e : sortedCandidates) {
-            boolean uncaught = !PokemonScanner.isSpeciesCaught(e);
-            boolean boss = PokemonScanner.isBoss(e);
-            boolean whitelisted = isWhitelisted(e, whitelist);
             boolean legendary = PokemonScanner.isLegendary(e);
-            boolean inLegendaryKillList = isInLegendaryKillWhitelist(e, legendaryKillList);
+            boolean boss = PokemonScanner.isBoss(e);
+            if (!legendary || boss) continue;
 
-            if (uncaught) uncaughtCount++;
-            else caughtCount++;
-            if (boss) bossCount++;
-            if (whitelisted) whitelistedCount++;
-
-            // LEG_ONLY: skip bosses, uncaught non-legendaries, and whitelisted non-legendaries
-            if (!legOnly && boss && bestBoss == null) {
-                bestBoss = e;
-            }
-            if (!legOnly && canCapture && uncaught && !boss && !legendary && bestUncaught == null) {
-                bestUncaught = e;
-            }
-            if (uncaught && !boss && legendary) {
-                if (inLegendaryKillList && bestUncaughtLegendaryKill == null) {
-                    uncaughtLegKillCount++;
-                    bestUncaughtLegendaryKill = e;
-                } else if (!inLegendaryKillList && bestUncaughtLegendary == null) {
-                    bestUncaughtLegendary = e;
-                }
-            }
-            if (!uncaught && legendary) {
-                if (inLegendaryKillList && bestCaughtLegendaryKill == null) {
-                    caughtLegKillCount++;
-                    bestCaughtLegendaryKill = e;
-                } else if (!inLegendaryKillList && bestCaughtLegendaryRecapture == null) {
-                    caughtLegRecapCount++;
-                    bestCaughtLegendaryRecapture = e;
-                }
-            }
-            if (!legOnly && whitelisted && bestWhitelisted == null && !uncaught) {
-                bestWhitelisted = e;
+            boolean uncaught = !PokemonScanner.isSpeciesCaught(e);
+            if (uncaught) {
+                uncaughtLegCount++;
+                if (bestUncaughtLegendary == null) bestUncaughtLegendary = e;
+            } else {
+                caughtLegCount++;
+                if (bestCaughtLegendary == null) bestCaughtLegendary = e;
             }
         }
 
-        if (uncaughtCount > 0 && !canCapture) {
-            AutoQiqiClient.logDebug("Battle", "Roaming: " + uncaughtCount + " uncaught but canCapture=false — skipping (won't kill uncaught)");
-        }
-        AutoQiqiClient.logDebug("Battle", "Roaming scan" + (legOnly ? " [LEG_ONLY]" : "") + ": " + sortedCandidates.size() + " candidates"
-                + " (uncaught=" + uncaughtCount + " caught=" + caughtCount
-                + " boss=" + bossCount + " whitelisted=" + whitelistedCount
-                + " uncaughtLegKill=" + uncaughtLegKillCount
-                + " caughtLegKill=" + caughtLegKillCount + " caughtLegRecap=" + caughtLegRecapCount
-                + " canCapture=" + canCapture + ")");
+        AutoQiqiClient.logDebug("Battle", "Roaming scan [LEG_ONLY, engage-only]: " + sortedCandidates.size() + " candidates"
+                + " (uncaughtLeg=" + uncaughtLegCount + " caughtLeg=" + caughtLegCount + ")");
 
-        if (bestBoss != null) {
-            targetForCapture = false;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> boss (kill) " + PokemonScanner.getDisplayInfo(bestBoss));
-            return bestBoss;
-        }
-        if (bestUncaught != null) {
-            targetForCapture = true;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught (capture) " + PokemonScanner.getDisplayInfo(bestUncaught));
-            return bestUncaught;
-        }
-        if (bestUncaughtLegendaryKill != null) {
-            targetForCapture = false;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught legendary in kill whitelist (kill) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendaryKill));
-            return bestUncaughtLegendaryKill;
-        }
         if (bestUncaughtLegendary != null) {
-            targetForCapture = true;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught legendary (capture) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> uncaught legendary (engage) " + PokemonScanner.getDisplayInfo(bestUncaughtLegendary));
             return bestUncaughtLegendary;
         }
-        if (bestCaughtLegendaryKill != null) {
-            targetForCapture = false;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> caught legendary in kill whitelist (kill) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryKill));
-            return bestCaughtLegendaryKill;
-        }
-        if (bestCaughtLegendaryRecapture != null) {
-            targetForCapture = true;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> caught legendary not in kill whitelist (capture) " + PokemonScanner.getDisplayInfo(bestCaughtLegendaryRecapture));
-            return bestCaughtLegendaryRecapture;
-        }
-        if (bestWhitelisted != null) {
-            targetForCapture = false;
-            AutoQiqiClient.logDebug("Battle", "Roaming: -> whitelisted " + PokemonScanner.getDisplayInfo(bestWhitelisted));
-            return bestWhitelisted;
+        if (bestCaughtLegendary != null) {
+            AutoQiqiClient.logDebug("Battle", "Roaming: -> caught legendary (engage) " + PokemonScanner.getDisplayInfo(bestCaughtLegendary));
+            return bestCaughtLegendary;
         }
 
-        targetForCapture = false;
         return null;
     }
 
@@ -1146,15 +1124,6 @@ public class AutoBattleEngine {
         if (whitelist == null || whitelist.isEmpty()) return false;
         String name = PokemonScanner.getPokemonName(entity).toLowerCase();
         for (String entry : whitelist) {
-            if (name.contains(entry.toLowerCase())) return true;
-        }
-        return false;
-    }
-
-    private boolean isInLegendaryKillWhitelist(Entity entity, java.util.List<String> legendaryKillWhitelist) {
-        if (legendaryKillWhitelist == null || legendaryKillWhitelist.isEmpty()) return false;
-        String name = PokemonScanner.getPokemonName(entity).toLowerCase();
-        for (String entry : legendaryKillWhitelist) {
             if (name.contains(entry.toLowerCase())) return true;
         }
         return false;

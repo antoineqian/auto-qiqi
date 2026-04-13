@@ -16,6 +16,12 @@ public class PokemonScanner {
     private List<Entity> lastScanResults = new ArrayList<>();
     private List<Entity> manualScanResults = new ArrayList<>();
 
+    /** Releases entity references. Called by /pk reset. */
+    public void clearCaches() {
+        lastScanResults = Collections.emptyList();
+        manualScanResults = Collections.emptyList();
+    }
+
     private PokemonScanner() {}
 
     public static PokemonScanner get() {
@@ -110,10 +116,38 @@ public class PokemonScanner {
     public static String getPokemonName(Entity entity) {
         if (entity instanceof PokemonEntity pe) {
             try {
-                return pe.getPokemon().getSpecies().getTranslatedName().getString();
+                var pokemon = pe.getPokemon();
+                String baseName = pokemon.getSpecies().getTranslatedName().getString();
+                String formName = pokemon.getForm().getName();
+                // Default/standard form has name "Normal" or matches species — skip prefix
+                if (!formName.isEmpty()
+                        && !formName.equalsIgnoreCase("Normal")
+                        && !formName.equalsIgnoreCase("Standard")
+                        && !formName.equalsIgnoreCase(pokemon.getSpecies().getName())) {
+                    return formName + " " + baseName;
+                }
+                return baseName;
             } catch (Exception ignored) {}
         }
         return entity.getDisplayName().getString();
+    }
+
+    /**
+     * Returns the form name (e.g. "Hisuian", "Galarian", "Alolan") or empty string if default.
+     */
+    public static String getFormName(Entity entity) {
+        if (entity instanceof PokemonEntity pe) {
+            try {
+                String formName = pe.getPokemon().getForm().getName();
+                if (!formName.isEmpty()
+                        && !formName.equalsIgnoreCase("Normal")
+                        && !formName.equalsIgnoreCase("Standard")
+                        && !formName.equalsIgnoreCase(pe.getPokemon().getSpecies().getName())) {
+                    return formName;
+                }
+            } catch (Exception ignored) {}
+        }
+        return "";
     }
 
     public static int getPokemonLevel(Entity entity) {
@@ -158,15 +192,55 @@ public class PokemonScanner {
     }
 
     public static boolean isInScanCaptureWhitelist(Entity entity) {
-        String name = getPokemonName(entity).toLowerCase();
+        String fullName = getPokemonName(entity).toLowerCase();
+        String form = getFormName(entity).toLowerCase();
         for (String entry : AutoQiqiConfig.get().scanCaptureWhitelist) {
-            if (entry.equalsIgnoreCase(name)) return true;
+            String e = entry.toLowerCase();
+            // Match full name ("Hisuian Growlithe"), form only ("Hisuian"), or base species
+            if (e.equals(fullName) || (!form.isEmpty() && e.equals(form))) return true;
+            // Also match base species name alone
+            if (entity instanceof PokemonEntity pe) {
+                try {
+                    if (e.equals(pe.getPokemon().getSpecies().getTranslatedName().getString().toLowerCase())) return true;
+                } catch (Exception ignored) {}
+            }
         }
         return false;
     }
 
     public static boolean isSpeciesCaught(Entity entity) {
         return "CAUGHT".equals(getPokedexStatus(entity));
+    }
+
+    /**
+     * True if the entity has an alternate form (Hisuian, Galarian, Alolan, etc.)
+     * and is NOT in the formCompleteIgnoreList.
+     */
+    public static boolean hasNotableAlternateForm(Entity entity) {
+        String form = getFormName(entity);
+        if (form.isEmpty()) {
+            // Default form — check if the species has known alternate forms by checking aspects
+            if (entity instanceof PokemonEntity pe) {
+                try {
+                    var aspects = pe.getPokemon().getAspects();
+                    boolean hasRegionalAspect = aspects.stream().anyMatch(a -> {
+                        String lower = a.toLowerCase();
+                        return lower.contains("hisui") || lower.contains("galar") || lower.contains("alola")
+                                || lower.contains("paldea");
+                    });
+                    if (hasRegionalAspect) form = "regional";
+                } catch (Exception ignored) {}
+            }
+            if (form.isEmpty()) return false;
+        }
+        // Check ignore list
+        String speciesName = entity instanceof PokemonEntity pe
+                ? pe.getPokemon().getSpecies().getTranslatedName().getString()
+                : getPokemonName(entity);
+        for (String ignored : AutoQiqiConfig.get().formCompleteIgnoreList) {
+            if (ignored.equalsIgnoreCase(speciesName) || ignored.equalsIgnoreCase(getPokemonName(entity))) return false;
+        }
+        return true;
     }
 
     public static int countUncaught(List<Entity> entities) {
@@ -223,6 +297,9 @@ public class PokemonScanner {
         if (isLegendary(entity)) {
             sb.append("§d[LEG] ");
         }
+        if (hasNotableAlternateForm(entity)) {
+            sb.append("§b[FORM] ");
+        }
         String status = getPokedexStatus(entity);
         boolean whitelisted = isInScanCaptureWhitelist(entity);
         if (whitelisted && "CAUGHT".equals(status)) {
@@ -260,6 +337,7 @@ public class PokemonScanner {
             log("  Legendary: " + pokemon.isLegendary());
             log("  Mythical: " + pokemon.isMythical());
             log("  UltraBeast: " + pokemon.isUltraBeast());
+            log("  Form: " + pokemon.getForm().getName());
             log("  Aspects: " + pokemon.getAspects());
             log("  Busy: " + pe.isBusy());
             log("  Owner: " + pe.getOwner());

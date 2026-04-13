@@ -9,8 +9,7 @@
     "BattleTargetSelectionMixin",
     "BattleSwitchPokemonSelectionMixin",
     "ChatHudMixin",
-    "ClientPlayNetworkHandlerMixin",
-    "FishHookEntityMixin"
+    "ClientPlayNetworkHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -8,23 +8,14 @@ import com.cobblemoon.autoqiqi.legendary.PokemonWalker;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class AutoQiqiConfigScreen extends Screen {
 
     private BattleMode selectedMode;
     private ButtonWidget modeButton;
-    private final List<WorldRow> worldRows = new ArrayList<>();
-    private int scrollOffset = 0;
-    private int maxScroll = 0;
-
-    private static final int ROW_HEIGHT = 28;
-    private static final int TOP_MARGIN = 60;
-    private static final int BOTTOM_MARGIN = 40;
+    private ButtonWidget autoHomesButton;
+    private ButtonWidget tpaAltButton;
 
     public AutoQiqiConfigScreen() {
         super(Text.literal("Auto-Qiqi Configuration"));
@@ -34,7 +25,6 @@ public class AutoQiqiConfigScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        worldRows.clear();
 
         modeButton = ButtonWidget.builder(
                 Text.literal("Mode: " + selectedMode.displayName()),
@@ -43,32 +33,24 @@ public class AutoQiqiConfigScreen extends Screen {
         addDrawableChild(modeButton);
 
         AutoQiqiConfig config = AutoQiqiConfig.get();
-        List<String> worlds = config.worldNames;
 
-        for (int i = 0; i < worlds.size(); i++) {
-            String worldName = worlds.get(i);
-            String currentHome = config.getHomeCommand(worldName);
-            if (currentHome == null) currentHome = "";
+        autoHomesButton = ButtonWidget.builder(
+                Text.literal("Auto-Hop: " + autohopModeLabel(config.autohopMode)),
+                btn -> cycleAutoHopMode()
+        ).dimensions(width / 2 - 100, 54, 200, 20).build();
+        addDrawableChild(autoHomesButton);
 
-            int fieldY = TOP_MARGIN + 24 + i * ROW_HEIGHT;
-            TextFieldWidget field = new TextFieldWidget(
-                    textRenderer, width / 2, fieldY, 140, 18, Text.literal("home"));
-            field.setMaxLength(64);
-            field.setText(currentHome);
-            addDrawableChild(field);
-            worldRows.add(new WorldRow(worldName, field));
-        }
-
-        int contentHeight = TOP_MARGIN + 24 + worlds.size() * ROW_HEIGHT + BOTTOM_MARGIN;
-        maxScroll = Math.max(0, contentHeight - height);
+        tpaAltButton = ButtonWidget.builder(
+                Text.literal("TP Alt: " + (config.autohopTpaEnabled ? "ON" : "OFF")),
+                btn -> toggleTpaAlt()
+        ).dimensions(width / 2 - 100, 78, 200, 20).build();
+        addDrawableChild(tpaAltButton);
 
         ButtonWidget doneButton = ButtonWidget.builder(
                 Text.literal("Done"),
                 btn -> close()
         ).dimensions(width / 2 - 50, height - 28, 100, 20).build();
         addDrawableChild(doneButton);
-
-        updateScrollPositions();
     }
 
     private void cycleMode() {
@@ -93,67 +75,38 @@ public class AutoQiqiConfigScreen extends Screen {
                 "Battle mode: " + prev + " -> " + selectedMode + " (config screen)");
     }
 
+    private void cycleAutoHopMode() {
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        config.autohopMode = switch (config.autohopMode) {
+            case "auto" -> "all";
+            case "all" -> "off";
+            default -> "auto";
+        };
+        autoHomesButton.setMessage(Text.literal("Auto-Hop: " + autohopModeLabel(config.autohopMode)));
+        AutoQiqiConfig.save();
+        AutoQiqiClient.logDebug("Config", "autohopMode = " + config.autohopMode);
+    }
+
+    private static String autohopModeLabel(String mode) {
+        return switch (mode) {
+            case "auto" -> "auto* homes";
+            case "all" -> "all homes";
+            case "off" -> "OFF";
+            default -> mode;
+        };
+    }
+
+    private void toggleTpaAlt() {
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        config.autohopTpaEnabled = !config.autohopTpaEnabled;
+        tpaAltButton.setMessage(Text.literal("TP Alt: " + (config.autohopTpaEnabled ? "ON" : "OFF")));
+        AutoQiqiConfig.save();
+        AutoQiqiClient.logDebug("Config", "autohopTpaEnabled = " + config.autohopTpaEnabled);
+    }
+
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
-
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
-
-        for (int i = 0; i < worldRows.size(); i++) {
-            WorldRow row = worldRows.get(i);
-            int labelY = TOP_MARGIN + 24 + i * ROW_HEIGHT - scrollOffset + 5;
-            if (labelY < 24 || labelY > height - BOTTOM_MARGIN) continue;
-            int labelX = width / 2 - 160;
-            context.drawTextWithShadow(textRenderer, row.worldName, labelX, labelY, 0xFFFFAA);
-
-            int tagX = width / 2 + 145;
-            String homeText = row.field.getText().trim();
-            if (!homeText.isEmpty()) {
-                context.drawTextWithShadow(textRenderer, "/home", tagX, labelY, 0x88FF88);
-            }
-        }
     }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) (verticalAmount * 10)));
-        updateScrollPositions();
-        return true;
-    }
-
-    private void updateScrollPositions() {
-        for (int i = 0; i < worldRows.size(); i++) {
-            WorldRow row = worldRows.get(i);
-            int y = TOP_MARGIN + 24 + i * ROW_HEIGHT - scrollOffset;
-            row.field.setY(y);
-            boolean visible = y >= 24 && y + 18 <= height - BOTTOM_MARGIN;
-            row.field.visible = visible;
-            row.field.active = visible;
-        }
-    }
-
-    @Override
-    public void close() {
-        saveHomeSettings();
-        super.close();
-    }
-
-    private void saveHomeSettings() {
-        AutoQiqiConfig config = AutoQiqiConfig.get();
-
-        for (WorldRow row : worldRows) {
-            String homeValue = row.field.getText().trim();
-            String key = row.worldName.toLowerCase();
-            if (!homeValue.isEmpty()) {
-                config.homeWorlds.put(key, homeValue);
-            } else {
-                config.homeWorlds.remove(key);
-            }
-        }
-
-        AutoQiqiConfig.save();
-        AutoQiqiClient.logDebug("Config", "Saved home settings from config screen");
-    }
-
-    private record WorldRow(String worldName, TextFieldWidget field) {}
 }

@@ -100,6 +100,9 @@ public class CaptureEngine {
     /** Pokemon names that recently failed capture -> timestamp (ms). Prevents immediate retry after escape. */
     private static final Map<String, Long> recentlyFailedCaptures = new ConcurrentHashMap<>();
 
+    /** Clears accumulated capture caches. Called by /pk reset. */
+    public static void clearCaches() { recentlyFailedCaptures.clear(); }
+
     private static final BallEntry[] LOW_LEVEL_BALLS = {
             new BallEntry("premier_ball", 3),
             new BallEntry("slate_ball", 3),
@@ -257,6 +260,8 @@ public class CaptureEngine {
         String reason = s.totalBallsThrown == 0 ? "no balls thrown" : "escaped after " + s.totalBallsThrown + " balls";
         com.cobblemoon.autoqiqi.common.SessionLogger.get().logCaptureFailed(
                 s.targetName, s.targetLevel, s.targetIsLegendary, s.totalBallsThrown, reason);
+        // Re-enable auto-hop after legendary battle ended (killed/fled)
+        maybeScheduleAutoHopReEnable(s);
         session = null;
     }
 
@@ -273,7 +278,21 @@ public class CaptureEngine {
             client.player.sendMessage(
                     Text.literal("§6[Capture]§r §a§l" + pokemonName + " capture ! §7(balls: " + s.totalBallsThrown + ")"), false);
         }
+        // Re-enable auto-hop after legendary capture
+        maybeScheduleAutoHopReEnable(s);
         session = null;
+    }
+
+    /**
+     * Re-enable auto-hop after a legendary capture (any mode — auto-hop was disabled on spawn).
+     */
+    private void maybeScheduleAutoHopReEnable(CaptureSession s) {
+        if (s.targetIsLegendary
+                && com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().isDisabled()) {
+            int delay = AutoQiqiConfig.get().autohopReEnableDelaySeconds;
+            AutoQiqiClient.logDebug("Capture", "Legendary captured — scheduling auto-hop re-enable in " + delay + "s");
+            com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().scheduleReEnable(delay);
+        }
     }
 
     // ========================

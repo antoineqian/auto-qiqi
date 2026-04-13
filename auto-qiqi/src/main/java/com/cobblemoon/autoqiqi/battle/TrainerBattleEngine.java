@@ -66,7 +66,6 @@ public class TrainerBattleEngine {
         turnCount = 0;
         lastOpponentKey = "";
         attacksAgainstCurrentOpponent = 0;
-        BattleIntelData.get().invalidate();
     }
 
     /**
@@ -175,30 +174,18 @@ public class TrainerBattleEngine {
         String oppSpecies = getOpponentPokemonNameInternal();
         List<String> oppTypesForCalc = shouldCycleMoves(oppSpecies) ? List.of() : oppTypes;
 
-        // In Berserk mode: only use moves that kill the target for sure (account for 85% damage roll)
+        // In Berserk mode: prefer highest-raw-damage moves using same heuristic (power * eff * stab)
+        // No damage calculator needed — just pick the strongest hit
         if (AutoQiqiClient.getBattleMode() == BattleMode.BERSERK) {
-            int oppCurrentHp = getOpponentCurrentHp();
-            Pokemon active = getActivePokemonFromParty(getActivePokemonNameInternal());
-            ClientBattlePokemon opp = getOpponentBattlePokemon();
-            if (active != null && opp != null && oppCurrentHp > 0) {
-                List<MoveTile> guaranteedKo = new ArrayList<>();
-                for (MoveTile tile : tiles) {
-                    if (getMoveCurrentPp(tile) == 0) continue;
-                    MoveTemplate tpl = lookupMoveTemplate(tile.getMove().getMove());
-                    if (tpl == null || tpl.getPower() <= 0) continue;
-                    DamageCalculator.DamageRange range = DamageCalculator.computeMoveDamage(
-                            active, opp, tpl, oppTypesForCalc, myTypes, oppSpecies);
-                    if (range != null && range.isValid() && range.minDamage() >= oppCurrentHp) {
-                        guaranteedKo.add(tile);
-                    }
-                }
-                if (!guaranteedKo.isEmpty()) {
-                    AutoQiqiClient.logDebug("Trainer", "Berserk: " + guaranteedKo.size()
-                            + " move(s) guarantee KO (opp HP=" + oppCurrentHp + "), restricting to those");
-                    tiles = guaranteedKo;
-                } else {
-                    AutoQiqiClient.logDebug("Trainer", "Berserk: no move guarantees KO (opp HP=" + oppCurrentHp + "), using best damage");
-                }
+            List<MoveTile> damaging = new ArrayList<>();
+            for (MoveTile tile : tiles) {
+                if (getMoveCurrentPp(tile) == 0) continue;
+                MoveInfo info = lookupMove(tile.getMove().getMove());
+                if (info != null && info.power() > 0) damaging.add(tile);
+            }
+            if (!damaging.isEmpty()) {
+                tiles = damaging;
+                AutoQiqiClient.logDebug("Trainer", "Berserk: restricted to " + damaging.size() + " damaging move(s)");
             }
         }
 
@@ -351,7 +338,7 @@ public class TrainerBattleEngine {
             }
 
             // Speed: reward being faster with strong offense; penalize being slower under threat
-            int candidateSpeed = DamageCalculator.getStat(pokemon, DamageCalculator.Stat.SPEED);
+            int candidateSpeed = getSpeed(pokemon);
             boolean isFaster = candidateSpeed > oppSpeed;
             boolean hasSuperEffective = offensive > 150; // power*eff*stab threshold for strong hit
 
@@ -597,7 +584,20 @@ public class TrainerBattleEngine {
     private int getOpponentSpeed() {
         ClientBattlePokemon bp = getOpponentBattlePokemon();
         if (bp == null) return 100; // fallback
-        return DamageCalculator.getStat(bp, DamageCalculator.Stat.SPEED);
+        try {
+            Object pokemon = bp.getClass().getMethod("getPokemon").invoke(bp);
+            if (pokemon instanceof Pokemon p) return Math.max(1, getSpeed(p));
+        } catch (Exception ignored) {}
+        return 100;
+    }
+
+    /** Get speed stat from a Pokemon. */
+    private static int getSpeed(Pokemon p) {
+        try {
+            Object v = p.getClass().getMethod("getSpeed").invoke(p);
+            if (v instanceof Number n) return Math.max(1, n.intValue());
+        } catch (Exception ignored) {}
+        return 100;
     }
 
     /** Opponent's current HP (for Berserk guaranteed-KO check). */
@@ -712,181 +712,6 @@ public class TrainerBattleEngine {
             if (max <= 0) return 100f;
             return (float) current / max * 100f;
         } catch (Exception e) { return 100f; }
-    }
-
-    // ========================
-    // Battle Advisor (passive HUD, works in any battle)
-    // ========================
-
-    public record AdvisorInfo(
-            String opponentName,
-            String opponentTypesDisplay,
-            String currentName,
-            double currentScore,
-            String bestName,
-            String bestTypesDisplay,
-            double bestScore,
-            double bestEffectiveness,
-            boolean hasBetterOption,
-            String damageRangePercent,
-            String bestMoveName,
-            boolean adviseSwitchAfterAttacks
-    ) {}
-
-    private String advisorCacheKey = "";
-    private AdvisorInfo cachedAdvisor = null;
-    private long advisorCacheTimeMs = 0;
-    private static final long ADVISOR_CACHE_TTL_MS = 500;
-
-    /**
-     * Returns advisor info for the current battle, or null if not in battle.
-     * Cached to avoid recomputing every render frame.
-     */
-    public AdvisorInfo getAdvisorInfo() {
-        long now = System.currentTimeMillis();
-        if (now - advisorCacheTimeMs < ADVISOR_CACHE_TTL_MS && cachedAdvisor != null) {
-            return cachedAdvisor;
-        }
-
-        try {
-            ClientBattle battle = CobblemonClient.INSTANCE.getBattle();
-            if (battle == null) {
-                cachedAdvisor = null;
-                advisorCacheTimeMs = now;
-                return null;
-            }
-
-            String oppDisplay = getOpponentPokemonName();
-            String myDisplay = getActivePokemonName();
-            String cacheKey = getOpponentPokemonNameInternal() + "|" + getActivePokemonNameInternal();
-
-            if (cacheKey.equals(advisorCacheKey) && cachedAdvisor != null) {
-                advisorCacheTimeMs = now;
-                return cachedAdvisor;
-            }
-
-            cachedAdvisor = computeAdvisor(oppDisplay, myDisplay, getActivePokemonNameInternal());
-            advisorCacheKey = cacheKey;
-            advisorCacheTimeMs = now;
-            return cachedAdvisor;
-        } catch (Exception e) {
-            cachedAdvisor = null;
-            advisorCacheTimeMs = now;
-            return null;
-        }
-    }
-
-    /** Force cache refresh (e.g. when opponent switches). */
-    public void invalidateAdvisorCache() {
-        advisorCacheKey = "";
-        cachedAdvisor = null;
-    }
-
-    private AdvisorInfo computeAdvisor(String oppDisplay, String activeDisplay, String activeNameInternal) {
-        List<String> oppTypes = getOpponentTypes();
-        if (oppTypes.isEmpty()) return null;
-        String oppSpecies = getOpponentPokemonNameInternal();
-
-        var party = CobblemonClient.INSTANCE.getStorage().getParty();
-        if (party == null) return null;
-
-        String bestNameDisplay = null;
-        com.cobblemon.mod.common.pokemon.Species bestSpecies = null;
-        List<String> bestTypes = List.of();
-        double bestScore = -1;
-        double bestEff = 1.0;
-        double activeScore = -1;
-
-        @SuppressWarnings("unchecked")
-        java.util.List<Pokemon> slots;
-        try {
-            Object partyObj = (Object) party;
-            slots = (java.util.List<Pokemon>) partyObj.getClass().getMethod("getSlots").invoke(partyObj);
-        } catch (Exception e) {
-            return null;
-        }
-        for (Pokemon p : slots) {
-            if (p == null) continue;
-            if (p.getCurrentHealth() <= 0) continue;
-
-            List<String> pTypes = extractTypes(p);
-            double offensive = evaluateOffensivePotential(p, oppTypes, oppSpecies);
-            double oppEffAgainstMe = TypeChart.getBestStabEffectiveness(oppTypes, pTypes);
-            double defensive = 1.0 / Math.max(0.25, oppEffAgainstMe);
-            float hpPct = getPokemonHpPercent(p);
-            double hpFactor = hpPct > 0 ? hpPct / 100.0 : 1.0;
-
-            double score = (offensive + defensive * 50.0) * hpFactor;
-
-            String nameInternal = p.getSpecies().getName();
-            if (nameInternal.equalsIgnoreCase(activeNameInternal)) {
-                activeScore = score;
-            }
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestNameDisplay = getSpeciesDisplayName(p.getSpecies());
-                bestSpecies = p.getSpecies();
-                bestTypes = pTypes;
-                bestEff = TypeChart.getBestStabEffectiveness(pTypes, oppTypes, oppSpecies);
-            }
-        }
-
-        if (bestNameDisplay == null || bestSpecies == null) return null;
-
-        // Advise switch only when current is fainted or has only ineffective moves (no "better matchup" suggestion)
-        boolean activeIsFainted = (activeScore < 0);
-        boolean isSamePokemon = bestSpecies.getName().equalsIgnoreCase(activeNameInternal);
-        Pokemon activePokemonForAdvice = getActivePokemonFromParty(activeNameInternal);
-        boolean currentHasOnlyIneffective = activePokemonForAdvice != null
-                && !hasEffectiveMoveAgainst(activePokemonForAdvice, oppTypes, oppSpecies);
-        boolean hasBetter = activeIsFainted
-                || (currentHasOnlyIneffective && !isSamePokemon && bestScore > 0);
-
-        // Official damage range (% of opponent's HP) and name for current active's best move
-        String damageRangePercent = null;
-        String bestMoveName = null;
-        Pokemon activePokemon = activePokemonForAdvice;
-        ClientBattlePokemon opponentBp = getOpponentBattlePokemon();
-        List<String> oppTypesForAdvice = shouldCycleMoves(oppSpecies) ? List.of() : oppTypes;
-        if (activePokemon != null && opponentBp != null) {
-            DamageCalculator.DamageRange range = DamageCalculator.computeBestMoveDamage(
-                    activePokemon, opponentBp, oppTypesForAdvice, getActiveTypes(), oppSpecies);
-            if (range != null && range.isValid()) {
-                damageRangePercent = range.formatPercentRange();
-                if (range.moveName() != null && !range.moveName().isEmpty()) {
-                    bestMoveName = range.moveName();
-                }
-            }
-        }
-
-        boolean adviseSwitch = attacksAgainstCurrentOpponent >= ATTACKS_BEFORE_SWITCH_ADVICE;
-
-        return new AdvisorInfo(
-                oppDisplay,
-                formatTypes(oppTypes),
-                activeDisplay,
-                activeScore,
-                bestNameDisplay,
-                formatTypes(bestTypes),
-                bestScore,
-                bestEff,
-                hasBetter,
-                damageRangePercent,
-                bestMoveName,
-                adviseSwitch
-        );
-    }
-
-    private static String formatTypes(List<String> types) {
-        if (types.isEmpty()) return "?";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < types.size(); i++) {
-            if (i > 0) sb.append("/");
-            String t = types.get(i);
-            sb.append(Character.toUpperCase(t.charAt(0))).append(t.substring(1));
-        }
-        return sb.toString();
     }
 
     private static String f(double v) { return String.format("%.1f", v); }

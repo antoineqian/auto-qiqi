@@ -39,14 +39,13 @@ public class AutoReconnectEngine {
         WAIT_LOBBY_GUI,
         CLICK_GUI_ITEM,
         WAIT_SPAWN,
-        SEND_HOME,
-        WAIT_AFTER_HOME,
         COOLDOWN
     }
 
     private Phase phase = Phase.DISABLED;
     private long phaseStartMs = 0;
     private int consecutiveFailures = 0;
+
 
     private int lobbyGuiTicksSinceOpen = 0;
     private boolean lobbyGuiItemsDetected = false;
@@ -74,6 +73,7 @@ public class AutoReconnectEngine {
             SessionLogger.get().logInfo("Auto-reconnect enabled");
         }
     }
+
 
     public void disable() {
         phase = Phase.DISABLED;
@@ -109,8 +109,6 @@ public class AutoReconnectEngine {
             case WAIT_LOBBY_GUI -> tickWaitLobbyGui(client);
             case CLICK_GUI_ITEM -> tickClickGuiItem(client);
             case WAIT_SPAWN -> tickWaitSpawn(client);
-            case SEND_HOME -> tickSendHome(client);
-            case WAIT_AFTER_HOME -> tickWaitAfterHome(client);
             case COOLDOWN -> tickCooldown();
             default -> {}
         }
@@ -410,12 +408,6 @@ public class AutoReconnectEngine {
         if (client.player != null && client.world != null && client.currentScreen == null) {
             long elapsed = System.currentTimeMillis() - phaseStartMs;
             if (elapsed >= 2_000) {
-                String home = AutoQiqiConfig.get().reconnectHome;
-                if (home != null && !home.isBlank()) {
-                    AutoQiqiClient.logDebug("Reconnect", "In world 2s, sending /home " + home);
-                    transition(Phase.SEND_HOME);
-                    return;
-                }
                 onSuccess(client);
                 return;
             }
@@ -429,43 +421,6 @@ public class AutoReconnectEngine {
         }
 
         checkTimeout(Phase.MONITORING, "wait for spawn");
-    }
-
-    // --- Phase: SEND_HOME ---
-
-    private void tickSendHome(MinecraftClient client) {
-        if (client.player == null || client.world == null || client.player.networkHandler == null) {
-            onFailure("no player/connection when sending /home");
-            return;
-        }
-        String home = AutoQiqiConfig.get().reconnectHome;
-        if (home == null || home.isBlank()) {
-            onSuccess(client);
-            return;
-        }
-        String cmd = "/home " + home.trim();
-        AutoQiqiClient.logDebug("Reconnect", "Sending " + cmd);
-        SessionLogger.get().logEvent("AUTO_RECONNECT", "Send /home " + home.trim());
-        client.player.networkHandler.sendChatMessage(cmd);
-        transition(Phase.WAIT_AFTER_HOME);
-    }
-
-    // --- Phase: WAIT_AFTER_HOME ---
-
-    private void tickWaitAfterHome(MinecraftClient client) {
-        if (client.player == null || client.world == null) {
-            long elapsed = System.currentTimeMillis() - phaseStartMs;
-            if (elapsed >= PHASE_TIMEOUT_MS) {
-                onFailure("lost connection during /home wait");
-            }
-            return;
-        }
-        long warmupMs = AutoQiqiConfig.get().homeTeleportWarmupSeconds * 1000L;
-        long elapsed = System.currentTimeMillis() - phaseStartMs;
-        if (elapsed >= warmupMs) {
-            AutoQiqiClient.logDebug("Reconnect", "/home warmup done, reconnect complete");
-            onSuccess(client);
-        }
     }
 
     // --- Helpers ---
@@ -510,10 +465,6 @@ public class AutoReconnectEngine {
         consecutiveFailures = 0;
         resetLobbyGui();
         transition(Phase.MONITORING);
-        // Same as when qiqi timer hits 1 min: resume/toggle legendary and optionally open world menu
-        if (client != null) {
-            AutoQiqiClient.invokeNextlegOneMinuteAction(client);
-        }
     }
 
     private void onFailure(String reason) {
