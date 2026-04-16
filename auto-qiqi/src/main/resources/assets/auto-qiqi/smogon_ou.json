@@ -1,0 +1,8623 @@
+{
+  "meta": {
+    "metagame": "gen9ou",
+    "month": 1825,
+    "battles": 1289120
+  },
+  "pokemon": {
+    "greattusk": {
+      "name": "Great Tusk",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "rapidspin": 21.7,
+        "headlongrush": 21.3,
+        "icespinner": 20.2,
+        "stealthrock": 10.0,
+        "closecombat": 8.1,
+        "bulkup": 4.9
+      },
+      "items": {
+        "boosterenergy": 27.8,
+        "rockyhelmet": 22.5,
+        "heavydutyboots": 20.8,
+        "leftovers": 9.3
+      },
+      "abilities": {
+        "protosynthesis": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Dragonite",
+        "Gholdengo",
+        "Kyurem",
+        "Slowking-Galar",
+        "Hatterene"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "kingambit": {
+      "name": "Kingambit",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "suckerpunch": 25.0,
+        "swordsdance": 24.8,
+        "ironhead": 20.6,
+        "kowtowcleave": 17.9,
+        "lowkick": 8.2,
+        "terablast": 3.0
+      },
+      "items": {
+        "leftovers": 55.7,
+        "airballoon": 18.8,
+        "blackglasses": 13.2,
+        "lumberry": 6.7
+      },
+      "abilities": {
+        "supremeoverlord": 99.6,
+        "defiant": 0.4,
+        "pressure": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Kyurem",
+        "Ogerpon-Wellspring",
+        "Iron Valiant",
+        "Landorus-Therian",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "gholdengo": {
+      "name": "Gholdengo",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "makeitrain": 20.8,
+        "shadowball": 20.0,
+        "recover": 17.0,
+        "nastyplot": 11.7,
+        "trick": 10.2,
+        "focusblast": 5.0
+      },
+      "items": {
+        "choicescarf": 39.5,
+        "airballoon": 33.4,
+        "grassyseed": 5.5,
+        "metalcoat": 4.2
+      },
+      "abilities": {
+        "goodasgold": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 196,
+          "spa": 0,
+          "spd": 0,
+          "spe": 60
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Zamazenta",
+        "Great Tusk",
+        "Ting-Lu",
+        "Samurott-Hisui",
+        "Ogerpon-Wellspring"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "dragonite": {
+      "name": "Dragonite",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "earthquake": 20.0,
+        "dragondance": 17.8,
+        "extremespeed": 14.7,
+        "roost": 14.2,
+        "icespinner": 7.6,
+        "terablast": 6.5
+      },
+      "items": {
+        "heavydutyboots": 61.3,
+        "leftovers": 9.2,
+        "choiceband": 6.3,
+        "loadeddice": 4.4
+      },
+      "abilities": {
+        "multiscale": 99.8,
+        "innerfocus": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Great Tusk",
+        "Zamazenta",
+        "Ting-Lu",
+        "Iron Valiant",
+        "Darkrai"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "dragapult": {
+      "name": "Dragapult",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "uturn": 16.6,
+        "dragondarts": 16.5,
+        "willowisp": 16.1,
+        "hex": 12.4,
+        "dracometeor": 9.7,
+        "shadowball": 6.4
+      },
+      "items": {
+        "heavydutyboots": 35.0,
+        "choiceband": 21.8,
+        "choicespecs": 18.8,
+        "leftovers": 5.3
+      },
+      "abilities": {
+        "infiltrator": 68.1,
+        "clearbody": 31.7,
+        "cursedbody": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 4,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Ting-Lu",
+        "Corviknight",
+        "Gliscor",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "ironvaliant": {
+      "name": "Iron Valiant",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "moonblast": 21.3,
+        "knockoff": 10.8,
+        "shadowball": 10.6,
+        "calmmind": 9.4,
+        "encore": 9.2,
+        "closecombat": 9.0
+      },
+      "items": {
+        "boosterenergy": 72.2,
+        "choicespecs": 15.7,
+        "heavydutyboots": 4.6,
+        "choicescarf": 4.0
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 4,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Dragonite",
+        "Kyurem",
+        "Great Tusk",
+        "Deoxys-Speed",
+        "Ogerpon-Wellspring"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "corviknight": {
+      "name": "Corviknight",
+      "roles": [
+        "SETUP",
+        "HAZARD_REMOVAL",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "roost": 25.0,
+        "defog": 19.3,
+        "uturn": 14.9,
+        "bravebird": 13.1,
+        "bodypress": 11.7,
+        "irondefense": 10.5
+      },
+      "items": {
+        "rockyhelmet": 55.6,
+        "leftovers": 33.4,
+        "covertcloak": 6.2,
+        "heavydutyboots": 4.3
+      },
+      "abilities": {
+        "pressure": 98.1,
+        "mirrorarmor": 1.9,
+        "unnerve": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 8,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 60,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 196
+        }
+      ],
+      "teammates": [
+        "Dondozo",
+        "Gliscor",
+        "Ting-Lu",
+        "Clodsire",
+        "Toxapex",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 0
+      }
+    },
+    "ogerponwellspring": {
+      "name": "Ogerpon-Wellspring",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "ivycudgel": 25.0,
+        "swordsdance": 12.0,
+        "knockoff": 10.8,
+        "playrough": 9.9,
+        "powerwhip": 8.8,
+        "taunt": 6.4
+      },
+      "items": {
+        "wellspringmask": 100.0
+      },
+      "abilities": {
+        "waterabsorb": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Zamazenta",
+        "Great Tusk",
+        "Gholdengo",
+        "Iron Moth",
+        "Dragonite"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "gliscor": {
+      "name": "Gliscor",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "protect": 23.8,
+        "knockoff": 17.0,
+        "earthquake": 14.4,
+        "toxic": 12.0,
+        "swordsdance": 9.7,
+        "facade": 7.7
+      },
+      "items": {
+        "toxicorb": 100.0,
+        "focussash": 0.0,
+        "leftovers": 0.0,
+        "yacheberry": 0.0
+      },
+      "abilities": {
+        "poisonheal": 100.0,
+        "hypercutter": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 244,
+          "atk": 0,
+          "def": 36,
+          "spa": 0,
+          "spd": 228,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 244,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 168,
+          "spe": 96
+        }
+      ],
+      "teammates": [
+        "Blissey",
+        "Zamazenta",
+        "Dondozo",
+        "Corviknight",
+        "Clefable",
+        "Toxapex"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 0
+      }
+    },
+    "ragingbolt": {
+      "name": "Raging Bolt",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "thunderclap": 24.4,
+        "thunderbolt": 19.6,
+        "dragonpulse": 17.6,
+        "calmmind": 14.8,
+        "dracometeor": 7.4,
+        "voltswitch": 5.2
+      },
+      "items": {
+        "boosterenergy": 54.0,
+        "heavydutyboots": 12.1,
+        "choicespecs": 11.3,
+        "leftovers": 10.0
+      },
+      "abilities": {
+        "protosynthesis": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 252,
+          "spd": 0,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Gholdengo",
+        "Ogerpon-Wellspring",
+        "Dragonite",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "slowkinggalar": {
+      "name": "Slowking-Galar",
+      "roles": [
+        "PIVOT"
+      ],
+      "moves": {
+        "sludgebomb": 23.2,
+        "chillyreception": 17.4,
+        "futuresight": 14.5,
+        "icebeam": 10.9,
+        "flamethrower": 9.6,
+        "psyshock": 5.9
+      },
+      "items": {
+        "heavydutyboots": 40.3,
+        "assaultvest": 29.8,
+        "shucaberry": 10.3,
+        "colburberry": 8.6
+      },
+      "abilities": {
+        "regenerator": 100.0,
+        "curiousmedicine": 0.0,
+        "owntempo": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Quiet",
+          "hp": 252,
+          "atk": 0,
+          "def": 16,
+          "spa": 68,
+          "spd": 172,
+          "spe": 0
+        },
+        {
+          "nature": "Sassy",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Kingambit",
+        "Cinderace",
+        "Kyurem",
+        "Corviknight",
+        "Ting-Lu"
+      ],
+      "speed": {
+        "nature": "Quiet",
+        "spe_ev": 0
+      }
+    },
+    "zamazenta": {
+      "name": "Zamazenta",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "crunch": 22.7,
+        "closecombat": 13.2,
+        "bodypress": 11.7,
+        "heavyslam": 11.6,
+        "irondefense": 11.1,
+        "icefang": 8.0
+      },
+      "items": {
+        "leftovers": 40.4,
+        "heavydutyboots": 29.4,
+        "lifeorb": 14.9,
+        "lightclay": 5.2
+      },
+      "abilities": {
+        "dauntlessshield": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Dragonite",
+        "Ting-Lu",
+        "Ogerpon-Wellspring",
+        "Gliscor",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "hatterene": {
+      "name": "Hatterene",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "psychicnoise": 18.9,
+        "drainingkiss": 18.2,
+        "nuzzle": 17.3,
+        "painsplit": 10.1,
+        "mysticalfire": 9.2,
+        "healingwish": 7.2
+      },
+      "items": {
+        "rockyhelmet": 27.0,
+        "assaultvest": 19.7,
+        "leftovers": 19.2,
+        "ejectbutton": 10.5
+      },
+      "abilities": {
+        "magicbounce": 99.9,
+        "healer": 0.1,
+        "anticipation": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 204,
+          "spa": 0,
+          "spd": 0,
+          "spe": 52
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 196,
+          "spa": 0,
+          "spd": 0,
+          "spe": 64
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Kingambit",
+        "Dragonite",
+        "Kyurem",
+        "Tornadus-Therian",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 52
+      }
+    },
+    "cinderace": {
+      "name": "Cinderace",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_REMOVAL",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "pyroball": 25.0,
+        "uturn": 23.0,
+        "courtchange": 21.7,
+        "willowisp": 13.9,
+        "suckerpunch": 5.8,
+        "gunkshot": 5.0
+      },
+      "items": {
+        "heavydutyboots": 90.3,
+        "choiceband": 4.2,
+        "focussash": 2.5,
+        "choicescarf": 1.0
+      },
+      "abilities": {
+        "blaze": 50.9,
+        "libero": 49.1
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 224,
+          "atk": 32,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Slowking-Galar",
+        "Kyurem",
+        "Kingambit",
+        "Great Tusk",
+        "Landorus-Therian",
+        "Corviknight"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "samurotthisui": {
+      "name": "Samurott-Hisui",
+      "roles": [
+        "PIVOT"
+      ],
+      "moves": {
+        "ceaselessedge": 25.0,
+        "knockoff": 18.9,
+        "suckerpunch": 17.3,
+        "razorshell": 13.9,
+        "flipturn": 7.8,
+        "aquacutter": 4.1
+      },
+      "items": {
+        "assaultvest": 55.5,
+        "heavydutyboots": 14.7,
+        "blackglasses": 12.9,
+        "focussash": 6.8
+      },
+      "abilities": {
+        "sharpness": 99.9,
+        "torrent": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Dragonite",
+        "Pecharunt",
+        "Zamazenta",
+        "Great Tusk",
+        "Landorus-Therian"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "glimmora": {
+      "name": "Glimmora",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "earthpower": 23.9,
+        "mortalspin": 23.1,
+        "stealthrock": 17.7,
+        "powergem": 12.3,
+        "meteorbeam": 9.2,
+        "spikes": 4.0
+      },
+      "items": {
+        "powerherb": 36.8,
+        "redcard": 36.1,
+        "focussash": 18.7,
+        "choicescarf": 5.9
+      },
+      "abilities": {
+        "toxicdebris": 99.7,
+        "corrosion": 0.3
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Ogerpon-Wellspring",
+        "Iron Valiant",
+        "Zamazenta",
+        "Dragonite",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "ceruledge": {
+      "name": "Ceruledge",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "swordsdance": 23.7,
+        "bitterblade": 23.6,
+        "poltergeist": 20.6,
+        "shadowsneak": 20.5,
+        "closecombat": 4.6,
+        "solarblade": 1.9
+      },
+      "items": {
+        "lifeorb": 34.7,
+        "focussash": 23.8,
+        "heavydutyboots": 18.2,
+        "airballoon": 17.6
+      },
+      "abilities": {
+        "weakarmor": 94.3,
+        "flashfire": 5.7
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Raging Bolt",
+        "Great Tusk",
+        "Ogerpon-Wellspring",
+        "Kingambit",
+        "Zamazenta",
+        "Deoxys-Speed"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "landorustherian": {
+      "name": "Landorus-Therian",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "PIVOT"
+      ],
+      "moves": {
+        "uturn": 23.5,
+        "stealthrock": 19.1,
+        "earthquake": 16.7,
+        "taunt": 13.7,
+        "earthpower": 8.9,
+        "stoneedge": 7.2
+      },
+      "items": {
+        "rockyhelmet": 68.4,
+        "choicescarf": 12.7,
+        "leftovers": 6.5,
+        "earthplate": 4.6
+      },
+      "abilities": {
+        "intimidate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Kyurem",
+        "Zamazenta",
+        "Iron Valiant",
+        "Cinderace",
+        "Ogerpon-Wellspring"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "alomomola": {
+      "name": "Alomomola",
+      "roles": [
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "flipturn": 24.8,
+        "wish": 16.2,
+        "protect": 15.8,
+        "mirrorcoat": 10.4,
+        "scald": 7.9,
+        "tickle": 7.1
+      },
+      "items": {
+        "assaultvest": 34.4,
+        "rockyhelmet": 31.0,
+        "heavydutyboots": 30.3,
+        "covertcloak": 1.3
+      },
+      "abilities": {
+        "regenerator": 99.9,
+        "healer": 0.1,
+        "hydration": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Relaxed",
+          "hp": 252,
+          "atk": 0,
+          "def": 236,
+          "spa": 0,
+          "spd": 20,
+          "spe": 0
+        },
+        {
+          "nature": "Sassy",
+          "hp": 20,
+          "atk": 0,
+          "def": 236,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Weezing-Galar",
+        "Great Tusk",
+        "Corviknight",
+        "Dragapult",
+        "Kyurem",
+        "Ting-Lu"
+      ],
+      "speed": {
+        "nature": "Relaxed",
+        "spe_ev": 0
+      }
+    },
+    "kyurem": {
+      "name": "Kyurem",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "earthpower": 21.1,
+        "freezedry": 20.8,
+        "icebeam": 11.8,
+        "substitute": 7.9,
+        "iciclespear": 7.2,
+        "dragondance": 6.6
+      },
+      "items": {
+        "loadeddice": 26.0,
+        "leftovers": 24.9,
+        "choicespecs": 20.3,
+        "assaultvest": 18.3
+      },
+      "abilities": {
+        "pressure": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Cinderace",
+        "Ting-Lu",
+        "Iron Valiant",
+        "Slowking-Galar"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "irontreads": {
+      "name": "Iron Treads",
+      "roles": [
+        "HAZARD_SETTER",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "rapidspin": 24.9,
+        "earthquake": 19.1,
+        "stealthrock": 19.0,
+        "knockoff": 11.7,
+        "icespinner": 11.1,
+        "earthpower": 4.6
+      },
+      "items": {
+        "leftovers": 38.6,
+        "boosterenergy": 27.1,
+        "airballoon": 12.8,
+        "earthplate": 4.1
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Pecharunt",
+        "Dragonite",
+        "Ogerpon-Wellspring",
+        "Kyurem",
+        "Gholdengo"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "pecharunt": {
+      "name": "Pecharunt",
+      "roles": [
+        "SETUP",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "recover": 24.1,
+        "malignantchain": 19.9,
+        "shadowball": 18.3,
+        "partingshot": 16.2,
+        "nastyplot": 8.5,
+        "foulplay": 5.4
+      },
+      "items": {
+        "heavydutyboots": 66.9,
+        "rockyhelmet": 11.9,
+        "airballoon": 7.9,
+        "covertcloak": 7.1
+      },
+      "abilities": {
+        "poisonpuppeteer": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 228,
+          "spa": 0,
+          "spd": 0,
+          "spe": 28
+        },
+        {
+          "nature": "Bold",
+          "hp": 216,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 40
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Dragonite",
+        "Ting-Lu",
+        "Kingambit",
+        "Samurott-Hisui",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 28
+      }
+    },
+    "rillaboom": {
+      "name": "Rillaboom",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "grassyglide": 24.9,
+        "knockoff": 22.7,
+        "woodhammer": 15.3,
+        "uturn": 11.5,
+        "swordsdance": 11.3,
+        "highhorsepower": 8.2
+      },
+      "items": {
+        "choiceband": 31.3,
+        "lifeorb": 30.3,
+        "terrainextender": 7.8,
+        "miracleseed": 7.7
+      },
+      "abilities": {
+        "grassysurge": 99.9,
+        "overgrow": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Gholdengo",
+        "Zamazenta",
+        "Raging Bolt",
+        "Landorus-Therian",
+        "Iron Treads"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "darkrai": {
+      "name": "Darkrai",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "darkpulse": 25.0,
+        "icebeam": 17.0,
+        "sludgebomb": 12.9,
+        "nastyplot": 10.0,
+        "focusblast": 7.6,
+        "knockoff": 7.4
+      },
+      "items": {
+        "heavydutyboots": 19.8,
+        "blackglasses": 18.0,
+        "leftovers": 15.6,
+        "choicespecs": 11.3
+      },
+      "abilities": {
+        "baddreams": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 100,
+          "def": 0,
+          "spa": 156,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Great Tusk",
+        "Gholdengo",
+        "Zamazenta",
+        "Ogerpon-Wellspring",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "tinglu": {
+      "name": "Ting-Lu",
+      "roles": [
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "ruination": 20.9,
+        "stealthrock": 17.7,
+        "earthquake": 16.9,
+        "spikes": 12.7,
+        "whirlwind": 12.2,
+        "rest": 6.6
+      },
+      "items": {
+        "leftovers": 59.2,
+        "rockyhelmet": 18.7,
+        "redcard": 15.2,
+        "weaknesspolicy": 3.6
+      },
+      "abilities": {
+        "vesselofruin": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 40,
+          "spa": 0,
+          "spd": 220,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Zamazenta",
+        "Gholdengo",
+        "Corviknight",
+        "Pecharunt",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 0
+      }
+    },
+    "ironmoth": {
+      "name": "Iron Moth",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "fierydance": 24.6,
+        "sludgewave": 24.2,
+        "substitute": 10.0,
+        "toxicspikes": 9.6,
+        "whirlwind": 7.9,
+        "terablast": 6.6
+      },
+      "items": {
+        "boosterenergy": 77.4,
+        "heavydutyboots": 18.0,
+        "choicespecs": 4.1,
+        "charcoal": 0.2
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 124,
+          "spa": 132,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Zamazenta",
+        "Ogerpon-Wellspring",
+        "Deoxys-Speed",
+        "Raging Bolt",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "garganacl": {
+      "name": "Garganacl",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "saltcure": 24.9,
+        "recover": 24.9,
+        "protect": 17.6,
+        "stealthrock": 15.5,
+        "curse": 5.4,
+        "bodypress": 3.9
+      },
+      "items": {
+        "leftovers": 98.6,
+        "heavydutyboots": 0.3,
+        "marangaberry": 0.3,
+        "rockyhelmet": 0.2
+      },
+      "abilities": {
+        "purifyingsalt": 99.6,
+        "sturdy": 0.4,
+        "clearbody": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 0,
+          "def": 52,
+          "spa": 0,
+          "spd": 204,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 0,
+          "def": 16,
+          "spa": 0,
+          "spd": 216,
+          "spe": 24
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Corviknight",
+        "Ogerpon-Wellspring",
+        "Zamazenta",
+        "Tornadus-Therian",
+        "Iron Treads"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 0
+      }
+    },
+    "walkingwake": {
+      "name": "Walking Wake",
+      "roles": [
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "dracometeor": 21.4,
+        "hydrosteam": 17.3,
+        "dragonpulse": 13.6,
+        "flipturn": 11.0,
+        "knockoff": 10.1,
+        "flamethrower": 8.9
+      },
+      "items": {
+        "choicespecs": 32.0,
+        "heavydutyboots": 25.0,
+        "wiseglasses": 16.1,
+        "ejectpack": 9.9
+      },
+      "abilities": {
+        "protosynthesis": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 12,
+          "atk": 0,
+          "def": 0,
+          "spa": 244,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 244,
+          "spd": 12,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Ninetales",
+        "Raging Bolt",
+        "Kingambit",
+        "Pecharunt",
+        "Ting-Lu"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "zapdos": {
+      "name": "Zapdos",
+      "roles": [
+        "CHOICE",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "hurricane": 24.7,
+        "roost": 23.2,
+        "voltswitch": 19.0,
+        "thunderwave": 12.2,
+        "discharge": 5.7,
+        "uturn": 5.5
+      },
+      "items": {
+        "heavydutyboots": 80.5,
+        "rockyhelmet": 12.5,
+        "choicespecs": 3.4,
+        "leftovers": 2.0
+      },
+      "abilities": {
+        "static": 99.8,
+        "pressure": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 252,
+          "spa": 8,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 244,
+          "spa": 0,
+          "spd": 0,
+          "spe": 16
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Kingambit",
+        "Iron Treads",
+        "Slowking-Galar",
+        "Zamazenta",
+        "Cinderace"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 0
+      }
+    },
+    "tyranitar": {
+      "name": "Tyranitar",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "knockoff": 24.1,
+        "stealthrock": 16.9,
+        "icebeam": 14.8,
+        "lowkick": 9.7,
+        "thunderwave": 7.6,
+        "stoneedge": 7.3
+      },
+      "items": {
+        "smoothrock": 48.8,
+        "choiceband": 17.6,
+        "heavydutyboots": 16.9,
+        "assaultvest": 6.6
+      },
+      "abilities": {
+        "sandstream": 99.9,
+        "unnerve": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Sassy",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Excadrill",
+        "Iron Valiant",
+        "Pecharunt",
+        "Ogerpon-Wellspring",
+        "Hydrapple",
+        "Tornadus-Therian"
+      ],
+      "speed": {
+        "nature": "Sassy",
+        "spe_ev": 0
+      }
+    },
+    "heatran": {
+      "name": "Heatran",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "earthpower": 22.5,
+        "stealthrock": 20.5,
+        "magmastorm": 18.9,
+        "willowisp": 12.5,
+        "taunt": 9.5,
+        "lavaplume": 5.3
+      },
+      "items": {
+        "leftovers": 67.8,
+        "airballoon": 13.3,
+        "heavydutyboots": 12.6,
+        "choicescarf": 2.0
+      },
+      "abilities": {
+        "flashfire": 73.1,
+        "flamebody": 26.9
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 212,
+          "spe": 40
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 140,
+          "spa": 0,
+          "spd": 0,
+          "spe": 120
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Zamazenta",
+        "Great Tusk",
+        "Ting-Lu",
+        "Ogerpon-Wellspring",
+        "Pecharunt"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 40
+      }
+    },
+    "deoxysspeed": {
+      "name": "Deoxys-Speed",
+      "roles": [
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "taunt": 15.9,
+        "stealthrock": 12.7,
+        "psychoboost": 12.4,
+        "reflect": 8.7,
+        "lightscreen": 8.6,
+        "spikes": 6.6
+      },
+      "items": {
+        "lightclay": 34.6,
+        "lifeorb": 21.6,
+        "ejectpack": 13.7,
+        "focussash": 10.3
+      },
+      "abilities": {
+        "pressure": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 248,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Iron Valiant",
+        "Ogerpon-Wellspring",
+        "Iron Moth",
+        "Dragonite",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "primarina": {
+      "name": "Primarina",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "moonblast": 23.2,
+        "psychicnoise": 20.0,
+        "flipturn": 14.3,
+        "surf": 11.8,
+        "whirlpool": 10.5,
+        "calmmind": 4.2
+      },
+      "items": {
+        "assaultvest": 63.9,
+        "leftovers": 14.7,
+        "choicespecs": 6.1,
+        "heavydutyboots": 4.5
+      },
+      "abilities": {
+        "torrent": 51.3,
+        "liquidvoice": 48.7
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 208,
+          "spd": 52,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 80,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 176
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Landorus-Therian",
+        "Zamazenta",
+        "Dragonite",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 0
+      }
+    },
+    "garchomp": {
+      "name": "Garchomp",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "earthquake": 23.5,
+        "stealthrock": 17.1,
+        "dragontail": 16.8,
+        "spikes": 16.4,
+        "swordsdance": 6.9,
+        "scaleshot": 6.6
+      },
+      "items": {
+        "rockyhelmet": 64.3,
+        "loadeddice": 23.9,
+        "lifeorb": 10.6,
+        "leftovers": 0.3
+      },
+      "abilities": {
+        "roughskin": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 216,
+          "spa": 0,
+          "spd": 0,
+          "spe": 44
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Gholdengo",
+        "Iron Valiant",
+        "Ogerpon-Wellspring",
+        "Kingambit",
+        "Moltres"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 44
+      }
+    },
+    "clefable": {
+      "name": "Clefable",
+      "roles": [
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "moonblast": 24.1,
+        "moonlight": 23.8,
+        "knockoff": 11.4,
+        "stealthrock": 9.7,
+        "cosmicpower": 7.9,
+        "chargebeam": 7.4
+      },
+      "items": {
+        "leftovers": 32.4,
+        "heavydutyboots": 31.9,
+        "stickybarb": 16.5,
+        "rockyhelmet": 12.4
+      },
+      "abilities": {
+        "magicguard": 64.0,
+        "unaware": 36.0,
+        "cutecharm": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 4
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Zamazenta",
+        "Blissey",
+        "Dragapult",
+        "Iron Moth",
+        "Corviknight"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 4
+      }
+    },
+    "scizor": {
+      "name": "Scizor",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "bulletpunch": 25.0,
+        "knockoff": 19.7,
+        "uturn": 14.5,
+        "closecombat": 13.6,
+        "swordsdance": 11.7,
+        "quickattack": 6.5
+      },
+      "items": {
+        "choiceband": 33.6,
+        "lifeorb": 33.0,
+        "leftovers": 9.5,
+        "heavydutyboots": 8.8
+      },
+      "abilities": {
+        "technician": 99.9,
+        "swarm": 0.1,
+        "lightmetal": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 248,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 8,
+          "spe": 0
+        },
+        {
+          "nature": "Adamant",
+          "hp": 40,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 216
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Iron Valiant",
+        "Zamazenta",
+        "Landorus-Therian",
+        "Dragapult",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 0
+      }
+    },
+    "meowscarada": {
+      "name": "Meowscarada",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "uturn": 24.6,
+        "knockoff": 24.0,
+        "flowertrick": 21.3,
+        "tripleaxel": 19.5,
+        "suckerpunch": 4.4,
+        "trick": 1.9
+      },
+      "items": {
+        "choiceband": 67.2,
+        "choicescarf": 15.9,
+        "heavydutyboots": 15.5,
+        "focussash": 0.7
+      },
+      "abilities": {
+        "protean": 98.9,
+        "overgrow": 1.1
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Great Tusk",
+        "Iron Treads",
+        "Skarmory",
+        "Slowking",
+        "Enamorus"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "pelipper": {
+      "name": "Pelipper",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "uturn": 24.4,
+        "hurricane": 24.1,
+        "roost": 17.6,
+        "weatherball": 11.5,
+        "surf": 9.7,
+        "knockoff": 9.6
+      },
+      "items": {
+        "damprock": 93.0,
+        "choicespecs": 5.7,
+        "heavydutyboots": 0.9,
+        "choicescarf": 0.1
+      },
+      "abilities": {
+        "drizzle": 100.0,
+        "keeneye": 0.0,
+        "raindish": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Relaxed",
+          "hp": 248,
+          "atk": 0,
+          "def": 232,
+          "spa": 0,
+          "spd": 28,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Raging Bolt",
+        "Iron Treads",
+        "Barraskewda",
+        "Overqwil",
+        "Basculegion",
+        "Golduck"
+      ],
+      "speed": {
+        "nature": "Relaxed",
+        "spe_ev": 0
+      }
+    },
+    "enamorus": {
+      "name": "Enamorus",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "moonblast": 24.8,
+        "earthpower": 24.8,
+        "healingwish": 17.8,
+        "mysticalfire": 13.5,
+        "substitute": 5.9,
+        "terablast": 5.0
+      },
+      "items": {
+        "choicescarf": 60.8,
+        "lifeorb": 12.9,
+        "choicespecs": 10.6,
+        "leftovers": 9.8
+      },
+      "abilities": {
+        "contrary": 89.0,
+        "cutecharm": 11.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Iron Treads",
+        "Gholdengo",
+        "Raging Bolt",
+        "Pecharunt"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "dondozo": {
+      "name": "Dondozo",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "rest": 24.5,
+        "curse": 19.2,
+        "sleeptalk": 17.6,
+        "bodypress": 12.1,
+        "waterfall": 10.8,
+        "avalanche": 6.7
+      },
+      "items": {
+        "leftovers": 60.2,
+        "heavydutyboots": 35.8,
+        "covertcloak": 1.4,
+        "rockyhelmet": 1.2
+      },
+      "abilities": {
+        "unaware": 99.9,
+        "oblivious": 0.1,
+        "waterveil": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 8,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Gliscor",
+        "Blissey",
+        "Clodsire",
+        "Toxapex",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 0
+      }
+    },
+    "torkoal": {
+      "name": "Torkoal",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "stealthrock": 22.1,
+        "rapidspin": 17.2,
+        "overheat": 12.0,
+        "willowisp": 11.1,
+        "earthquake": 8.1,
+        "earthpower": 5.6
+      },
+      "items": {
+        "heatrock": 87.6,
+        "choicespecs": 8.3,
+        "heavydutyboots": 2.9,
+        "ejectpack": 0.6
+      },
+      "abilities": {
+        "drought": 100.0,
+        "whitesmoke": 0.0,
+        "shellarmor": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Sassy",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Relaxed",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Walking Wake",
+        "Hatterene",
+        "Great Tusk",
+        "Raging Bolt",
+        "Slither Wing",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Sassy",
+        "spe_ev": 0
+      }
+    },
+    "toxapex": {
+      "name": "Toxapex",
+      "roles": [
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "recover": 22.8,
+        "toxic": 16.9,
+        "haze": 15.1,
+        "toxicspikes": 14.6,
+        "poisonjab": 7.5,
+        "surf": 6.7
+      },
+      "items": {
+        "heavydutyboots": 46.9,
+        "leftovers": 21.2,
+        "blacksludge": 12.2,
+        "ejectbutton": 10.3
+      },
+      "abilities": {
+        "regenerator": 100.0,
+        "merciless": 0.0,
+        "limber": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 248,
+          "spa": 0,
+          "spd": 0,
+          "spe": 12
+        },
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Corviknight",
+        "Dondozo",
+        "Blissey",
+        "Clodsire",
+        "Clefable"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 12
+      }
+    },
+    "moltres": {
+      "name": "Moltres",
+      "roles": [
+        "CHOICE",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "roost": 24.8,
+        "flamethrower": 23.5,
+        "willowisp": 14.1,
+        "roar": 13.0,
+        "uturn": 12.9,
+        "scorchingsands": 8.2
+      },
+      "items": {
+        "heavydutyboots": 99.4,
+        "choicespecs": 0.5,
+        "rockyhelmet": 0.0,
+        "lifeorb": 0.0
+      },
+      "abilities": {
+        "flamebody": 99.2,
+        "pressure": 0.8
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 144,
+          "spa": 0,
+          "spd": 96,
+          "spe": 16
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 248,
+          "spa": 0,
+          "spd": 0,
+          "spe": 12
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Great Tusk",
+        "Slowking-Galar",
+        "Hydrapple",
+        "Zamazenta",
+        "Jolteon"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 16
+      }
+    },
+    "weezinggalar": {
+      "name": "Weezing-Galar",
+      "roles": [
+        "CHOICE",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "willowisp": 24.1,
+        "defog": 23.9,
+        "painsplit": 15.1,
+        "protect": 8.5,
+        "sludgebomb": 8.1,
+        "toxic": 6.8
+      },
+      "items": {
+        "heavydutyboots": 48.0,
+        "leftovers": 41.2,
+        "rockyhelmet": 7.5,
+        "choicespecs": 0.9
+      },
+      "abilities": {
+        "neutralizinggas": 96.8,
+        "levitate": 2.4,
+        "mistysurge": 0.8
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 80,
+          "spa": 0,
+          "spd": 4,
+          "spe": 176
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Alomomola",
+        "Gliscor",
+        "Ting-Lu",
+        "Dragapult",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 176
+      }
+    },
+    "tornadustherian": {
+      "name": "Tornadus-Therian",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "bleakwindstorm": 24.3,
+        "uturn": 19.1,
+        "heatwave": 18.8,
+        "knockoff": 18.7,
+        "nastyplot": 5.6,
+        "taunt": 3.2
+      },
+      "items": {
+        "assaultvest": 57.5,
+        "heavydutyboots": 21.7,
+        "lifeorb": 17.1,
+        "choicespecs": 2.9
+      },
+      "abilities": {
+        "regenerator": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 176,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 92,
+          "spe": 240
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Kyurem",
+        "Kingambit",
+        "Pecharunt",
+        "Garganacl"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "excadrill": {
+      "name": "Excadrill",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "earthquake": 25.0,
+        "rapidspin": 24.0,
+        "rockslide": 14.3,
+        "swordsdance": 12.7,
+        "substitute": 11.4,
+        "ironhead": 9.3
+      },
+      "items": {
+        "leftovers": 66.0,
+        "airballoon": 29.9,
+        "choiceband": 1.3,
+        "lifeorb": 0.9
+      },
+      "abilities": {
+        "sandrush": 97.7,
+        "moldbreaker": 2.3,
+        "sandforce": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Tyranitar",
+        "Iron Valiant",
+        "Ogerpon-Wellspring",
+        "Pecharunt",
+        "Latios",
+        "Garganacl"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "ironcrown": {
+      "name": "Iron Crown",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "tachyoncutter": 24.2,
+        "focusblast": 17.7,
+        "calmmind": 12.8,
+        "voltswitch": 12.2,
+        "psychicnoise": 9.3,
+        "psyshock": 7.3
+      },
+      "items": {
+        "boosterenergy": 48.2,
+        "choicespecs": 30.3,
+        "assaultvest": 13.6,
+        "choicescarf": 3.4
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 84,
+          "atk": 0,
+          "def": 0,
+          "spa": 172,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Pecharunt",
+        "Dragonite",
+        "Kingambit",
+        "Iron Valiant",
+        "Ting-Lu"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "clodsire": {
+      "name": "Clodsire",
+      "roles": [
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "recover": 25.0,
+        "earthquake": 18.3,
+        "toxic": 13.0,
+        "poisonjab": 11.9,
+        "amnesia": 11.4,
+        "spikes": 10.8
+      },
+      "items": {
+        "heavydutyboots": 67.2,
+        "leftovers": 15.6,
+        "covertcloak": 12.1,
+        "blacksludge": 4.2
+      },
+      "abilities": {
+        "unaware": 92.2,
+        "waterabsorb": 7.8,
+        "poisonpoint": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 116,
+          "atk": 0,
+          "def": 148,
+          "spa": 0,
+          "spd": 244,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Dondozo",
+        "Gliscor",
+        "Toxapex",
+        "Blissey",
+        "Clefable"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 0
+      }
+    },
+    "serperior": {
+      "name": "Serperior",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "leafstorm": 24.6,
+        "glare": 21.9,
+        "knockoff": 13.4,
+        "gigadrain": 12.9,
+        "terablast": 9.2,
+        "dragonpulse": 6.4
+      },
+      "items": {
+        "choicescarf": 49.5,
+        "leftovers": 32.9,
+        "custapberry": 4.8,
+        "heavydutyboots": 4.8
+      },
+      "abilities": {
+        "contrary": 98.7,
+        "overgrow": 1.3
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 32,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 224
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Rillaboom",
+        "Heatran",
+        "Gholdengo",
+        "Zamazenta",
+        "Dragapult"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 224
+      }
+    },
+    "blaziken": {
+      "name": "Blaziken",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "closecombat": 23.8,
+        "flareblitz": 20.1,
+        "swordsdance": 19.4,
+        "protect": 14.1,
+        "knockoff": 7.8,
+        "stoneedge": 4.6
+      },
+      "items": {
+        "lifeorb": 62.2,
+        "airballoon": 19.8,
+        "leftovers": 7.1,
+        "scopelens": 5.0
+      },
+      "abilities": {
+        "speedboost": 100.0,
+        "blaze": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Deoxys-Speed",
+        "Dragapult",
+        "Dragonite",
+        "Iron Valiant",
+        "Raging Bolt"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "blissey": {
+      "name": "Blissey",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "softboiled": 25.0,
+        "seismictoss": 24.4,
+        "stealthrock": 21.9,
+        "thunderwave": 9.7,
+        "calmmind": 9.6,
+        "protect": 4.8
+      },
+      "items": {
+        "heavydutyboots": 82.4,
+        "leftovers": 17.5,
+        "choicescarf": 0.1,
+        "choicespecs": 0.0
+      },
+      "abilities": {
+        "naturalcure": 99.9,
+        "serenegrace": 0.1,
+        "healer": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 4,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Calm",
+          "hp": 20,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 236,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Dondozo",
+        "Corviknight",
+        "Toxapex",
+        "Clefable",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 0
+      }
+    },
+    "ninetales": {
+      "name": "Ninetales",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "encore": 24.5,
+        "healingwish": 23.9,
+        "willowisp": 22.7,
+        "overheat": 14.1,
+        "weatherball": 10.1,
+        "scorchingsands": 2.7
+      },
+      "items": {
+        "heatrock": 99.4,
+        "choicescarf": 0.3,
+        "heavydutyboots": 0.1,
+        "choicespecs": 0.0
+      },
+      "abilities": {
+        "drought": 100.0,
+        "flashfire": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 248,
+          "atk": 0,
+          "def": 44,
+          "spa": 0,
+          "spd": 0,
+          "spe": 216
+        }
+      ],
+      "teammates": [
+        "Walking Wake",
+        "Great Tusk",
+        "Raging Bolt",
+        "Kingambit",
+        "Venusaur",
+        "Ceruledge"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "greninja": {
+      "name": "Greninja",
+      "roles": [
+        "CHOICE",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "darkpulse": 20.4,
+        "watershuriken": 14.4,
+        "surf": 13.3,
+        "icebeam": 13.2,
+        "hydropump": 10.9,
+        "gunkshot": 7.4
+      },
+      "items": {
+        "lifeorb": 82.3,
+        "choicespecs": 6.7,
+        "splashplate": 3.0,
+        "focussash": 3.0
+      },
+      "abilities": {
+        "battlebond": 88.3,
+        "protean": 9.1,
+        "torrent": 2.6
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 104,
+          "def": 0,
+          "spa": 156,
+          "spd": 0,
+          "spe": 248
+        }
+      ],
+      "teammates": [
+        "Iron Treads",
+        "Zamazenta",
+        "Pelipper",
+        "Iron Moth",
+        "Kingambit",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "rotomwash": {
+      "name": "Rotom-Wash",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "hydropump": 24.9,
+        "voltswitch": 24.9,
+        "painsplit": 18.9,
+        "willowisp": 18.8,
+        "trick": 4.8,
+        "thunderwave": 4.6
+      },
+      "items": {
+        "leftovers": 58.8,
+        "choicescarf": 18.8,
+        "covertcloak": 12.0,
+        "rockyhelmet": 4.7
+      },
+      "abilities": {
+        "levitate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 212,
+          "spa": 0,
+          "spd": 0,
+          "spe": 44
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 196,
+          "spa": 0,
+          "spd": 0,
+          "spe": 64
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Kingambit",
+        "Darkrai",
+        "Dragapult",
+        "Gliscor",
+        "Ceruledge"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 44
+      }
+    },
+    "ursaluna": {
+      "name": "Ursaluna",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "facade": 24.2,
+        "headlongrush": 22.4,
+        "swordsdance": 19.7,
+        "trailblaze": 13.3,
+        "firepunch": 9.5,
+        "earthquake": 2.5
+      },
+      "items": {
+        "flameorb": 96.1,
+        "leftovers": 2.8,
+        "quickclaw": 0.8,
+        "assaultvest": 0.3
+      },
+      "abilities": {
+        "guts": 97.7,
+        "bulletproof": 2.3,
+        "unnerve": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 248,
+          "atk": 252,
+          "def": 8,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Deoxys-Speed",
+        "Iron Moth",
+        "Raging Bolt",
+        "Ogerpon-Wellspring",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "ogerpon": {
+      "name": "Ogerpon",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "ivycudgel": 24.9,
+        "knockoff": 24.1,
+        "uturn": 13.5,
+        "encore": 12.4,
+        "rocktomb": 6.8,
+        "synthesis": 6.7
+      },
+      "items": {
+        "heavydutyboots": 47.7,
+        "choiceband": 41.2,
+        "scopelens": 7.6,
+        "meadowplate": 1.2
+      },
+      "abilities": {
+        "defiant": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Ting-Lu",
+        "Pecharunt",
+        "Zamazenta",
+        "Gholdengo",
+        "Gliscor",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "weavile": {
+      "name": "Weavile",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "knockoff": 23.6,
+        "iceshard": 21.0,
+        "tripleaxel": 20.8,
+        "lowkick": 16.9,
+        "swordsdance": 9.8,
+        "iciclecrash": 4.7
+      },
+      "items": {
+        "choiceband": 44.8,
+        "heavydutyboots": 31.1,
+        "lifeorb": 11.4,
+        "focussash": 7.2
+      },
+      "abilities": {
+        "pressure": 64.0,
+        "pickpocket": 36.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Dragonite",
+        "Hatterene",
+        "Gholdengo",
+        "Sinistcha",
+        "Volcanion"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "ribombee": {
+      "name": "Ribombee",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "stickyweb": 24.8,
+        "moonblast": 24.7,
+        "skillswap": 22.6,
+        "stunspore": 22.3,
+        "psychicnoise": 2.0,
+        "bugbuzz": 0.4
+      },
+      "items": {
+        "focussash": 95.8,
+        "choicescarf": 1.7,
+        "lightclay": 1.5,
+        "heavydutyboots": 0.6
+      },
+      "abilities": {
+        "shielddust": 99.6,
+        "honeygather": 0.3,
+        "sweetveil": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 8,
+          "atk": 0,
+          "def": 176,
+          "spa": 72,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Raging Bolt",
+        "Kingambit",
+        "Great Tusk",
+        "Enamorus",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "hydrapple": {
+      "name": "Hydrapple",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "earthpower": 24.9,
+        "gigadrain": 24.7,
+        "nastyplot": 24.4,
+        "ficklebeam": 20.5,
+        "dracometeor": 4.6,
+        "leafstorm": 0.6
+      },
+      "items": {
+        "heavydutyboots": 74.0,
+        "rockyhelmet": 11.8,
+        "lifeorb": 8.4,
+        "leftovers": 3.4
+      },
+      "abilities": {
+        "regenerator": 99.9,
+        "stickyhold": 0.1,
+        "supersweetsyrup": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 240,
+          "spa": 0,
+          "spd": 0,
+          "spe": 16
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 248,
+          "spa": 0,
+          "spd": 0,
+          "spe": 12
+        }
+      ],
+      "teammates": [
+        "Slowking-Galar",
+        "Moltres",
+        "Great Tusk",
+        "Kingambit",
+        "Jolteon",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 16
+      }
+    },
+    "hoopaunbound": {
+      "name": "Hoopa-Unbound",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "drainpunch": 19.0,
+        "psychicnoise": 14.3,
+        "thunderbolt": 12.6,
+        "knockoff": 11.2,
+        "hyperspacefury": 10.2,
+        "psychic": 4.4
+      },
+      "items": {
+        "assaultvest": 35.9,
+        "lifeorb": 23.4,
+        "choiceband": 14.0,
+        "choicescarf": 8.5
+      },
+      "abilities": {
+        "magician": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Mild",
+          "hp": 0,
+          "atk": 124,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 132
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Great Tusk",
+        "Slowking-Galar",
+        "Cinderace",
+        "Pecharunt",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "ninetalesalola": {
+      "name": "Ninetales-Alola",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "auroraveil": 24.9,
+        "encore": 23.6,
+        "freezedry": 22.4,
+        "snowscape": 9.3,
+        "moonblast": 6.4,
+        "mistyterrain": 5.6
+      },
+      "items": {
+        "lightclay": 97.8,
+        "icyrock": 0.9,
+        "choicescarf": 0.7,
+        "choicespecs": 0.1
+      },
+      "abilities": {
+        "snowwarning": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 228,
+          "spa": 0,
+          "spd": 28,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kyurem",
+        "Ceruledge",
+        "Latias",
+        "Hatterene",
+        "Zamazenta",
+        "Maushold"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "skeledirge": {
+      "name": "Skeledirge",
+      "roles": [
+        "WALL"
+      ],
+      "moves": {
+        "torchsong": 25.0,
+        "slackoff": 24.1,
+        "willowisp": 17.4,
+        "hex": 17.4,
+        "shadowball": 5.3,
+        "scorchingsands": 3.0
+      },
+      "items": {
+        "heavydutyboots": 78.9,
+        "covertcloak": 9.2,
+        "leftovers": 6.7,
+        "mistyseed": 1.7
+      },
+      "abilities": {
+        "unaware": 99.8,
+        "blaze": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 16,
+          "spa": 0,
+          "spd": 244,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Great Tusk",
+        "Skarmory",
+        "Clodsire",
+        "Corviknight",
+        "Darkrai"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 0
+      }
+    },
+    "barraskewda": {
+      "name": "Barraskewda",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "liquidation": 25.0,
+        "flipturn": 24.9,
+        "closecombat": 20.8,
+        "aquajet": 14.2,
+        "poisonjab": 13.9,
+        "psychicfangs": 0.9
+      },
+      "items": {
+        "mysticwater": 55.1,
+        "choiceband": 43.1,
+        "lifeorb": 1.5,
+        "heavydutyboots": 0.1
+      },
+      "abilities": {
+        "swiftswim": 100.0,
+        "propellertail": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Pelipper",
+        "Raging Bolt",
+        "Iron Treads",
+        "Tentacruel",
+        "Golduck",
+        "Pawmot"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "grimmsnarl": {
+      "name": "Grimmsnarl",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "reflect": 24.8,
+        "lightscreen": 24.8,
+        "taunt": 19.0,
+        "lowkick": 17.1,
+        "partingshot": 7.0,
+        "spiritbreak": 6.2
+      },
+      "items": {
+        "lightclay": 99.0,
+        "heavydutyboots": 0.3,
+        "leftovers": 0.2,
+        "choiceband": 0.2
+      },
+      "abilities": {
+        "prankster": 100.0,
+        "pickpocket": 0.0,
+        "frisk": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 4,
+          "def": 0,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Ogerpon-Wellspring",
+        "Ceruledge",
+        "Iron Treads",
+        "Latias",
+        "Iron Moth",
+        "Glimmora"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "venusaur": {
+      "name": "Venusaur",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "growth": 24.8,
+        "gigadrain": 24.2,
+        "weatherball": 23.3,
+        "sludgebomb": 20.0,
+        "earthquake": 5.3,
+        "earthpower": 1.2
+      },
+      "items": {
+        "lifeorb": 97.4,
+        "leftovers": 2.0,
+        "blacksludge": 0.2,
+        "covertcloak": 0.1
+      },
+      "abilities": {
+        "chlorophyll": 99.6,
+        "overgrow": 0.4
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 4,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Walking Wake",
+        "Great Tusk",
+        "Ninetales",
+        "Kingambit",
+        "Landorus-Therian",
+        "Raging Bolt"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "tinkaton": {
+      "name": "Tinkaton",
+      "roles": [
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "gigatonhammer": 25.0,
+        "stealthrock": 24.2,
+        "encore": 21.9,
+        "icehammer": 12.4,
+        "thunderwave": 9.7,
+        "knockoff": 5.8
+      },
+      "items": {
+        "airballoon": 92.1,
+        "leftovers": 4.9,
+        "heavydutyboots": 2.1,
+        "lifeorb": 0.5
+      },
+      "abilities": {
+        "pickpocket": 67.6,
+        "moldbreaker": 32.3,
+        "owntempo": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 252,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 24,
+          "spe": 232
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Zamazenta",
+        "Gliscor",
+        "Ting-Lu",
+        "Dragonite",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "sinistcha": {
+      "name": "Sinistcha",
+      "roles": [
+        "SETUP",
+        "WALL"
+      ],
+      "moves": {
+        "strengthsap": 24.9,
+        "shadowball": 24.7,
+        "matchagotcha": 23.7,
+        "calmmind": 22.7,
+        "nastyplot": 1.8,
+        "terablast": 1.2
+      },
+      "items": {
+        "heavydutyboots": 79.2,
+        "leftovers": 15.4,
+        "covertcloak": 2.8,
+        "colburberry": 1.1
+      },
+      "abilities": {
+        "heatproof": 99.0,
+        "hospitality": 1.0
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 8,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Zamazenta",
+        "Ting-Lu",
+        "Excadrill",
+        "Weavile",
+        "Tinkaton"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 0
+      }
+    },
+    "lokix": {
+      "name": "Lokix",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "knockoff": 24.9,
+        "firstimpression": 24.6,
+        "uturn": 24.6,
+        "leechlife": 22.9,
+        "suckerpunch": 2.1,
+        "swordsdance": 0.6
+      },
+      "items": {
+        "choiceband": 88.9,
+        "heavydutyboots": 7.4,
+        "blackglasses": 1.3,
+        "silverpowder": 1.3
+      },
+      "abilities": {
+        "tintedlens": 99.6,
+        "swarm": 0.4
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Alomomola",
+        "Weezing-Galar",
+        "Cinderace",
+        "Great Tusk",
+        "Corviknight",
+        "Iron Crown"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "araquanid": {
+      "name": "Araquanid",
+      "roles": [
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "stickyweb": 24.9,
+        "surf": 19.9,
+        "endeavor": 17.9,
+        "lunge": 16.0,
+        "endure": 6.7,
+        "liquidation": 4.9
+      },
+      "items": {
+        "custapberry": 51.6,
+        "mentalherb": 22.8,
+        "redcard": 19.7,
+        "focussash": 3.7
+      },
+      "abilities": {
+        "waterbubble": 99.9,
+        "waterabsorb": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 252,
+          "atk": 0,
+          "def": 40,
+          "spa": 216,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Sassy",
+          "hp": 252,
+          "atk": 4,
+          "def": 128,
+          "spa": 4,
+          "spd": 112,
+          "spe": 8
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Great Tusk",
+        "Iron Moth",
+        "Raging Bolt",
+        "Kingambit",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 0
+      }
+    },
+    "ogerponcornerstone": {
+      "name": "Ogerpon-Cornerstone",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "ivycudgel": 25.0,
+        "powerwhip": 15.8,
+        "swordsdance": 14.9,
+        "knockoff": 14.1,
+        "lowkick": 12.6,
+        "hornleech": 7.5
+      },
+      "items": {
+        "cornerstonemask": 100.0
+      },
+      "abilities": {
+        "sturdy": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Kingambit",
+        "Dragonite",
+        "Raging Bolt",
+        "Gholdengo"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "volcanion": {
+      "name": "Volcanion",
+      "roles": [
+        "CHOICE"
+      ],
+      "moves": {
+        "steameruption": 25.0,
+        "flamethrower": 19.1,
+        "willowisp": 12.8,
+        "earthpower": 12.4,
+        "taunt": 11.9,
+        "sludgebomb": 10.9
+      },
+      "items": {
+        "heavydutyboots": 33.2,
+        "choicespecs": 23.5,
+        "shucaberry": 23.4,
+        "leftovers": 14.3
+      },
+      "abilities": {
+        "waterabsorb": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 248,
+          "atk": 0,
+          "def": 68,
+          "spa": 8,
+          "spd": 0,
+          "spe": 184
+        },
+        {
+          "nature": "Modest",
+          "hp": 184,
+          "atk": 0,
+          "def": 0,
+          "spa": 108,
+          "spd": 0,
+          "spe": 216
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Iron Valiant",
+        "Dragonite",
+        "Great Tusk",
+        "Hatterene",
+        "Deoxys-Speed"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 184
+      }
+    },
+    "latios": {
+      "name": "Latios",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "dracometeor": 24.4,
+        "flipturn": 16.2,
+        "psychicnoise": 12.8,
+        "recover": 12.0,
+        "lusterpurge": 11.5,
+        "trick": 9.1
+      },
+      "items": {
+        "souldew": 40.6,
+        "choicescarf": 31.7,
+        "choicespecs": 18.4,
+        "covertcloak": 5.9
+      },
+      "abilities": {
+        "levitate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Ogerpon-Wellspring",
+        "Iron Valiant",
+        "Zamazenta",
+        "Gliscor",
+        "Tyranitar"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "quaquaval": {
+      "name": "Quaquaval",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "aquastep": 24.7,
+        "closecombat": 23.7,
+        "rapidspin": 15.0,
+        "swordsdance": 6.9,
+        "knockoff": 6.1,
+        "tripleaxel": 5.1
+      },
+      "items": {
+        "assaultvest": 23.5,
+        "heavydutyboots": 23.2,
+        "leftovers": 19.6,
+        "choiceband": 14.0
+      },
+      "abilities": {
+        "moxie": 99.6,
+        "torrent": 0.4
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 4,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Raging Bolt",
+        "Iron Treads",
+        "Dragapult",
+        "Pelipper",
+        "Landorus-Therian"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "ironhands": {
+      "name": "Iron Hands",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "icepunch": 24.7,
+        "drainpunch": 18.5,
+        "swordsdance": 17.2,
+        "thunderpunch": 11.1,
+        "supercellslam": 7.3,
+        "earthquake": 6.8
+      },
+      "items": {
+        "boosterenergy": 48.2,
+        "leftovers": 17.8,
+        "lumberry": 9.4,
+        "assaultvest": 6.6
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 56,
+          "atk": 200,
+          "def": 0,
+          "spa": 0,
+          "spd": 156,
+          "spe": 96
+        },
+        {
+          "nature": "Brave",
+          "hp": 248,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 8,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Glimmora",
+        "Hatterene",
+        "Kingambit",
+        "Iron Treads",
+        "Landorus-Therian",
+        "Ceruledge"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 96
+      }
+    },
+    "skarmory": {
+      "name": "Skarmory",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "roost": 24.8,
+        "spikes": 21.2,
+        "bodypress": 17.7,
+        "irondefense": 15.0,
+        "whirlwind": 8.5,
+        "bravebird": 7.6
+      },
+      "items": {
+        "rockyhelmet": 74.1,
+        "heavydutyboots": 11.6,
+        "covertcloak": 11.1,
+        "leftovers": 1.9
+      },
+      "abilities": {
+        "sturdy": 99.4,
+        "weakarmor": 0.5,
+        "keeneye": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 160,
+          "spa": 0,
+          "spd": 0,
+          "spe": 96
+        },
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 164,
+          "spa": 0,
+          "spd": 0,
+          "spe": 96
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Gliscor",
+        "Iron Treads",
+        "Meowscarada",
+        "Slowking",
+        "Blissey"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 96
+      }
+    },
+    "goodrahisui": {
+      "name": "Goodra-Hisui",
+      "roles": [
+        "CHOICE"
+      ],
+      "moves": {
+        "knockoff": 18.6,
+        "dracometeor": 15.4,
+        "dragontail": 14.2,
+        "icebeam": 10.9,
+        "sludgebomb": 8.5,
+        "flashcannon": 8.2
+      },
+      "items": {
+        "assaultvest": 75.8,
+        "heavydutyboots": 17.8,
+        "leftovers": 5.4,
+        "choicespecs": 0.4
+      },
+      "abilities": {
+        "sapsipper": 67.1,
+        "gooey": 28.6,
+        "shellarmor": 4.3
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 84,
+          "spa": 0,
+          "spd": 172,
+          "spe": 4
+        },
+        {
+          "nature": "Modest",
+          "hp": 236,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 20
+        }
+      ],
+      "teammates": [
+        "Ting-Lu",
+        "Alomomola",
+        "Weavile",
+        "Zapdos",
+        "Keldeo",
+        "Sinistcha"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 4
+      }
+    },
+    "gengar": {
+      "name": "Gengar",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "shadowball": 24.1,
+        "sludgebomb": 14.5,
+        "focusblast": 14.3,
+        "destinybond": 12.7,
+        "hex": 6.5,
+        "trick": 5.3
+      },
+      "items": {
+        "choicespecs": 39.1,
+        "focussash": 24.5,
+        "choicescarf": 21.0,
+        "airballoon": 7.9
+      },
+      "abilities": {
+        "cursedbody": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Great Tusk",
+        "Kingambit",
+        "Blissey",
+        "Talonflame",
+        "Slowbro"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "mimikyu": {
+      "name": "Mimikyu",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "playrough": 22.3,
+        "trickroom": 16.9,
+        "shadowsneak": 16.0,
+        "curse": 14.5,
+        "swordsdance": 7.6,
+        "shadowclaw": 7.1
+      },
+      "items": {
+        "lifeorb": 54.2,
+        "redcard": 40.7,
+        "mentalherb": 1.6,
+        "lumberry": 1.5
+      },
+      "abilities": {
+        "disguise": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Brave",
+          "hp": 252,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Hatterene",
+        "Ursaluna",
+        "Torkoal",
+        "Slither Wing",
+        "Farigiraf",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Brave",
+        "spe_ev": 0
+      }
+    },
+    "hydreigon": {
+      "name": "Hydreigon",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "dracometeor": 23.4,
+        "darkpulse": 22.8,
+        "flashcannon": 20.3,
+        "earthpower": 17.8,
+        "nastyplot": 5.7,
+        "substitute": 2.3
+      },
+      "items": {
+        "choicespecs": 69.8,
+        "leftovers": 15.6,
+        "lifeorb": 7.9,
+        "ejectpack": 2.4
+      },
+      "abilities": {
+        "levitate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 20,
+          "spe": 236
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Alomomola",
+        "Great Tusk",
+        "Ogerpon",
+        "Tinkaton",
+        "Gholdengo"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "incineroar": {
+      "name": "Incineroar",
+      "roles": [
+        "PIVOT"
+      ],
+      "moves": {
+        "knockoff": 21.8,
+        "partingshot": 18.1,
+        "flareblitz": 16.8,
+        "willowisp": 13.2,
+        "drainpunch": 9.5,
+        "fakeout": 6.0
+      },
+      "items": {
+        "heavydutyboots": 65.6,
+        "leftovers": 13.2,
+        "assaultvest": 5.7,
+        "sitrusberry": 4.5
+      },
+      "abilities": {
+        "intimidate": 99.4,
+        "blaze": 0.6
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 4,
+          "def": 0,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Clodsire",
+        "Pelipper",
+        "Zapdos",
+        "Landorus-Therian",
+        "Ogerpon-Wellspring"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 0
+      }
+    },
+    "zoroarkhisui": {
+      "name": "Zoroark-Hisui",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "shadowball": 13.5,
+        "trick": 12.6,
+        "hypervoice": 10.2,
+        "willowisp": 9.6,
+        "uturn": 9.1,
+        "focusblast": 8.8
+      },
+      "items": {
+        "choicespecs": 47.1,
+        "choiceband": 32.8,
+        "choicescarf": 8.4,
+        "focussash": 5.3
+      },
+      "abilities": {
+        "illusion": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Iron Valiant",
+        "Iron Treads",
+        "Moltres",
+        "Toxapex",
+        "Latios",
+        "Scizor"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "cresselia": {
+      "name": "Cresselia",
+      "roles": [
+        "WALL"
+      ],
+      "moves": {
+        "lunardance": 20.9,
+        "moonlight": 17.4,
+        "thunderwave": 13.7,
+        "icebeam": 8.5,
+        "icywind": 6.5,
+        "moonblast": 6.1
+      },
+      "items": {
+        "ejectbutton": 46.0,
+        "mentalherb": 11.4,
+        "lightclay": 10.3,
+        "covertcloak": 9.0
+      },
+      "abilities": {
+        "levitate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Relaxed",
+          "hp": 248,
+          "atk": 0,
+          "def": 200,
+          "spa": 0,
+          "spd": 60,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 204,
+          "spe": 56
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Walking Wake",
+        "Ninetales",
+        "Raging Bolt",
+        "Kingambit",
+        "Ursaluna"
+      ],
+      "speed": {
+        "nature": "Relaxed",
+        "spe_ev": 0
+      }
+    },
+    "metagross": {
+      "name": "Metagross",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "bulletpunch": 23.0,
+        "earthquake": 13.8,
+        "psychicfangs": 13.1,
+        "explosion": 12.4,
+        "knockoff": 9.8,
+        "stealthrock": 9.6
+      },
+      "items": {
+        "focussash": 33.3,
+        "choiceband": 28.4,
+        "occaberry": 12.2,
+        "assaultvest": 9.0
+      },
+      "abilities": {
+        "clearbody": 100.0,
+        "lightmetal": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 252,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Adamant",
+          "hp": 72,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 180
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Gholdengo",
+        "Dragonite",
+        "Kingambit",
+        "Iron Moth",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 0
+      }
+    },
+    "moltresgalar": {
+      "name": "Moltres-Galar",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "fierywrath": 25.0,
+        "nastyplot": 24.9,
+        "agility": 23.5,
+        "terablast": 14.3,
+        "hurricane": 9.2,
+        "taunt": 1.6
+      },
+      "items": {
+        "sitrusberry": 98.6,
+        "heavydutyboots": 0.5,
+        "weaknesspolicy": 0.3,
+        "leftovers": 0.3
+      },
+      "abilities": {
+        "berserk": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 12,
+          "atk": 0,
+          "def": 12,
+          "spa": 252,
+          "spd": 0,
+          "spe": 232
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Deoxys-Speed",
+        "Ogerpon-Wellspring",
+        "Ceruledge",
+        "Glimmora",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 232
+      }
+    },
+    "thundurustherian": {
+      "name": "Thundurus-Therian",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "thunderbolt": 22.2,
+        "terablast": 16.2,
+        "voltswitch": 16.0,
+        "grassknot": 12.9,
+        "nastyplot": 8.2,
+        "focusblast": 6.7
+      },
+      "items": {
+        "choicespecs": 48.8,
+        "heavydutyboots": 23.0,
+        "leftovers": 19.9,
+        "choicescarf": 4.4
+      },
+      "abilities": {
+        "voltabsorb": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 88,
+          "atk": 0,
+          "def": 0,
+          "spa": 164,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Cinderace",
+        "Alomomola",
+        "Kingambit",
+        "Weezing-Galar",
+        "Great Tusk",
+        "Ogerpon"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "slitherwing": {
+      "name": "Slither Wing",
+      "roles": [
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "uturn": 24.9,
+        "firstimpression": 23.7,
+        "morningsun": 17.8,
+        "willowisp": 16.6,
+        "closecombat": 5.4,
+        "earthquake": 4.4
+      },
+      "items": {
+        "heavydutyboots": 48.1,
+        "ejectbutton": 15.3,
+        "assaultvest": 12.5,
+        "choiceband": 11.4
+      },
+      "abilities": {
+        "protosynthesis": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 28,
+          "def": 220,
+          "spa": 0,
+          "spd": 0,
+          "spe": 8
+        },
+        {
+          "nature": "Careful",
+          "hp": 248,
+          "atk": 0,
+          "def": 116,
+          "spa": 0,
+          "spd": 136,
+          "spe": 8
+        }
+      ],
+      "teammates": [
+        "Walking Wake",
+        "Hatterene",
+        "Heatran",
+        "Great Tusk",
+        "Landorus-Therian",
+        "Gliscor"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 8
+      }
+    },
+    "arcaninehisui": {
+      "name": "Arcanine-Hisui",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "headsmash": 24.9,
+        "flareblitz": 24.6,
+        "extremespeed": 23.8,
+        "closecombat": 17.3,
+        "willowisp": 2.3,
+        "stealthrock": 2.2
+      },
+      "items": {
+        "heavydutyboots": 49.4,
+        "choiceband": 31.5,
+        "choicescarf": 7.3,
+        "lifeorb": 6.6
+      },
+      "abilities": {
+        "rockhead": 99.7,
+        "intimidate": 0.3,
+        "flashfire": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragapult",
+        "Kingambit",
+        "Ogerpon-Wellspring",
+        "Scizor",
+        "Landorus-Therian",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "hawlucha": {
+      "name": "Hawlucha",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "acrobatics": 22.7,
+        "swordsdance": 22.7,
+        "closecombat": 15.6,
+        "encore": 11.9,
+        "roost": 9.8,
+        "drainpunch": 5.8
+      },
+      "items": {
+        "grassyseed": 67.1,
+        "electricseed": 11.6,
+        "psychicseed": 9.6,
+        "leftovers": 7.1
+      },
+      "abilities": {
+        "unburden": 90.8,
+        "moldbreaker": 9.1,
+        "limber": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 192,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 64
+        },
+        {
+          "nature": "Adamant",
+          "hp": 72,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 60,
+          "spe": 124
+        }
+      ],
+      "teammates": [
+        "Rillaboom",
+        "Gholdengo",
+        "Landorus-Therian",
+        "Samurott-Hisui",
+        "Iron Valiant",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 64
+      }
+    },
+    "maushold": {
+      "name": "Maushold",
+      "roles": [
+        "CHOICE",
+        "HAZARD_REMOVAL",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "populationbomb": 25.0,
+        "tidyup": 24.8,
+        "bite": 24.0,
+        "encore": 23.9,
+        "beatup": 0.5,
+        "uturn": 0.3
+      },
+      "items": {
+        "widelens": 97.7,
+        "loadeddice": 0.7,
+        "protectivepads": 0.7,
+        "choiceband": 0.6
+      },
+      "abilities": {
+        "technician": 99.9,
+        "friendguard": 0.1,
+        "cheekpouch": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 112,
+          "atk": 252,
+          "def": 40,
+          "spa": 0,
+          "spd": 0,
+          "spe": 104
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Ninetales-Alola",
+        "Latias",
+        "Kyurem",
+        "Okidogi",
+        "Klefki",
+        "Ogerpon-Cornerstone"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 104
+      }
+    },
+    "azumarill": {
+      "name": "Azumarill",
+      "roles": [
+        "CHOICE",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "playrough": 24.7,
+        "aquajet": 24.6,
+        "liquidation": 19.8,
+        "bellydrum": 11.8,
+        "knockoff": 11.8,
+        "brickbreak": 2.6
+      },
+      "items": {
+        "sitrusberry": 46.4,
+        "assaultvest": 40.7,
+        "choiceband": 8.4,
+        "lumberry": 2.5
+      },
+      "abilities": {
+        "hugepower": 97.9,
+        "thickfat": 1.2,
+        "sapsipper": 0.9
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 252,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Adamant",
+          "hp": 92,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 164
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Zamazenta",
+        "Dragonite",
+        "Skeledirge",
+        "Hatterene",
+        "Iron Crown"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 0
+      }
+    },
+    "keldeo": {
+      "name": "Keldeo",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "surf": 24.4,
+        "vacuumwave": 22.0,
+        "flipturn": 16.4,
+        "secretsword": 13.4,
+        "aurasphere": 11.4,
+        "icywind": 4.9
+      },
+      "items": {
+        "heavydutyboots": 60.4,
+        "choicespecs": 12.4,
+        "rockyhelmet": 11.4,
+        "leftovers": 8.3
+      },
+      "abilities": {
+        "justified": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Pecharunt",
+        "Skarmory",
+        "Ting-Lu",
+        "Blissey",
+        "Zarude"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "polteageist": {
+      "name": "Polteageist",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "shellsmash": 24.8,
+        "shadowball": 24.7,
+        "terablast": 21.9,
+        "strengthsap": 13.8,
+        "storedpower": 11.2,
+        "gigadrain": 2.7
+      },
+      "items": {
+        "focussash": 57.0,
+        "whiteherb": 42.2,
+        "covertcloak": 0.7,
+        "weaknesspolicy": 0.1
+      },
+      "abilities": {
+        "weakarmor": 64.4,
+        "cursedbody": 35.6
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 116,
+          "spa": 0,
+          "spd": 0,
+          "spe": 140
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Deoxys-Speed",
+        "Dragonite",
+        "Great Tusk",
+        "Ogerpon-Cornerstone",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "talonflame": {
+      "name": "Talonflame",
+      "roles": [
+        "CHOICE",
+        "HAZARD_REMOVAL",
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "roost": 23.6,
+        "defog": 23.5,
+        "willowisp": 22.8,
+        "overheat": 21.7,
+        "uturn": 2.4,
+        "flamethrower": 2.3
+      },
+      "items": {
+        "heavydutyboots": 94.3,
+        "choicespecs": 5.5,
+        "choiceband": 0.1,
+        "nothing": 0.0
+      },
+      "abilities": {
+        "flamebody": 94.1,
+        "galewings": 5.9
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 228,
+          "spa": 0,
+          "spd": 0,
+          "spe": 32
+        },
+        {
+          "nature": "Bold",
+          "hp": 164,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 92
+        }
+      ],
+      "teammates": [
+        "Blissey",
+        "Toxapex",
+        "Gliscor",
+        "Mandibuzz",
+        "Dondozo",
+        "Pelipper"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 32
+      }
+    },
+    "gyarados": {
+      "name": "Gyarados",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "waterfall": 24.8,
+        "dragondance": 24.4,
+        "terablast": 16.7,
+        "taunt": 13.6,
+        "earthquake": 7.2,
+        "substitute": 2.8
+      },
+      "items": {
+        "leftovers": 61.6,
+        "rockyhelmet": 12.3,
+        "lumberry": 7.0,
+        "loadeddice": 6.0
+      },
+      "abilities": {
+        "intimidate": 78.9,
+        "moxie": 21.1
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 8,
+          "spa": 0,
+          "spd": 0,
+          "spe": 248
+        },
+        {
+          "nature": "Jolly",
+          "hp": 4,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Great Tusk",
+        "Kyurem",
+        "Ting-Lu",
+        "Araquanid",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 248
+      }
+    },
+    "kommoo": {
+      "name": "Kommo-o",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "clangoroussoul": 23.9,
+        "substitute": 18.9,
+        "drainpunch": 14.0,
+        "shadowclaw": 13.2,
+        "flamethrower": 8.3,
+        "clangingscales": 7.5
+      },
+      "items": {
+        "leftovers": 81.3,
+        "throatspray": 9.5,
+        "chestoberry": 3.2,
+        "ejectpack": 1.9
+      },
+      "abilities": {
+        "soundproof": 81.1,
+        "bulletproof": 18.1,
+        "overcoat": 0.8
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Iron Treads",
+        "Gholdengo",
+        "Iron Valiant",
+        "Kingambit",
+        "Kyurem",
+        "Iron Crown"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "charizard": {
+      "name": "Charizard",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "overheat": 17.8,
+        "solarbeam": 13.7,
+        "weatherball": 13.2,
+        "scorchingsands": 13.0,
+        "focusblast": 10.0,
+        "flamethrower": 8.2
+      },
+      "items": {
+        "choicespecs": 67.8,
+        "lifeorb": 7.5,
+        "choicescarf": 7.5,
+        "sitrusberry": 7.3
+      },
+      "abilities": {
+        "solarpower": 82.8,
+        "blaze": 17.2
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 4,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Torkoal",
+        "Walking Wake",
+        "Hatterene",
+        "Slither Wing",
+        "Venusaur"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "lilliganthisui": {
+      "name": "Lilligant-Hisui",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "closecombat": 21.4,
+        "tripleaxel": 20.5,
+        "solarblade": 15.6,
+        "terablast": 15.1,
+        "victorydance": 6.6,
+        "leafblade": 6.6
+      },
+      "items": {
+        "lifeorb": 57.3,
+        "choiceband": 18.2,
+        "widelens": 6.8,
+        "focussash": 5.8
+      },
+      "abilities": {
+        "chlorophyll": 76.1,
+        "hustle": 23.8,
+        "leafguard": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Walking Wake",
+        "Torkoal",
+        "Hatterene",
+        "Raging Bolt",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "latias": {
+      "name": "Latias",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "calmmind": 17.9,
+        "storedpower": 17.9,
+        "agility": 14.2,
+        "drainingkiss": 10.4,
+        "recover": 8.5,
+        "aurasphere": 7.5
+      },
+      "items": {
+        "weaknesspolicy": 51.4,
+        "souldew": 19.1,
+        "leftovers": 17.7,
+        "choicescarf": 8.0
+      },
+      "abilities": {
+        "levitate": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 40,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 216
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Ogerpon-Wellspring",
+        "Iron Moth",
+        "Iron Treads",
+        "Kyurem",
+        "Zamazenta",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 216
+      }
+    },
+    "umbreon": {
+      "name": "Umbreon",
+      "roles": [
+        "WALL"
+      ],
+      "moves": {
+        "foulplay": 24.7,
+        "wish": 24.5,
+        "protect": 23.9,
+        "thunderwave": 16.7,
+        "toxic": 8.2,
+        "moonlight": 1.1
+      },
+      "items": {
+        "leftovers": 91.4,
+        "heavydutyboots": 7.6,
+        "nothing": 0.4,
+        "rockyhelmet": 0.3
+      },
+      "abilities": {
+        "innerfocus": 68.2,
+        "synchronize": 31.8
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Dragonite",
+        "Glimmora",
+        "Garchomp",
+        "Iron Moth",
+        "Clodsire"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 0
+      }
+    },
+    "haxorus": {
+      "name": "Haxorus",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "earthquake": 17.7,
+        "swordsdance": 17.4,
+        "terablast": 17.0,
+        "scaleshot": 15.1,
+        "dragonclaw": 8.5,
+        "ironhead": 8.2
+      },
+      "items": {
+        "loadeddice": 59.3,
+        "lumberry": 21.2,
+        "focussash": 12.6,
+        "choiceband": 2.7
+      },
+      "abilities": {
+        "moldbreaker": 99.0,
+        "rivalry": 0.6,
+        "unnerve": 0.4
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Iron Valiant",
+        "Ninetales-Alola",
+        "Garchomp",
+        "Scizor",
+        "Iron Moth",
+        "Gholdengo"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "mandibuzz": {
+      "name": "Mandibuzz",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_REMOVAL",
+        "WALL"
+      ],
+      "moves": {
+        "roost": 25.0,
+        "defog": 23.1,
+        "toxic": 15.3,
+        "foulplay": 13.3,
+        "knockoff": 12.0,
+        "irondefense": 9.8
+      },
+      "items": {
+        "heavydutyboots": 92.1,
+        "rockyhelmet": 7.4,
+        "leftovers": 0.5,
+        "choicescarf": 0.0
+      },
+      "abilities": {
+        "bigpecks": 84.4,
+        "overcoat": 15.6,
+        "weakarmor": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 0,
+          "def": 100,
+          "spa": 0,
+          "spd": 140,
+          "spe": 16
+        },
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 156,
+          "spa": 0,
+          "spd": 0,
+          "spe": 100
+        }
+      ],
+      "teammates": [
+        "Gliscor",
+        "Blissey",
+        "Toxapex",
+        "Talonflame",
+        "Dondozo",
+        "Clodsire"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 16
+      }
+    },
+    "armarouge": {
+      "name": "Armarouge",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "armorcannon": 22.7,
+        "expandingforce": 15.2,
+        "endure": 14.7,
+        "psychicterrain": 7.2,
+        "calmmind": 5.8,
+        "storedpower": 5.6
+      },
+      "items": {
+        "weaknesspolicy": 39.8,
+        "focussash": 29.7,
+        "choicespecs": 10.7,
+        "leftovers": 5.7
+      },
+      "abilities": {
+        "weakarmor": 96.5,
+        "flashfire": 3.5
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Hatterene",
+        "Indeedee",
+        "Polteageist",
+        "Deoxys-Speed",
+        "Great Tusk",
+        "Hoopa-Unbound"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "porygon2": {
+      "name": "Porygon2",
+      "roles": [
+        "WALL",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "icebeam": 23.1,
+        "trickroom": 19.9,
+        "terablast": 18.7,
+        "hyperbeam": 14.5,
+        "recover": 9.7,
+        "thunderwave": 4.2
+      },
+      "items": {
+        "eviolite": 100.0,
+        "lifeorb": 0.0,
+        "nothing": 0.0,
+        "focussash": 0.0
+      },
+      "abilities": {
+        "download": 74.2,
+        "trace": 24.5,
+        "analytic": 1.3
+      },
+      "spreads": [
+        {
+          "nature": "Quiet",
+          "hp": 248,
+          "atk": 0,
+          "def": 8,
+          "spa": 252,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 144,
+          "spa": 0,
+          "spd": 104,
+          "spe": 8
+        }
+      ],
+      "teammates": [
+        "Hatterene",
+        "Ursaluna",
+        "Iron Hands",
+        "Cresselia",
+        "Volcanion",
+        "Gliscor"
+      ],
+      "speed": {
+        "nature": "Quiet",
+        "spe_ev": 0
+      }
+    },
+    "gardevoir": {
+      "name": "Gardevoir",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "mysticalfire": 16.8,
+        "moonblast": 13.3,
+        "calmmind": 11.8,
+        "drainingkiss": 11.6,
+        "storedpower": 11.5,
+        "trick": 5.8
+      },
+      "items": {
+        "grassyseed": 45.9,
+        "choicescarf": 29.3,
+        "leftovers": 20.9,
+        "choicespecs": 1.6
+      },
+      "abilities": {
+        "trace": 97.1,
+        "synchronize": 2.8,
+        "telepathy": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 128,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 128
+        },
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Rillaboom",
+        "Landorus-Therian",
+        "Hawlucha",
+        "Iron Moth",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 128
+      }
+    },
+    "espeon": {
+      "name": "Espeon",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "psychic": 15.8,
+        "shadowball": 10.8,
+        "trick": 9.3,
+        "calmmind": 8.3,
+        "alluringvoice": 6.5,
+        "dazzlinggleam": 6.5
+      },
+      "items": {
+        "choicespecs": 25.3,
+        "leftovers": 22.1,
+        "choicescarf": 12.3,
+        "lifeorb": 9.9
+      },
+      "abilities": {
+        "magicbounce": 99.5,
+        "synchronize": 0.5
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 4,
+          "spd": 0,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Raging Bolt",
+        "Gliscor",
+        "Glimmora",
+        "Corviknight",
+        "Alomomola"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "slowking": {
+      "name": "Slowking",
+      "roles": [
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "scald": 24.9,
+        "futuresight": 24.4,
+        "fireblast": 21.5,
+        "psyshock": 21.2,
+        "chillyreception": 3.0,
+        "thunderwave": 1.8
+      },
+      "items": {
+        "assaultvest": 86.0,
+        "heavydutyboots": 11.3,
+        "leftovers": 0.7,
+        "choicespecs": 0.7
+      },
+      "abilities": {
+        "regenerator": 100.0,
+        "oblivious": 0.0,
+        "owntempo": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 160,
+          "spd": 100,
+          "spe": 0
+        },
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 100,
+          "spa": 108,
+          "spd": 52,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Meowscarada",
+        "Skarmory",
+        "Iron Treads",
+        "Enamorus",
+        "Keldeo"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 0
+      }
+    },
+    "cloyster": {
+      "name": "Cloyster",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "iciclespear": 25.0,
+        "shellsmash": 24.9,
+        "drillrun": 15.5,
+        "spikes": 14.0,
+        "iceshard": 6.8,
+        "rockblast": 5.8
+      },
+      "items": {
+        "focussash": 79.8,
+        "nevermeltice": 9.5,
+        "whiteherb": 6.2,
+        "lifeorb": 1.9
+      },
+      "abilities": {
+        "skilllink": 99.5,
+        "shellarmor": 0.5,
+        "overcoat": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 4,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kyurem",
+        "Iron Moth",
+        "Iron Valiant",
+        "Kingambit",
+        "Landorus-Therian",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "indeedee": {
+      "name": "Indeedee",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "expandingforce": 24.8,
+        "healingwish": 18.1,
+        "encore": 16.8,
+        "dazzlinggleam": 12.5,
+        "trickroom": 9.2,
+        "shadowball": 6.6
+      },
+      "items": {
+        "terrainextender": 72.5,
+        "choicespecs": 23.0,
+        "choicescarf": 4.1,
+        "focussash": 0.3
+      },
+      "abilities": {
+        "psychicsurge": 100.0,
+        "innerfocus": 0.0,
+        "synchronize": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Hatterene",
+        "Cinderace",
+        "Hawlucha",
+        "Hoopa-Unbound",
+        "Great Tusk",
+        "Iron Crown"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "manaphy": {
+      "name": "Manaphy",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "tailglow": 23.9,
+        "alluringvoice": 17.1,
+        "energyball": 12.4,
+        "hydropump": 11.4,
+        "surf": 9.7,
+        "icebeam": 6.8
+      },
+      "items": {
+        "leftovers": 38.1,
+        "heavydutyboots": 23.0,
+        "sitrusberry": 14.1,
+        "covertcloak": 11.0
+      },
+      "abilities": {
+        "hydration": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Kingambit",
+        "Landorus-Therian",
+        "Pecharunt",
+        "Samurott-Hisui",
+        "Glimmora"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "blastoise": {
+      "name": "Blastoise",
+      "roles": [
+        "SETUP",
+        "HAZARD_REMOVAL"
+      ],
+      "moves": {
+        "shellsmash": 18.0,
+        "icebeam": 18.0,
+        "surf": 13.9,
+        "rapidspin": 7.3,
+        "hydropump": 6.6,
+        "terablast": 5.5
+      },
+      "items": {
+        "whiteherb": 51.0,
+        "assaultvest": 13.7,
+        "focussash": 12.2,
+        "heavydutyboots": 10.0
+      },
+      "abilities": {
+        "torrent": 79.4,
+        "raindish": 20.6
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Scizor",
+        "Serperior",
+        "Great Tusk",
+        "Kingambit",
+        "Pelipper"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "whimsicott": {
+      "name": "Whimsicott",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "moonblast": 20.4,
+        "encore": 12.5,
+        "growth": 12.3,
+        "shadowball": 11.9,
+        "gigadrain": 11.7,
+        "uturn": 11.1
+      },
+      "items": {
+        "lifeorb": 50.7,
+        "choicescarf": 23.7,
+        "heavydutyboots": 20.3,
+        "leftovers": 2.8
+      },
+      "abilities": {
+        "prankster": 50.6,
+        "chlorophyll": 49.3,
+        "infiltrator": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 176,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 80
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Iron Moth",
+        "Walking Wake",
+        "Comfey",
+        "Ninetales",
+        "Cinderace"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 0
+      }
+    },
+    "kingdra": {
+      "name": "Kingdra",
+      "roles": [
+        "CHOICE",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "dracometeor": 23.6,
+        "hurricane": 21.9,
+        "weatherball": 21.4,
+        "flipturn": 10.8,
+        "hydropump": 7.9,
+        "icebeam": 4.9
+      },
+      "items": {
+        "choicespecs": 75.1,
+        "lifeorb": 17.9,
+        "choiceband": 4.3,
+        "scopelens": 1.9
+      },
+      "abilities": {
+        "swiftswim": 98.0,
+        "sniper": 2.0,
+        "damp": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 32,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 224
+        }
+      ],
+      "teammates": [
+        "Pelipper",
+        "Barraskewda",
+        "Clodsire",
+        "Iron Valiant",
+        "Slither Wing",
+        "Jirachi"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "galvantula": {
+      "name": "Galvantula",
+      "roles": [
+        "HAZARD_SETTER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "stickyweb": 24.1,
+        "thunder": 23.0,
+        "thunderwave": 20.0,
+        "energyball": 18.3,
+        "bugbuzz": 6.1,
+        "voltswitch": 4.0
+      },
+      "items": {
+        "focussash": 89.7,
+        "lifeorb": 5.1,
+        "heavydutyboots": 3.1,
+        "throatspray": 0.8
+      },
+      "abilities": {
+        "compoundeyes": 98.4,
+        "swarm": 1.5,
+        "unnerve": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 4,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Chandelure",
+        "Glimmora",
+        "Ogerpon-Wellspring",
+        "Salamence",
+        "Slowking"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "salamence": {
+      "name": "Salamence",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "earthquake": 19.0,
+        "dragondance": 15.0,
+        "dualwingbeat": 9.4,
+        "roost": 9.1,
+        "dracometeor": 6.7,
+        "fireblast": 6.7
+      },
+      "items": {
+        "leftovers": 43.3,
+        "lifeorb": 16.5,
+        "heavydutyboots": 12.3,
+        "choicespecs": 11.1
+      },
+      "abilities": {
+        "moxie": 63.5,
+        "intimidate": 36.5
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 216,
+          "atk": 60,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 232
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Scizor",
+        "Zamazenta",
+        "Ting-Lu",
+        "Iron Valiant"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "empoleon": {
+      "name": "Empoleon",
+      "roles": [
+        "WALL",
+        "PIVOT"
+      ],
+      "moves": {
+        "surf": 19.1,
+        "roost": 17.0,
+        "knockoff": 14.7,
+        "icebeam": 13.4,
+        "flipturn": 10.6,
+        "vacuumwave": 8.0
+      },
+      "items": {
+        "heavydutyboots": 49.0,
+        "leftovers": 16.8,
+        "assaultvest": 13.0,
+        "shucaberry": 12.7
+      },
+      "abilities": {
+        "competitive": 81.3,
+        "torrent": 18.7
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 252,
+          "spe": 8
+        },
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 4,
+          "def": 0,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Kingambit",
+        "Sinistcha",
+        "Garchomp",
+        "Tornadus-Therian",
+        "Pecharunt"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 8
+      }
+    },
+    "sandyshocks": {
+      "name": "Sandy Shocks",
+      "roles": [
+        "HAZARD_SETTER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "earthpower": 25.0,
+        "terablast": 20.1,
+        "spikes": 15.3,
+        "voltswitch": 14.7,
+        "stealthrock": 12.0,
+        "thunderbolt": 7.4
+      },
+      "items": {
+        "heavydutyboots": 50.2,
+        "boosterenergy": 41.2,
+        "assaultvest": 2.4,
+        "lifeorb": 1.5
+      },
+      "abilities": {
+        "protosynthesis": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 48,
+          "atk": 0,
+          "def": 0,
+          "spa": 208,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Zamazenta",
+        "Gholdengo",
+        "Alomomola",
+        "Tornadus-Therian",
+        "Tyranitar",
+        "Scizor"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "lucario": {
+      "name": "Lucario",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "extremespeed": 23.1,
+        "swordsdance": 22.5,
+        "closecombat": 16.9,
+        "crunch": 11.8,
+        "bulletpunch": 7.0,
+        "drainpunch": 6.7
+      },
+      "items": {
+        "lifeorb": 53.8,
+        "silkscarf": 27.0,
+        "airballoon": 15.6,
+        "focussash": 1.8
+      },
+      "abilities": {
+        "innerfocus": 92.1,
+        "justified": 5.3,
+        "steadfast": 2.6
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 252,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 4
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Kyurem",
+        "Ceruledge",
+        "Darkrai",
+        "Cloyster"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "amoonguss": {
+      "name": "Amoonguss",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "foulplay": 24.2,
+        "sludgebomb": 13.7,
+        "stompingtantrum": 12.0,
+        "stunspore": 11.7,
+        "clearsmog": 9.8,
+        "toxic": 7.9
+      },
+      "items": {
+        "heavydutyboots": 35.9,
+        "ejectpack": 22.3,
+        "assaultvest": 21.1,
+        "leftovers": 13.7
+      },
+      "abilities": {
+        "regenerator": 99.9,
+        "effectspore": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 248,
+          "atk": 0,
+          "def": 244,
+          "spa": 0,
+          "spd": 16,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 248,
+          "atk": 16,
+          "def": 0,
+          "spa": 0,
+          "spd": 196,
+          "spe": 48
+        }
+      ],
+      "teammates": [
+        "Dondozo",
+        "Corviknight",
+        "Gliscor",
+        "Great Tusk",
+        "Blissey",
+        "Hatterene"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 0
+      }
+    },
+    "ditto": {
+      "name": "Ditto",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "": 75.0,
+        "transform": 25.0
+      },
+      "items": {
+        "choicescarf": 99.9,
+        "airballoon": 0.0,
+        "dragonfang": 0.0,
+        "focussash": 0.0
+      },
+      "abilities": {
+        "imposter": 100.0,
+        "limber": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Quiet",
+          "hp": 248,
+          "atk": 8,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 8,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Kyurem",
+        "Alomomola",
+        "Corviknight",
+        "Weezing-Galar",
+        "Ting-Lu",
+        "Gliscor"
+      ],
+      "speed": {
+        "nature": "Quiet",
+        "spe_ev": 0
+      }
+    },
+    "ironboulder": {
+      "name": "Iron Boulder",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "mightycleave": 25.0,
+        "earthquake": 21.2,
+        "swordsdance": 19.3,
+        "zenheadbutt": 12.4,
+        "closecombat": 11.3,
+        "terablast": 6.2
+      },
+      "items": {
+        "boosterenergy": 76.1,
+        "choiceband": 11.0,
+        "choicescarf": 10.9,
+        "stoneplate": 0.7
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Raging Bolt",
+        "Kingambit",
+        "Landorus-Therian",
+        "Ting-Lu",
+        "Deoxys-Speed",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "overqwil": {
+      "name": "Overqwil",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "liquidation": 24.8,
+        "crunch": 24.6,
+        "swordsdance": 24.6,
+        "gunkshot": 24.5,
+        "destinybond": 0.6,
+        "terablast": 0.4
+      },
+      "items": {
+        "lifeorb": 99.2,
+        "custapberry": 0.2,
+        "nothing": 0.2,
+        "loadeddice": 0.1
+      },
+      "abilities": {
+        "swiftswim": 99.6,
+        "intimidate": 0.4,
+        "poisonpoint": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 28,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 228
+        }
+      ],
+      "teammates": [
+        "Pelipper",
+        "Iron Treads",
+        "Raging Bolt",
+        "Basculegion",
+        "Iron Jugulis",
+        "Kingambit"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "swampert": {
+      "name": "Swampert",
+      "roles": [
+        "HAZARD_SETTER",
+        "PIVOT"
+      ],
+      "moves": {
+        "flipturn": 20.5,
+        "earthquake": 19.7,
+        "stealthrock": 12.9,
+        "roar": 9.7,
+        "poisonjab": 7.9,
+        "knockoff": 7.7
+      },
+      "items": {
+        "leftovers": 57.1,
+        "assaultvest": 34.9,
+        "sitrusberry": 4.2,
+        "rockyhelmet": 1.1
+      },
+      "abilities": {
+        "torrent": 88.7,
+        "damp": 11.3
+      },
+      "spreads": [
+        {
+          "nature": "Careful",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        },
+        {
+          "nature": "Sassy",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 0,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Tyranitar",
+        "Dragapult",
+        "Rillaboom",
+        "Zamazenta",
+        "Pecharunt"
+      ],
+      "speed": {
+        "nature": "Careful",
+        "spe_ev": 0
+      }
+    },
+    "tentacruel": {
+      "name": "Tentacruel",
+      "roles": [
+        "HAZARD_REMOVAL",
+        "PIVOT"
+      ],
+      "moves": {
+        "rapidspin": 25.0,
+        "sludgebomb": 23.9,
+        "flipturn": 17.1,
+        "mirrorcoat": 16.5,
+        "surf": 8.0,
+        "knockoff": 7.9
+      },
+      "items": {
+        "leftovers": 66.8,
+        "heavydutyboots": 30.9,
+        "assaultvest": 0.9,
+        "blacksludge": 0.8
+      },
+      "abilities": {
+        "raindish": 67.1,
+        "liquidooze": 30.1,
+        "clearbody": 2.8
+      },
+      "spreads": [
+        {
+          "nature": "Sassy",
+          "hp": 252,
+          "atk": 0,
+          "def": 12,
+          "spa": 0,
+          "spd": 244,
+          "spe": 0
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Pelipper",
+        "Barraskewda",
+        "Raging Bolt",
+        "Golduck",
+        "Pawmot",
+        "Gliscor"
+      ],
+      "speed": {
+        "nature": "Sassy",
+        "spe_ev": 0
+      }
+    },
+    "magnezone": {
+      "name": "Magnezone",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "thunderbolt": 23.6,
+        "flashcannon": 21.6,
+        "voltswitch": 20.4,
+        "bodypress": 14.5,
+        "terablast": 6.9,
+        "irondefense": 6.8
+      },
+      "items": {
+        "choicespecs": 51.6,
+        "leftovers": 15.9,
+        "assaultvest": 14.2,
+        "covertcloak": 8.6
+      },
+      "abilities": {
+        "magnetpull": 83.3,
+        "analytic": 16.3,
+        "sturdy": 0.5
+      },
+      "spreads": [
+        {
+          "nature": "Bold",
+          "hp": 0,
+          "atk": 0,
+          "def": 252,
+          "spa": 80,
+          "spd": 0,
+          "spe": 176
+        },
+        {
+          "nature": "Modest",
+          "hp": 4,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Landorus-Therian",
+        "Dragapult",
+        "Zamazenta",
+        "Rillaboom"
+      ],
+      "speed": {
+        "nature": "Bold",
+        "spe_ev": 176
+      }
+    },
+    "conkeldurr": {
+      "name": "Conkeldurr",
+      "roles": [
+        "SETUP"
+      ],
+      "moves": {
+        "machpunch": 22.1,
+        "knockoff": 19.1,
+        "drainpunch": 13.7,
+        "facade": 13.7,
+        "icepunch": 11.5,
+        "bulkup": 6.6
+      },
+      "items": {
+        "flameorb": 80.7,
+        "leftovers": 5.1,
+        "punchingglove": 4.8,
+        "lifeorb": 3.8
+      },
+      "abilities": {
+        "guts": 87.1,
+        "ironfist": 8.7,
+        "sheerforce": 4.2
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 252,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Adamant",
+          "hp": 68,
+          "atk": 252,
+          "def": 40,
+          "spa": 0,
+          "spd": 148,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Dragapult",
+        "Iron Treads",
+        "Raging Bolt",
+        "Samurott-Hisui",
+        "Pelipper",
+        "Amoonguss"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 0
+      }
+    },
+    "chandelure": {
+      "name": "Chandelure",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "shadowball": 24.9,
+        "flamethrower": 23.4,
+        "energyball": 21.6,
+        "trick": 18.1,
+        "overheat": 4.2,
+        "trickroom": 2.9
+      },
+      "items": {
+        "choicespecs": 61.8,
+        "choicescarf": 20.6,
+        "focussash": 9.1,
+        "airballoon": 4.9
+      },
+      "abilities": {
+        "infiltrator": 69.2,
+        "flashfire": 19.4,
+        "flamebody": 11.4
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Ogerpon-Wellspring",
+        "Galvantula",
+        "Salamence",
+        "Glimmora",
+        "Hatterene"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "jolteon": {
+      "name": "Jolteon",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "voltswitch": 25.0,
+        "alluringvoice": 24.9,
+        "thunderbolt": 24.4,
+        "calmmind": 24.2,
+        "weatherball": 0.6,
+        "thunder": 0.6
+      },
+      "items": {
+        "heavydutyboots": 96.9,
+        "choicespecs": 1.5,
+        "lifeorb": 1.2,
+        "leftovers": 0.1
+      },
+      "abilities": {
+        "voltabsorb": 99.8,
+        "quickfeet": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 20,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 236
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Slowking-Galar",
+        "Kingambit",
+        "Moltres",
+        "Hydrapple",
+        "Pelipper"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "milotic": {
+      "name": "Milotic",
+      "roles": [
+        "WALL"
+      ],
+      "moves": {
+        "recover": 23.0,
+        "scald": 22.7,
+        "icebeam": 13.9,
+        "mirrorcoat": 9.5,
+        "haze": 7.5,
+        "alluringvoice": 6.0
+      },
+      "items": {
+        "leftovers": 46.7,
+        "flameorb": 27.6,
+        "heavydutyboots": 14.2,
+        "lifeorb": 4.5
+      },
+      "abilities": {
+        "marvelscale": 63.9,
+        "competitive": 36.0,
+        "cutecharm": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Calm",
+          "hp": 144,
+          "atk": 0,
+          "def": 0,
+          "spa": 152,
+          "spd": 212,
+          "spe": 0
+        },
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 140,
+          "spe": 116
+        }
+      ],
+      "teammates": [
+        "Garchomp",
+        "Gliscor",
+        "Slowking-Galar",
+        "Metagross",
+        "Porygon2",
+        "Goodra-Hisui"
+      ],
+      "speed": {
+        "nature": "Calm",
+        "spe_ev": 0
+      }
+    },
+    "infernape": {
+      "name": "Infernape",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "closecombat": 15.0,
+        "machpunch": 12.9,
+        "flareblitz": 12.1,
+        "uturn": 11.7,
+        "stealthrock": 5.9,
+        "taunt": 4.8
+      },
+      "items": {
+        "choiceband": 45.4,
+        "focussash": 14.3,
+        "heatrock": 12.5,
+        "lifeorb": 9.5
+      },
+      "abilities": {
+        "ironfist": 57.7,
+        "blaze": 42.3
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 252,
+          "atk": 0,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Hatterene",
+        "Iron Treads",
+        "Dondozo",
+        "Thundurus-Therian",
+        "Clodsire",
+        "Blaziken"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "okidogi": {
+      "name": "Okidogi",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "knockoff": 24.9,
+        "icepunch": 16.9,
+        "gunkshot": 15.9,
+        "drainpunch": 15.0,
+        "closecombat": 10.0,
+        "bulkup": 8.9
+      },
+      "items": {
+        "choicescarf": 39.9,
+        "leftovers": 32.4,
+        "assaultvest": 23.8,
+        "heavydutyboots": 2.1
+      },
+      "abilities": {
+        "toxicchain": 62.2,
+        "guarddog": 37.8
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Adamant",
+          "hp": 252,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Kyurem",
+        "Landorus-Therian",
+        "Iron Treads",
+        "Samurott-Hisui",
+        "Ninetales-Alola"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "jirachi": {
+      "name": "Jirachi",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "doomdesire": 21.2,
+        "uturn": 16.4,
+        "ironhead": 14.8,
+        "thunderbolt": 11.0,
+        "psychicnoise": 7.8,
+        "icywind": 6.7
+      },
+      "items": {
+        "assaultvest": 66.9,
+        "leftovers": 12.1,
+        "covertcloak": 9.2,
+        "choicescarf": 4.0
+      },
+      "abilities": {
+        "serenegrace": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Quiet",
+          "hp": 248,
+          "atk": 56,
+          "def": 16,
+          "spa": 76,
+          "spd": 112,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 224,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 32
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Alomomola",
+        "Tornadus-Therian",
+        "Hatterene",
+        "Ogerpon-Cornerstone",
+        "Cinderace"
+      ],
+      "speed": {
+        "nature": "Quiet",
+        "spe_ev": 0
+      }
+    },
+    "gallade": {
+      "name": "Gallade",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "sacredsword": 24.9,
+        "psychocut": 24.7,
+        "nightslash": 21.1,
+        "icepunch": 14.8,
+        "stoneedge": 2.4,
+        "shadowsneak": 2.3
+      },
+      "items": {
+        "choiceband": 80.0,
+        "focussash": 5.5,
+        "choicescarf": 4.6,
+        "lifeorb": 3.9
+      },
+      "abilities": {
+        "sharpness": 98.9,
+        "steadfast": 1.1,
+        "justified": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Corviknight",
+        "Ting-Lu",
+        "Weezing-Galar",
+        "Dondozo",
+        "Hydrapple",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "mamoswine": {
+      "name": "Mamoswine",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "earthquake": 24.1,
+        "iceshard": 23.4,
+        "iciclecrash": 13.9,
+        "stealthrock": 10.9,
+        "iciclespear": 8.7,
+        "knockoff": 6.3
+      },
+      "items": {
+        "loadeddice": 34.9,
+        "focussash": 22.4,
+        "choiceband": 16.1,
+        "babiriberry": 8.8
+      },
+      "abilities": {
+        "thickfat": 75.5,
+        "oblivious": 24.5
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 40,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 216
+        },
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragonite",
+        "Heatran",
+        "Ogerpon-Wellspring",
+        "Glimmora",
+        "Iron Valiant",
+        "Zamazenta"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 216
+      }
+    },
+    "mew": {
+      "name": "Mew",
+      "roles": [
+        "HAZARD_SETTER"
+      ],
+      "moves": {
+        "stealthrock": 12.2,
+        "flamethrower": 10.4,
+        "endeavor": 10.3,
+        "psychicnoise": 9.1,
+        "transform": 6.3,
+        "imprison": 6.2
+      },
+      "items": {
+        "focussash": 42.1,
+        "heavydutyboots": 16.8,
+        "leftovers": 9.5,
+        "expertbelt": 6.5
+      },
+      "abilities": {
+        "synchronize": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 252,
+          "atk": 0,
+          "def": 8,
+          "spa": 0,
+          "spd": 8,
+          "spe": 240
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Dragonite",
+        "Darkrai",
+        "Iron Crown",
+        "Bellibolt",
+        "Slowking-Galar"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "krookodile": {
+      "name": "Krookodile",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "knockoff": 24.2,
+        "earthquake": 23.6,
+        "stoneedge": 20.6,
+        "gunkshot": 20.4,
+        "closecombat": 3.0,
+        "stealthrock": 2.0
+      },
+      "items": {
+        "choiceband": 75.5,
+        "choicescarf": 14.1,
+        "focussash": 5.4,
+        "leftovers": 2.5
+      },
+      "abilities": {
+        "intimidate": 84.5,
+        "moxie": 15.4,
+        "angerpoint": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 112,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 144
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Talonflame",
+        "Slowbro",
+        "Blissey",
+        "Mienshao",
+        "Gengar",
+        "Zoroark-Hisui"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 144
+      }
+    },
+    "forretress": {
+      "name": "Forretress",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER",
+        "HAZARD_REMOVAL",
+        "PIVOT"
+      ],
+      "moves": {
+        "rapidspin": 23.9,
+        "stealthrock": 21.1,
+        "voltswitch": 20.9,
+        "spikes": 16.3,
+        "bodypress": 4.3,
+        "toxicspikes": 3.2
+      },
+      "items": {
+        "heavydutyboots": 65.3,
+        "leftovers": 15.0,
+        "custapberry": 9.4,
+        "rockyhelmet": 6.8
+      },
+      "abilities": {
+        "sturdy": 99.2,
+        "overcoat": 0.8
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        },
+        {
+          "nature": "Relaxed",
+          "hp": 252,
+          "atk": 0,
+          "def": 252,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Gholdengo",
+        "Alomomola",
+        "Exeggcute",
+        "Excadrill",
+        "Haxorus",
+        "Hoopa"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 0
+      }
+    },
+    "breloom": {
+      "name": "Breloom",
+      "roles": [
+        "SETUP",
+        "CHOICE"
+      ],
+      "moves": {
+        "machpunch": 23.9,
+        "bulletseed": 23.7,
+        "swordsdance": 21.0,
+        "rocktomb": 20.4,
+        "closecombat": 3.9,
+        "bulldoze": 2.0
+      },
+      "items": {
+        "focussash": 69.6,
+        "loadeddice": 11.8,
+        "lifeorb": 7.9,
+        "choiceband": 7.1
+      },
+      "abilities": {
+        "technician": 96.4,
+        "poisonheal": 3.4,
+        "effectspore": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Brave",
+          "hp": 248,
+          "atk": 252,
+          "def": 4,
+          "spa": 0,
+          "spd": 4,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Dragonite",
+        "Azumarill",
+        "Skeledirge",
+        "Diancie"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "kleavor": {
+      "name": "Kleavor",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_REMOVAL",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "stoneaxe": 24.9,
+        "xscissor": 13.9,
+        "uturn": 13.6,
+        "nightslash": 10.9,
+        "defog": 8.4,
+        "closecombat": 7.2
+      },
+      "items": {
+        "choicescarf": 48.0,
+        "focussash": 32.2,
+        "choiceband": 9.2,
+        "rockyhelmet": 4.1
+      },
+      "abilities": {
+        "sharpness": 99.5,
+        "sheerforce": 0.5,
+        "swarm": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 248,
+          "def": 8,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Cloyster",
+        "Polteageist",
+        "Lucario",
+        "Alomomola"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 252
+      }
+    },
+    "porygonz": {
+      "name": "Porygon-Z",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER"
+      ],
+      "moves": {
+        "terablast": 18.9,
+        "shadowball": 18.4,
+        "nastyplot": 14.8,
+        "triattack": 13.4,
+        "thunderbolt": 11.7,
+        "icebeam": 9.6
+      },
+      "items": {
+        "silkscarf": 30.1,
+        "lifeorb": 27.2,
+        "choicespecs": 21.6,
+        "choicescarf": 8.3
+      },
+      "abilities": {
+        "adaptability": 65.5,
+        "download": 34.5,
+        "analytic": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Kingambit",
+        "Landorus-Therian",
+        "Iron Moth",
+        "Kyurem",
+        "Iron Hands",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 252
+      }
+    },
+    "snorlax": {
+      "name": "Snorlax",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "bodyslam": 22.8,
+        "rest": 21.2,
+        "earthquake": 20.5,
+        "sleeptalk": 17.7,
+        "curse": 4.1,
+        "heatcrash": 3.8
+      },
+      "items": {
+        "leftovers": 85.3,
+        "assaultvest": 11.8,
+        "expertbelt": 0.6,
+        "chestoberry": 0.4
+      },
+      "abilities": {
+        "thickfat": 88.8,
+        "immunity": 10.3,
+        "gluttony": 0.9
+      },
+      "spreads": [
+        {
+          "nature": "Adamant",
+          "hp": 188,
+          "atk": 104,
+          "def": 216,
+          "spa": 0,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Careful",
+          "hp": 0,
+          "atk": 216,
+          "def": 156,
+          "spa": 0,
+          "spd": 136,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Ting-Lu",
+        "Hatterene",
+        "Pecharunt",
+        "Weavile",
+        "Corviknight",
+        "Dragonite"
+      ],
+      "speed": {
+        "nature": "Adamant",
+        "spe_ev": 0
+      }
+    },
+    "comfey": {
+      "name": "Comfey",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "WALL"
+      ],
+      "moves": {
+        "drainingkiss": 24.9,
+        "calmmind": 18.5,
+        "storedpower": 14.3,
+        "terablast": 13.3,
+        "synthesis": 7.3,
+        "gigadrain": 6.6
+      },
+      "items": {
+        "lifeorb": 60.8,
+        "leftovers": 18.9,
+        "grassyseed": 10.6,
+        "choicespecs": 3.0
+      },
+      "abilities": {
+        "triage": 100.0,
+        "flowerveil": 0.0,
+        "naturalcure": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 252,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 0
+        },
+        {
+          "nature": "Modest",
+          "hp": 248,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 8,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Blaziken",
+        "Kingambit",
+        "Ogerpon-Wellspring",
+        "Dragapult",
+        "Glimmora",
+        "Whimsicott"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 0
+      }
+    },
+    "ironjugulis": {
+      "name": "Iron Jugulis",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "hurricane": 24.8,
+        "taunt": 24.8,
+        "earthpower": 23.9,
+        "knockoff": 22.6,
+        "darkpulse": 2.1,
+        "fireblast": 1.1
+      },
+      "items": {
+        "boosterenergy": 99.4,
+        "leftovers": 0.2,
+        "powerherb": 0.1,
+        "assaultvest": 0.1
+      },
+      "abilities": {
+        "quarkdrive": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Naive",
+          "hp": 0,
+          "atk": 4,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Raging Bolt",
+        "Iron Treads",
+        "Iron Moth",
+        "Pelipper",
+        "Basculegion",
+        "Overqwil"
+      ],
+      "speed": {
+        "nature": "Naive",
+        "spe_ev": 252
+      }
+    },
+    "salazzle": {
+      "name": "Salazzle",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "toxic": 24.5,
+        "encore": 18.4,
+        "overheat": 12.9,
+        "flamethrower": 11.6,
+        "endeavor": 11.4,
+        "sludgewave": 9.3
+      },
+      "items": {
+        "focussash": 55.9,
+        "heavydutyboots": 27.0,
+        "lifeorb": 6.3,
+        "leftovers": 4.8
+      },
+      "abilities": {
+        "corrosion": 100.0,
+        "oblivious": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 248,
+          "spd": 8,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Alomomola",
+        "Weezing-Galar",
+        "Iron Crown",
+        "Sinistcha",
+        "Kleavor",
+        "Gholdengo"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "gastrodon": {
+      "name": "Gastrodon",
+      "roles": [
+        "CHOICE",
+        "HAZARD_SETTER",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "earthpower": 19.0,
+        "icebeam": 17.1,
+        "surf": 14.7,
+        "sludgebomb": 12.7,
+        "recover": 12.3,
+        "stealthrock": 5.7
+      },
+      "items": {
+        "choicespecs": 38.6,
+        "leftovers": 33.9,
+        "heavydutyboots": 11.4,
+        "rockyhelmet": 6.1
+      },
+      "abilities": {
+        "stormdrain": 58.1,
+        "sandforce": 38.3,
+        "stickyhold": 3.6
+      },
+      "spreads": [
+        {
+          "nature": "Modest",
+          "hp": 192,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 0,
+          "spe": 64
+        },
+        {
+          "nature": "Calm",
+          "hp": 252,
+          "atk": 0,
+          "def": 0,
+          "spa": 4,
+          "spd": 252,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Weezing-Galar",
+        "Excadrill",
+        "Moltres",
+        "Zamazenta",
+        "Tyranitar",
+        "Corviknight"
+      ],
+      "speed": {
+        "nature": "Modest",
+        "spe_ev": 64
+      }
+    },
+    "thundurus": {
+      "name": "Thundurus",
+      "roles": [
+        "CHOICE",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "acrobatics": 15.7,
+        "knockoff": 14.5,
+        "swagger": 14.4,
+        "supercellslam": 14.0,
+        "thunderbolt": 7.8,
+        "thunderwave": 7.2
+      },
+      "items": {
+        "mirrorherb": 57.7,
+        "heavydutyboots": 16.6,
+        "focussash": 14.5,
+        "choicespecs": 4.3
+      },
+      "abilities": {
+        "defiant": 59.2,
+        "prankster": 40.8
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Hatterene",
+        "Kingambit",
+        "Slowking-Galar",
+        "Primarina",
+        "Dragapult"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "zapdosgalar": {
+      "name": "Zapdos-Galar",
+      "roles": [
+        "SETUP",
+        "CHOICE",
+        "REVENGE_KILLER",
+        "PIVOT"
+      ],
+      "moves": {
+        "bravebird": 22.6,
+        "closecombat": 22.5,
+        "uturn": 21.7,
+        "knockoff": 21.5,
+        "thunderouskick": 3.0,
+        "bulkup": 1.7
+      },
+      "items": {
+        "choiceband": 49.2,
+        "choicescarf": 33.0,
+        "lifeorb": 5.1,
+        "leftovers": 3.4
+      },
+      "abilities": {
+        "defiant": 100.0
+      },
+      "spreads": [
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Jolly",
+          "hp": 0,
+          "atk": 252,
+          "def": 0,
+          "spa": 0,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Pecharunt",
+        "Gliscor",
+        "Darkrai",
+        "Skarmory",
+        "Blissey",
+        "Great Tusk"
+      ],
+      "speed": {
+        "nature": "Jolly",
+        "spe_ev": 252
+      }
+    },
+    "toxtricity": {
+      "name": "Toxtricity",
+      "roles": [
+        "CHOICE",
+        "REVENGE_KILLER",
+        "HAZARD_SETTER",
+        "PIVOT",
+        "WALLBREAKER"
+      ],
+      "moves": {
+        "voltswitch": 21.0,
+        "psychicnoise": 14.2,
+        "boomburst": 13.4,
+        "nuzzle": 12.6,
+        "overdrive": 12.5,
+        "toxicspikes": 12.5
+      },
+      "items": {
+        "focussash": 48.9,
+        "choicespecs": 42.5,
+        "throatspray": 3.5,
+        "choicescarf": 2.4
+      },
+      "abilities": {
+        "punkrock": 99.4,
+        "technician": 0.5,
+        "minus": 0.1
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Modest",
+          "hp": 0,
+          "atk": 0,
+          "def": 4,
+          "spa": 252,
+          "spd": 0,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Dragapult",
+        "Kingambit",
+        "Gliscor",
+        "Quaquaval",
+        "Polteageist",
+        "Ogerpon-Wellspring"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    },
+    "chesnaught": {
+      "name": "Chesnaught",
+      "roles": [
+        "SETUP",
+        "HAZARD_SETTER",
+        "WALL"
+      ],
+      "moves": {
+        "bodypress": 24.2,
+        "synthesis": 18.3,
+        "knockoff": 17.3,
+        "spikes": 13.9,
+        "irondefense": 10.3,
+        "leechseed": 7.5
+      },
+      "items": {
+        "rockyhelmet": 65.1,
+        "leftovers": 30.6,
+        "salacberry": 2.5,
+        "heavydutyboots": 0.9
+      },
+      "abilities": {
+        "bulletproof": 99.8,
+        "overgrow": 0.2
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 228,
+          "spa": 0,
+          "spd": 0,
+          "spe": 32
+        },
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 200,
+          "spa": 0,
+          "spd": 56,
+          "spe": 0
+        }
+      ],
+      "teammates": [
+        "Ting-Lu",
+        "Iron Treads",
+        "Dragapult",
+        "Hatterene",
+        "Corviknight",
+        "Iron Moth"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 32
+      }
+    },
+    "toxicroak": {
+      "name": "Toxicroak",
+      "roles": [
+        "GENERAL"
+      ],
+      "moves": {
+        "knockoff": 24.3,
+        "drainpunch": 23.3,
+        "encore": 22.5,
+        "toxic": 20.8,
+        "poisonjab": 2.2,
+        "gunkshot": 2.0
+      },
+      "items": {
+        "rockyhelmet": 85.7,
+        "heavydutyboots": 6.4,
+        "blacksludge": 4.1,
+        "leftovers": 2.7
+      },
+      "abilities": {
+        "dryskin": 99.9,
+        "poisontouch": 0.1,
+        "anticipation": 0.0
+      },
+      "spreads": [
+        {
+          "nature": "Impish",
+          "hp": 248,
+          "atk": 0,
+          "def": 204,
+          "spa": 0,
+          "spd": 0,
+          "spe": 56
+        },
+        {
+          "nature": "Impish",
+          "hp": 252,
+          "atk": 0,
+          "def": 204,
+          "spa": 0,
+          "spd": 0,
+          "spe": 52
+        }
+      ],
+      "teammates": [
+        "Iron Treads",
+        "Pelipper",
+        "Hatterene",
+        "Barraskewda",
+        "Zapdos",
+        "Kyurem"
+      ],
+      "speed": {
+        "nature": "Impish",
+        "spe_ev": 56
+      }
+    },
+    "kilowattrel": {
+      "name": "Kilowattrel",
+      "roles": [
+        "CHOICE",
+        "PIVOT"
+      ],
+      "moves": {
+        "voltswitch": 19.8,
+        "terablast": 19.2,
+        "airslash": 18.8,
+        "thunderbolt": 17.2,
+        "hurricane": 6.0,
+        "tailwind": 5.7
+      },
+      "items": {
+        "heavydutyboots": 57.7,
+        "earthplate": 15.2,
+        "choicespecs": 12.1,
+        "lifeorb": 6.5
+      },
+      "abilities": {
+        "competitive": 74.7,
+        "voltabsorb": 17.8,
+        "windpower": 7.5
+      },
+      "spreads": [
+        {
+          "nature": "Timid",
+          "hp": 24,
+          "atk": 0,
+          "def": 0,
+          "spa": 228,
+          "spd": 4,
+          "spe": 252
+        },
+        {
+          "nature": "Timid",
+          "hp": 0,
+          "atk": 0,
+          "def": 0,
+          "spa": 252,
+          "spd": 4,
+          "spe": 252
+        }
+      ],
+      "teammates": [
+        "Great Tusk",
+        "Toxapex",
+        "Scizor",
+        "Sableye",
+        "Blissey",
+        "Corviknight"
+      ],
+      "speed": {
+        "nature": "Timid",
+        "spe_ev": 252
+      }
+    }
+  }
+}
