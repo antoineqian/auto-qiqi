@@ -7,6 +7,7 @@ import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.BattleDecisionRouter;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
+import com.cobblemoon.autoqiqi.biome.BiomeDiscoveryEngine;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
@@ -16,6 +17,7 @@ import com.cobblemoon.autoqiqi.npc.TowerGuiHandler;
 import com.cobblemoon.autoqiqi.npc.TowerNpcEngine;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -385,6 +387,9 @@ public class AutoQiqiClient implements ClientModInitializer {
                 stopHunt(client, "duree ecoulee");
             }
 
+            // Biome discovery (runs during idle time between legendary events)
+            BiomeDiscoveryEngine.get().tick();
+
             // Periodic Pokedex scan
             tickPeriodicScan(client);
 
@@ -540,6 +545,26 @@ public class AutoQiqiClient implements ClientModInitializer {
                                         executeHuntStart(DoubleArgumentType.getDouble(context, "hours"));
                                         return 1;
                                     })))
+                    .then(ClientCommandManager.literal("biome")
+                            .executes(context -> { executeBiomeStatus(); return 1; })
+                            .then(ClientCommandManager.literal("start")
+                                    .executes(context -> { executeBiomeStart(); return 1; }))
+                            .then(ClientCommandManager.literal("stop")
+                                    .executes(context -> { executeBiomeStop(); return 1; }))
+                            .then(ClientCommandManager.literal("list")
+                                    .executes(context -> { executeBiomeList(); return 1; }))
+                            .then(ClientCommandManager.literal("add")
+                                    .then(ClientCommandManager.argument("biomeId", StringArgumentType.string())
+                                            .executes(context -> {
+                                                executeBiomeAdd(StringArgumentType.getString(context, "biomeId"));
+                                                return 1;
+                                            })))
+                            .then(ClientCommandManager.literal("remove")
+                                    .then(ClientCommandManager.argument("biomeId", StringArgumentType.string())
+                                            .executes(context -> {
+                                                executeBiomeRemove(StringArgumentType.getString(context, "biomeId"));
+                                                return 1;
+                                            }))))
                     .then(ClientCommandManager.literal("reconnect")
                             .executes(context -> { executeReconnectToggle(); return 1; }))
                     .then(ClientCommandManager.literal("cacheflush")
@@ -774,6 +799,11 @@ public class AutoQiqiClient implements ClientModInitializer {
             msg(client, "§7Auto-hop rotation arretee.");
             stopped = true;
         }
+        if (BiomeDiscoveryEngine.get().isEnabled()) {
+            BiomeDiscoveryEngine.get().stop();
+            msg(client, "§7Biome discovery arretee.");
+            stopped = true;
+        }
         if (stopped) {
             log("Battle", "User executed /pk stop — all engines stopped");
             com.cobblemoon.autoqiqi.common.SessionLogger.get().logEvent("MANUAL",
@@ -877,6 +907,91 @@ public class AutoQiqiClient implements ClientModInitializer {
 
     public static boolean isHuntActive() { return huntActive; }
     public static long getHuntRemainingMs() { return huntActive ? Math.max(0, huntEndTimeMs - System.currentTimeMillis()) : 0; }
+
+    // ========================
+    // Biome Discovery commands
+    // ========================
+
+    private void executeBiomeStart() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        if (BiomeDiscoveryEngine.get().isEnabled()) {
+            msg(client, "§e[Biome]§r Deja active.");
+            return;
+        }
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        config.biomeDiscoveryEnabled = true;
+        AutoQiqiConfig.save();
+        BiomeDiscoveryEngine.get().start();
+    }
+
+    private void executeBiomeStop() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        if (!BiomeDiscoveryEngine.get().isEnabled()) {
+            msg(client, "§7[Biome]§r Pas active.");
+            return;
+        }
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        config.biomeDiscoveryEnabled = false;
+        AutoQiqiConfig.save();
+        BiomeDiscoveryEngine.get().stop();
+        msg(client, "§7[Biome]§r Recherche arretee.");
+    }
+
+    private void executeBiomeStatus() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        msg(client, "§b=== BIOME DISCOVERY ===");
+        msg(client, "§7Etat: §f" + BiomeDiscoveryEngine.get().getStatusText());
+        msg(client, "§7Cibles: §f" + (config.biomeDiscoveryTargets.isEmpty() ? "(vide)" : String.join(", ", config.biomeDiscoveryTargets)));
+        java.util.Set<String> found = BiomeDiscoveryEngine.get().getFoundBiomes();
+        if (!found.isEmpty()) {
+            msg(client, "§7Trouves: §a" + String.join(", ", found));
+        }
+    }
+
+    private void executeBiomeList() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (config.biomeDiscoveryTargets.isEmpty()) {
+            msg(client, "§7[Biome]§r Aucun biome cible. §f/pk biome add <id>§7 pour en ajouter.");
+            return;
+        }
+        msg(client, "§b[Biome]§r Cibles:");
+        java.util.Set<String> found = BiomeDiscoveryEngine.get().getFoundBiomes();
+        for (String target : config.biomeDiscoveryTargets) {
+            String marker = found.contains(target) ? "§a✓" : "§7○";
+            msg(client, "  " + marker + " §f" + target);
+        }
+    }
+
+    private void executeBiomeAdd(String biomeId) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (config.biomeDiscoveryTargets.contains(biomeId)) {
+            msg(client, "§e[Biome]§r " + biomeId + " deja dans la liste.");
+            return;
+        }
+        config.biomeDiscoveryTargets.add(biomeId);
+        AutoQiqiConfig.save();
+        msg(client, "§a[Biome]§r Ajoute: §f" + biomeId);
+    }
+
+    private void executeBiomeRemove(String biomeId) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (config.biomeDiscoveryTargets.remove(biomeId)) {
+            AutoQiqiConfig.save();
+            msg(client, "§a[Biome]§r Retire: §f" + biomeId);
+        } else {
+            msg(client, "§c[Biome]§r " + biomeId + " non trouve dans la liste.");
+        }
+    }
 
     // ========================
     // Blocked state tracking

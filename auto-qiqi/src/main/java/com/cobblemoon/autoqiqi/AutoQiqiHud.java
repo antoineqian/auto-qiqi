@@ -4,6 +4,7 @@ import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
 import com.cobblemoon.autoqiqi.battle.TrainerBattleEngine;
+import com.cobblemoon.autoqiqi.biome.BiomeDiscoveryEngine;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.legendary.*;
 import com.cobblemoon.autoqiqi.mine.GoldMiningEngine;
@@ -111,7 +112,16 @@ public class AutoQiqiHud {
             String durSuffix = durDisplay != null ? " " + durDisplay : "";
             if (mined > 0) {
                 context.drawText(tr, Text.literal("§7[Mine] §6" + mined + " ores" + durSuffix), 4, y, 0xFFFFFF, true);
+                y += 12;
             }
+        }
+
+        // Biome discovery status
+        BiomeDiscoveryEngine biome = BiomeDiscoveryEngine.get();
+        if (biome.isEnabled()) {
+            String biomeStatus = "§b[Biome] §f" + biome.getStatusText();
+            context.drawText(tr, Text.literal(biomeStatus), 4, y, 0xFFFFFF, true);
+            y += 12;
         }
     }
 

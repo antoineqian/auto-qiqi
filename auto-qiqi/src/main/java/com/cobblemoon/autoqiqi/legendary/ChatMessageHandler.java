@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
+import com.cobblemoon.autoqiqi.biome.BiomeDiscoveryEngine;
 import com.cobblemoon.autoqiqi.npc.TowerNpcEngine;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.common.TimerParser;
@@ -128,6 +129,11 @@ public class ChatMessageHandler {
                     mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §eEntities cleared — pausing scans for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s"), false);
                 }
             }
+        }
+
+        // Biome discovery: flight toggle detection
+        if (stripped.contains("Mode vol")) {
+            BiomeDiscoveryEngine.get().onFlightChatMessage(stripped);
         }
 
         // Tower defeat: restart tower when we lose a floor battle

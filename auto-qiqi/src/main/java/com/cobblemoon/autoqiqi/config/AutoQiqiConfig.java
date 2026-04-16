@@ -171,6 +171,22 @@ public class AutoQiqiConfig {
     public long reconnectTowerWarpDelayMs = 5000;
 
     // ========================
+    // Biome Discovery
+    // ========================
+
+    public boolean biomeDiscoveryEnabled = false;
+    /** Target biome IDs to search for (e.g. "minecraft:jungle", "minecraft:mushroom_fields"). */
+    public List<String> biomeDiscoveryTargets = new ArrayList<>(List.of("minecraft:jungle"));
+    /** Y altitude to fly at during spiral search. */
+    public int biomeDiscoveryAltitude = 175;
+    /** Spacing between spiral arms in blocks (~64 = one chunk width). */
+    public double biomeDiscoverySpiralSpacing = 64.0;
+    /** Stop spiraling when global timer drops to this many seconds (3:15 = 195). */
+    public int biomeDiscoveryStopThresholdSeconds = 195;
+    /** Wait this many seconds after timer reset before starting a new cycle. */
+    public int biomeDiscoveryGraceSeconds = 30;
+
+    // ========================
     // Teleport mode helpers
     // ========================
 
