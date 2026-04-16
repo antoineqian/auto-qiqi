@@ -11,21 +11,51 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Smart battle engine for hard trainer fights (Lv.100 etc.).
  * <ul>
- *   <li>Picks the highest-damage move using type effectiveness, STAB, and base power.</li>
- *   <li>Never voluntarily switches — fights with current Pokemon until KO.</li>
- *   <li>When forced to switch (fainted), picks the Pokemon with the strongest attack.</li>
+ *   <li>Picks the highest-damage move using type effectiveness, STAB, and base power; ignores moves with 0 PP.</li>
+ *   <li>Switches only when forced (fainted) or when the current Pokemon has only ineffective attacks.</li>
+ *   <li>When switching, picks the Pokemon with the strongest attack vs the opponent.</li>
+ *   <li>Advisor shows "better option" only when current is fainted or has only ineffective moves.</li>
+ *   <li>When active Pokemon HP is below 40%, prefers recovery moves (Recover/Soin, Roost/Atterrissage) if available.</li>
  * </ul>
  */
 public class TrainerBattleEngine {
     private static final TrainerBattleEngine INSTANCE = new TrainerBattleEngine();
 
+    /** Normalized (lowercase, no spaces) move names that restore HP. Use recovery when HP &lt; 40%. */
+    private static final Set<String> RECOVERY_MOVE_NAMES = Set.of(
+            "recover", "soin",
+            "roost", "atterrissage"
+    );
+
+    /** Normalized move names with positive priority (+1 or higher). Used when Cobblemon template does not expose priority. */
+    private static final Set<String> PRIORITY_MOVE_NAMES = Set.of(
+            "suckerpunch", "quickattack", "aquajet", "bulletpunch", "iceshard", "machpunch",
+            "vacuumwave", "watershuriken", "extremespeed", "accelerock", "shadowsneak", "firstimpression"
+    );
+
+    /** After this many attacks on the same opponent without KO, advise/auto-switch. */
+    public static final int ATTACKS_BEFORE_SWITCH_ADVICE = 5;
+
+    /** Species where we don't trust type info and cycle through our moves instead. */
+    private static boolean shouldCycleMoves(String speciesName) {
+        if (speciesName == null) return false;
+        String lower = speciesName.toLowerCase();
+        return lower.startsWith("rotom") || lower.equals("motisma") || lower.equals("heatran");
+    }
+
     private boolean justSwitched = false;
     private int turnCount = 0;
+    /** Opponent identity key (internal name); when it changes, attack count resets. */
+    private String lastOpponentKey = "";
+    /** Number of attacks we've used against the current opponent (same lastOpponentKey). */
+    private int attacksAgainstCurrentOpponent = 0;
 
     private TrainerBattleEngine() {}
 
@@ -34,6 +64,36 @@ public class TrainerBattleEngine {
     public void resetBattle() {
         justSwitched = false;
         turnCount = 0;
+        lastOpponentKey = "";
+        attacksAgainstCurrentOpponent = 0;
+    }
+
+    /**
+     * Call at start of each turn (general action). Resets attack count if the opponent changed.
+     */
+    public void syncOpponentAndAttackCount() {
+        String key = getOpponentPokemonNameInternal();
+        if (key == null) key = "";
+        if (!key.equals(lastOpponentKey)) {
+            lastOpponentKey = key;
+            attacksAgainstCurrentOpponent = 0;
+        }
+    }
+
+    /** Call when we have chosen to attack (picked a move) this turn. */
+    public void recordAttackAgainstCurrentOpponent() {
+        attacksAgainstCurrentOpponent++;
+    }
+
+    /** True when we've attacked the current opponent 5+ times without KO (advise or auto-switch). */
+    public boolean shouldSwitchAfterManyAttacks() {
+        return attacksAgainstCurrentOpponent >= ATTACKS_BEFORE_SWITCH_ADVICE;
+    }
+
+    /** Call when we have chosen to switch (forced or voluntary). Resets attack count and marks that the next FIGHT will be the first attack after switch (for priority-move preference). */
+    public void resetAttackCountForNewPokemon() {
+        attacksAgainstCurrentOpponent = 0;
+        justSwitched = true;
     }
 
     // ========================
@@ -50,13 +110,14 @@ public class TrainerBattleEngine {
      */
     public GeneralChoice decideGeneralAction(boolean forceSwitch, boolean trapped) {
         turnCount++;
+        syncOpponentAndAttackCount();
 
         if (forceSwitch) {
-            AutoQiqiClient.log("Trainer", "Decision: SWITCH (forced)");
+            AutoQiqiClient.logDebug("Trainer", "Decision: SWITCH (forced)");
             return GeneralChoice.SWITCH;
         }
         if (trapped) {
-            AutoQiqiClient.log("Trainer", "Decision: FIGHT (trapped)");
+            AutoQiqiClient.logDebug("Trainer", "Decision: FIGHT (trapped)");
             return GeneralChoice.FIGHT;
         }
 
@@ -65,19 +126,36 @@ public class TrainerBattleEngine {
         List<String> myTypes = getActiveTypes();
         String myName = getActivePokemonName();
         String oppName = getOpponentPokemonName();
+        Pokemon active = getActivePokemonFromParty(getActivePokemonNameInternal());
+
+        // Voluntary switch after 5 attacks on same opponent without KO
+        if (shouldSwitchAfterManyAttacks()) {
+            if (!hasOtherSwitchablePokemon()) {
+                AutoQiqiClient.logDebug("Trainer", "Decision: FIGHT (only one Pokemon left, cannot switch; " + attacksAgainstCurrentOpponent + " attacks vs " + oppName + ")");
+                return GeneralChoice.FIGHT;
+            }
+            AutoQiqiClient.logDebug("Trainer", "Decision: SWITCH (" + attacksAgainstCurrentOpponent + " attacks vs " + oppName + ", no KO)");
+            return GeneralChoice.SWITCH;
+        }
+
+        // Voluntary switch only when current has only ineffective attacks (or no damaging moves)
+        String oppSpecies = getOpponentPokemonNameInternal();
+        if (active != null && !hasEffectiveMoveAgainst(active, oppTypes, oppSpecies)) {
+            if (!hasOtherSwitchablePokemon()) {
+                AutoQiqiClient.logDebug("Trainer", "Decision: FIGHT (only one Pokemon left, cannot switch; ineffective moves vs " + oppName + ")");
+                return GeneralChoice.FIGHT;
+            }
+            AutoQiqiClient.logDebug("Trainer", "Decision: SWITCH (current has only ineffective moves vs " + oppName + ")");
+            return GeneralChoice.SWITCH;
+        }
 
         double oppAdv = TypeChart.getBestStabEffectiveness(oppTypes, myTypes);
 
-        AutoQiqiClient.log("Trainer", "Turn " + turnCount + ": " + myName
+        AutoQiqiClient.logDebug("Trainer", "Turn " + turnCount + ": " + myName
                 + " HP=" + f(myHp) + "% vs " + oppName + " " + oppTypes
                 + " | oppAdv=" + oppAdv + " justSwitched=" + justSwitched);
 
-        if (justSwitched) {
-            justSwitched = false;
-        }
-
-        // Never voluntarily switch — fight with current Pokemon until KO
-        AutoQiqiClient.log("Trainer", "Decision: FIGHT (no voluntary switch, HP=" + f(myHp) + "%)");
+        AutoQiqiClient.logDebug("Trainer", "Decision: FIGHT (HP=" + f(myHp) + "%)");
         return GeneralChoice.FIGHT;
     }
 
@@ -93,41 +171,76 @@ public class TrainerBattleEngine {
     public MoveTile chooseBestMove(List<MoveTile> tiles) {
         List<String> oppTypes = getOpponentTypes();
         List<String> myTypes = getActiveTypes();
+        String oppSpecies = getOpponentPokemonNameInternal();
+        List<String> oppTypesForCalc = shouldCycleMoves(oppSpecies) ? List.of() : oppTypes;
 
-        // In Berserk mode: only use moves that kill the target for sure (account for 85% damage roll)
+        // In Berserk mode: prefer highest-raw-damage moves using same heuristic (power * eff * stab)
+        // No damage calculator needed — just pick the strongest hit
         if (AutoQiqiClient.getBattleMode() == BattleMode.BERSERK) {
-            int oppCurrentHp = getOpponentCurrentHp();
-            Pokemon active = getActivePokemonFromParty(getActivePokemonNameInternal());
-            ClientBattlePokemon opp = getOpponentBattlePokemon();
-            if (active != null && opp != null && oppCurrentHp > 0) {
-                List<MoveTile> guaranteedKo = new ArrayList<>();
-                for (MoveTile tile : tiles) {
-                    MoveTemplate tpl = lookupMoveTemplate(tile.getMove().getMove());
-                    if (tpl == null || tpl.getPower() <= 0) continue;
-                    DamageCalculator.DamageRange range = DamageCalculator.computeMoveDamage(
-                            active, opp, tpl, oppTypes, myTypes);
-                    if (range != null && range.isValid() && range.minDamage() >= oppCurrentHp) {
-                        guaranteedKo.add(tile);
-                    }
+            List<MoveTile> damaging = new ArrayList<>();
+            for (MoveTile tile : tiles) {
+                if (getMoveCurrentPp(tile) == 0) continue;
+                MoveInfo info = lookupMove(tile.getMove().getMove());
+                if (info != null && info.power() > 0) damaging.add(tile);
+            }
+            if (!damaging.isEmpty()) {
+                tiles = damaging;
+                AutoQiqiClient.logDebug("Trainer", "Berserk: restricted to " + damaging.size() + " damaging move(s)");
+            }
+        }
+
+        // Filter out moves with 0 PP (unknown PP -1 is treated as usable)
+        List<MoveTile> withPp = tiles.stream().filter(t -> getMoveCurrentPp(t) != 0).toList();
+        if (withPp.isEmpty() && !tiles.isEmpty()) {
+            withPp = tiles; // fallback: all reported 0 PP, pick first (e.g. Struggle)
+        }
+        if (withPp.isEmpty()) {
+            return tiles.isEmpty() ? null : tiles.get(0);
+        }
+        tiles = withPp;
+
+        // When HP below 40%, prefer recovery moves (Soin/Recover, Atterrissage/Roost)
+        float myHp = getActiveHpPercent();
+        if (myHp >= 0 && myHp < 40) {
+            for (MoveTile tile : tiles) {
+                if (isRecoveryMove(tile.getMove().getMove()) && getMoveCurrentPp(tile) != 0) {
+                    AutoQiqiClient.logDebug("Trainer", "HP=" + f(myHp) + "% < 40%: using recovery move " + tile.getMove().getMove());
+                    return tile;
                 }
-                if (!guaranteedKo.isEmpty()) {
-                    AutoQiqiClient.log("Trainer", "Berserk: " + guaranteedKo.size()
-                            + " move(s) guarantee KO (opp HP=" + oppCurrentHp + "), restricting to those");
-                    tiles = guaranteedKo;
-                } else {
-                    AutoQiqiClient.log("Trainer", "Berserk: no move guarantees KO (opp HP=" + oppCurrentHp + "), using best damage");
-                }
+            }
+        }
+
+        // Rotom/Motisma/Heatran: don't trust type info — cycle through current Pokemon's damaging moves
+        if (shouldCycleMoves(oppSpecies)) {
+            List<MoveTile> damaging = new ArrayList<>();
+            for (MoveTile tile : tiles) {
+                if (getMoveCurrentPp(tile) == 0) continue;
+                MoveInfo info = lookupMove(tile.getMove().getMove());
+                if (info != null && info.power() > 0) damaging.add(tile);
+            }
+            if (!damaging.isEmpty()) {
+                damaging.sort(Comparator.comparing(t -> t.getMove().getMove().toLowerCase()));
+                int idx = attacksAgainstCurrentOpponent % damaging.size();
+                MoveTile chosen = damaging.get(idx);
+                AutoQiqiClient.logDebug("Trainer", "CycleMoves: cycling move " + (idx + 1) + "/" + damaging.size() + " -> " + chosen.getMove().getMove());
+                return chosen;
             }
         }
 
         MoveTile best = null;
         double bestScore = -1;
+        MoveInfo bestInfo = null;
+        List<MoveTile> candidatesWithScore = new ArrayList<>();
 
         for (MoveTile tile : tiles) {
+            if (getMoveCurrentPp(tile) == 0) {
+                AutoQiqiClient.logDebug("Trainer", "  Move " + tile.getMove().getMove() + " skipped (0 PP)");
+                continue;
+            }
             String moveName = tile.getMove().getMove();
             MoveInfo info = lookupMove(moveName);
 
-            double eff = TypeChart.getEffectiveness(info.type, oppTypes);
+            double eff = TypeChart.getEffectiveness(info.type, oppTypesForCalc, oppSpecies);
             double stab = myTypes.contains(info.type) ? 1.5 : 1.0;
             double score;
 
@@ -137,18 +250,46 @@ public class TrainerBattleEngine {
                 score = 5.0;
             }
 
-            AutoQiqiClient.log("Trainer", "  Move " + moveName
-                    + " type=" + info.type + " pow=" + info.power
+            AutoQiqiClient.logDebug("Trainer", "  Move " + moveName
+                    + " type=" + info.type + " pow=" + info.power + " prio=" + info.priority
                     + " eff=" + eff + " stab=" + stab + " => score=" + f(score));
 
+            candidatesWithScore.add(tile);
             if (score > bestScore) {
                 bestScore = score;
                 best = tile;
+                bestInfo = info;
             }
         }
 
+        // First attack after switch: prefer highest-priority move among damaging moves (e.g. Coup Bas/Sucker Punch for Shifours), only if not resisted
+        if (justSwitched && best != null && bestInfo != null && !candidatesWithScore.isEmpty()) {
+            MoveTile priorityPick = null;
+            int bestPriority = Integer.MIN_VALUE;
+            double bestScoreAmongPriority = -1;
+            for (MoveTile tile : candidatesWithScore) {
+                if (getMoveCurrentPp(tile) == 0) continue;
+                MoveInfo info = lookupMove(tile.getMove().getMove());
+                if (info.power <= 0) continue;
+                double eff = TypeChart.getEffectiveness(info.type, oppTypesForCalc, oppSpecies);
+                if (eff < 1.0) continue; // Only consider priority move if not resisted
+                double stab = myTypes.contains(info.type) ? 1.5 : 1.0;
+                double score = info.power * eff * stab;
+                if (info.priority > bestPriority || (info.priority == bestPriority && score > bestScoreAmongPriority)) {
+                    bestPriority = info.priority;
+                    bestScoreAmongPriority = score;
+                    priorityPick = tile;
+                }
+            }
+            if (priorityPick != null && bestPriority > 0) {
+                AutoQiqiClient.logDebug("Trainer", "First attack after switch: preferring priority move " + priorityPick.getMove().getMove() + " (priority=" + bestPriority + ")");
+                best = priorityPick;
+            }
+            justSwitched = false;
+        }
+
         if (best != null) {
-            AutoQiqiClient.log("Trainer", "Selected move: " + best.getMove().getMove()
+            AutoQiqiClient.logDebug("Trainer", "Selected move: " + best.getMove().getMove()
                     + " (score=" + f(bestScore) + ")");
         }
         return best != null ? best : (tiles.isEmpty() ? null : tiles.get(0));
@@ -159,12 +300,19 @@ public class TrainerBattleEngine {
     // ========================
 
     /**
-     * Pick the switch-in with the strongest attack vs the opponent.
-     * Score = offensive potential only (no defensive weighting).
+     * Pick the switch-in that balances offense, survivability, and speed.
+     * Score = (offensive + defensive * 50) * hpFactor * survivalFactor * speedFactor.
+     * <ul>
+     *   <li>Defensive = 1 / opponent's best STAB effectiveness vs this Pokemon.</li>
+     *   <li>SurvivalFactor: heavily penalizes candidates the opponent can likely OHKO (2x/4x super effective).</li>
+     *   <li>SpeedFactor: rewards fast candidates with strong attacks; penalizes slow ones facing super effective hits.</li>
+     * </ul>
      * Fainted Pokemon are excluded via hpFactor.
      */
     public SwitchTile chooseBestSwitch(List<SwitchTile> tiles) {
         List<String> oppTypes = getOpponentTypes();
+        String oppSpecies = getOpponentPokemonNameInternal();
+        int oppSpeed = getOpponentSpeed();
 
         SwitchTile best = null;
         double bestScore = -1;
@@ -175,14 +323,41 @@ public class TrainerBattleEngine {
             if (hpPct <= 0) continue; // Skip fainted
 
             double hpFactor = hpPct / 100.0;
-            double offensive = evaluateOffensivePotential(pokemon, oppTypes);
-            double score = offensive * hpFactor;
-
-            String name = pokemon.getSpecies().getName();
+            double offensive = evaluateOffensivePotential(pokemon, oppTypes, oppSpecies);
             List<String> pokTypes = extractTypes(pokemon);
-            AutoQiqiClient.log("Trainer", "  Switch " + name
+            String candidateSpecies = pokemon.getSpecies().getName();
+            double oppEffAgainstMe = TypeChart.getBestStabEffectiveness(oppTypes, pokTypes, candidateSpecies);
+            double defensive = 1.0 / Math.max(0.25, oppEffAgainstMe);
+
+            // Survivability: penalize candidates the opponent can likely OHKO
+            double survivalFactor = 1.0;
+            if (oppEffAgainstMe >= 4.0) {
+                survivalFactor = 0.05; // double super effective = almost certain OHKO
+            } else if (oppEffAgainstMe >= 2.0) {
+                survivalFactor = 0.3;  // super effective = high risk of OHKO
+            }
+
+            // Speed: reward being faster with strong offense; penalize being slower under threat
+            int candidateSpeed = getSpeed(pokemon);
+            boolean isFaster = candidateSpeed > oppSpeed;
+            boolean hasSuperEffective = offensive > 150; // power*eff*stab threshold for strong hit
+
+            double speedFactor = 1.0;
+            if (isFaster && hasSuperEffective) {
+                speedFactor = 1.5; // fast + strong = great switch-in
+            } else if (!isFaster && oppEffAgainstMe >= 2.0) {
+                speedFactor = 0.5; // slow + takes super effective = bad switch-in
+            }
+
+            double score = (offensive + defensive * 50.0) * hpFactor * survivalFactor * speedFactor;
+
+            String name = candidateSpecies;
+            AutoQiqiClient.logDebug("Trainer", "  Switch " + name
                     + " types=" + pokTypes + " HP=" + f(hpPct) + "%"
-                    + " off=" + f(offensive) + " => score=" + f(score));
+                    + " off=" + f(offensive) + " oppEff=" + f(oppEffAgainstMe) + " def=" + f(defensive)
+                    + " surv=" + f(survivalFactor) + " spd=" + candidateSpeed + (isFaster ? ">" : "<=") + oppSpeed
+                    + " spdF=" + f(speedFactor)
+                    + " => score=" + f(score));
 
             if (score > bestScore) {
                 bestScore = score;
@@ -191,8 +366,8 @@ public class TrainerBattleEngine {
         }
 
         if (best != null) {
-            AutoQiqiClient.log("Trainer", "Switch to: " + best.getPokemon().getSpecies().getName()
-                    + " (strongest attack, score=" + f(bestScore) + ")");
+            AutoQiqiClient.logDebug("Trainer", "Switch to: " + best.getPokemon().getSpecies().getName()
+                    + " (off+def+surv+spd, score=" + f(bestScore) + ")");
         }
         return best != null ? best : (tiles.isEmpty() ? null : tiles.get(0));
     }
@@ -201,17 +376,33 @@ public class TrainerBattleEngine {
     // Move lookup via Cobblemon registry
     // ========================
 
-    private record MoveInfo(String type, double power) {}
+    private record MoveInfo(String type, double power, int priority) {}
 
     private MoveInfo lookupMove(String moveName) {
         MoveTemplate tpl = lookupMoveTemplate(moveName);
         if (tpl != null) {
             String type = tpl.getElementalType().getName().toLowerCase();
             double power = tpl.getPower();
-            return new MoveInfo(type, power);
+            int priority = getMovePriorityFromTemplate(tpl);
+            if (priority == 0) {
+                String normalized = moveName.toLowerCase().replaceAll("[^a-z0-9]", "");
+                if (PRIORITY_MOVE_NAMES.contains(normalized)) priority = 1;
+            }
+            return new MoveInfo(type, power, priority);
         }
-        AutoQiqiClient.log("Trainer", "Move not found in registry: '" + moveName + "'");
-        return new MoveInfo("normal", 50);
+        AutoQiqiClient.logDebug("Trainer", "Move not found in registry: '" + moveName + "'");
+        return new MoveInfo("normal", 50, 0);
+    }
+
+    /** Read move priority from Cobblemon MoveTemplate (e.g. Sucker Punch +1). Uses reflection for API compatibility. */
+    private static int getMovePriorityFromTemplate(MoveTemplate tpl) {
+        if (tpl == null) return 0;
+        try {
+            var m = tpl.getClass().getMethod("getPriority");
+            Object v = m.invoke(tpl);
+            if (v instanceof Number) return ((Number) v).intValue();
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     private MoveTemplate lookupMoveTemplate(String moveName) {
@@ -225,14 +416,73 @@ public class TrainerBattleEngine {
         }
     }
 
+    /** True if the move is a known recovery move (Recover/Soin, Roost/Atterrissage). */
+    private static boolean isRecoveryMove(String moveName) {
+        if (moveName == null) return false;
+        String normalized = moveName.toLowerCase().replaceAll("[^a-z0-9]", "");
+        return RECOVERY_MOVE_NAMES.contains(normalized);
+    }
+
+    /**
+     * Current PP for the move in this tile (battle state). Returns -1 if unknown (do not skip), 0 if out of PP.
+     * Uses reflection for Cobblemon battle move API.
+     */
+    private int getMoveCurrentPp(MoveTile tile) {
+        if (tile == null) return -1;
+        try {
+            Object move = tile.getMove();
+            if (move == null) return -1;
+            Class<?> c = move.getClass();
+            for (String methodName : new String[]{"getCurrentPp", "getPp", "getRemainingPp"}) {
+                try {
+                    var m = c.getMethod(methodName);
+                    Object val = m.invoke(move);
+                    if (val instanceof Number n) return n.intValue();
+                } catch (NoSuchMethodException ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return -1;
+    }
+
+    /**
+     * True if the Pokemon has at least one damaging move that is effective vs the opponent
+     * (effectiveness &gt; 0.5; 0.5 "not very effective" counts as ineffective).
+     * Uses opponent species for overrides (e.g. Heatran immune to Fire).
+     * For cycle-moves species we don't trust type info: true if the Pokemon has any damaging move.
+     */
+    @SuppressWarnings("unchecked")
+    private boolean hasEffectiveMoveAgainst(Pokemon pokemon, List<String> oppTypes, String oppSpeciesName) {
+        try {
+            Object moveSetObj = pokemon.getClass().getMethod("getMoveSet").invoke(pokemon);
+            java.util.List<?> moves = (java.util.List<?>) moveSetObj.getClass()
+                    .getMethod("getMoves").invoke(moveSetObj);
+            for (Object moveObj : moves) {
+                if (moveObj == null) continue;
+                try {
+                    MoveTemplate tpl = (MoveTemplate) moveObj.getClass()
+                            .getMethod("getTemplate").invoke(moveObj);
+                    if (tpl.getPower() <= 0) continue;
+                    if (shouldCycleMoves(oppSpeciesName)) return true;
+                    String mType = tpl.getElementalType().getName().toLowerCase();
+                    double eff = TypeChart.getEffectiveness(mType, oppTypes, oppSpeciesName);
+                    if (eff > 0.5) return true;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     /**
      * Evaluate how much damage a Pokemon's moves can deal to the opponent.
      * Returns the best single-move score (power × effectiveness × STAB).
+     * Uses opponent species for overrides (e.g. Heatran immune to Fire).
+     * For cycle-moves species we don't trust type info: use effectiveness 1.0 (power × STAB only).
      */
     @SuppressWarnings("unchecked")
-    private double evaluateOffensivePotential(Pokemon pokemon, List<String> oppTypes) {
+    private double evaluateOffensivePotential(Pokemon pokemon, List<String> oppTypes, String oppSpeciesName) {
         List<String> pokTypes = extractTypes(pokemon);
         double best = 0;
+        boolean ignoreTypes = shouldCycleMoves(oppSpeciesName);
         try {
             // Reflection to bypass MoveSet's KMappedMarker (Kotlin marker inaccessible from Java)
             Object moveSetObj = pokemon.getClass().getMethod("getMoveSet").invoke(pokemon);
@@ -246,15 +496,18 @@ public class TrainerBattleEngine {
                     String mType = tpl.getElementalType().getName().toLowerCase();
                     double pow = tpl.getPower();
                     if (pow <= 0) continue;
-                    double eff = TypeChart.getEffectiveness(mType, oppTypes);
+                    double eff = ignoreTypes ? 1.0 : TypeChart.getEffectiveness(mType, oppTypes, oppSpeciesName);
                     double stab = pokTypes.contains(mType) ? 1.5 : 1.0;
                     double score = pow * eff * stab;
                     if (score > best) best = score;
                 } catch (Exception ignored) {}
             }
         } catch (Exception e) {
-            // Fallback: assume STAB coverage with ~80 base power
-            best = TypeChart.getBestStabEffectiveness(pokTypes, oppTypes) * 80;
+            if (!ignoreTypes) {
+                best = TypeChart.getBestStabEffectiveness(pokTypes, oppTypes, oppSpeciesName) * 80;
+            } else if (best == 0) {
+                best = 80;
+            }
         }
         return best;
     }
@@ -327,6 +580,26 @@ public class TrainerBattleEngine {
         } catch (Exception e) { return "?"; }
     }
 
+    /** Opponent's speed stat (for switch-in speed comparison). */
+    private int getOpponentSpeed() {
+        ClientBattlePokemon bp = getOpponentBattlePokemon();
+        if (bp == null) return 100; // fallback
+        try {
+            Object pokemon = bp.getClass().getMethod("getPokemon").invoke(bp);
+            if (pokemon instanceof Pokemon p) return Math.max(1, getSpeed(p));
+        } catch (Exception ignored) {}
+        return 100;
+    }
+
+    /** Get speed stat from a Pokemon. */
+    private static int getSpeed(Pokemon p) {
+        try {
+            Object v = p.getClass().getMethod("getSpeed").invoke(p);
+            if (v instanceof Number n) return Math.max(1, n.intValue());
+        } catch (Exception ignored) {}
+        return 100;
+    }
+
     /** Opponent's current HP (for Berserk guaranteed-KO check). */
     private int getOpponentCurrentHp() {
         try {
@@ -346,6 +619,27 @@ public class TrainerBattleEngine {
             if (actives.isEmpty()) return null;
             return actives.get(0).getBattlePokemon();
         } catch (Exception e) { return null; }
+    }
+
+    /**
+     * True if there is at least one other non-fainted Pokemon in the party (so we can switch).
+     * When only one Pokemon is left (e.g. Sylveon vs Yveltal), voluntary switch must not be chosen.
+     * Public so the decision router can use it for BERSERK/ROAMING.
+     */
+    public boolean hasOtherSwitchablePokemon() {
+        var party = CobblemonClient.INSTANCE.getStorage().getParty();
+        if (party == null) return false;
+        try {
+            Object partyObj = (Object) party;
+            @SuppressWarnings("unchecked")
+            java.util.List<Pokemon> slots = (java.util.List<Pokemon>) partyObj.getClass().getMethod("getSlots").invoke(partyObj);
+            int nonFainted = 0;
+            for (Pokemon p : slots) {
+                if (p != null && p.getCurrentHealth() > 0) nonFainted++;
+            }
+            return nonFainted >= 2;
+        } catch (Exception ignored) {}
+        return false;
     }
 
     /** Our active Pokémon from party (by internal name match). */
@@ -389,7 +683,7 @@ public class TrainerBattleEngine {
             var secondary = species.getSecondaryType();
             if (secondary != null) types.add(secondary.getName().toLowerCase());
         } catch (Exception e) {
-            AutoQiqiClient.log("Trainer", "Failed to extract types for " + species.getName());
+            AutoQiqiClient.logDebug("Trainer", "Failed to extract types for " + species.getName());
         }
         return types;
     }
@@ -418,337 +712,6 @@ public class TrainerBattleEngine {
             if (max <= 0) return 100f;
             return (float) current / max * 100f;
         } catch (Exception e) { return 100f; }
-    }
-
-    // ========================
-    // Trainer planned action (what trainer mode would do this turn — for HUD)
-    // ========================
-
-    /**
-     * What the trainer battle engine would do this turn.
-     * Computed from current battle state (no GUI tiles). Used to show "Trainer would: FIGHT → Move" in HUD.
-     */
-    public record TrainerPlannedAction(
-            GeneralChoice choice,
-            String reason,
-            String moveName,
-            String moveType,
-            double moveScore,
-            String switchPokemonName,
-            double switchScore
-    ) {
-        public static TrainerPlannedAction fight(String reason, String moveName, String moveType, double moveScore) {
-            return new TrainerPlannedAction(GeneralChoice.FIGHT, reason, moveName, moveType, moveScore, null, -1);
-        }
-        public static TrainerPlannedAction switchTo(String reason, String switchPokemonName, double switchScore) {
-            return new TrainerPlannedAction(GeneralChoice.SWITCH, reason, null, null, -1, switchPokemonName, switchScore);
-        }
-    }
-
-    private String trainerPlannedCacheKey = "";
-    private TrainerPlannedAction cachedPlannedAction = null;
-    private long trainerPlannedCacheTimeMs = 0;
-    private static final long TRAINER_PLANNED_CACHE_TTL_MS = 400;
-
-    /**
-     * Returns what the trainer engine would do this turn (general action + best move or best switch).
-     * Cached briefly. Returns null if not in battle.
-     */
-    public TrainerPlannedAction getTrainerPlannedAction() {
-        long now = System.currentTimeMillis();
-        if (now - trainerPlannedCacheTimeMs < TRAINER_PLANNED_CACHE_TTL_MS && cachedPlannedAction != null) {
-            return cachedPlannedAction;
-        }
-        try {
-            ClientBattle battle = CobblemonClient.INSTANCE.getBattle();
-            if (battle == null) {
-                cachedPlannedAction = null;
-                trainerPlannedCacheTimeMs = now;
-                return null;
-            }
-            String activeName = getActivePokemonNameInternal();
-            float activeHp = getActiveHpPercent();
-            String cacheKey = activeName + "|" + activeHp + "|" + getOpponentPokemonNameInternal();
-            if (cacheKey.equals(trainerPlannedCacheKey) && cachedPlannedAction != null) {
-                trainerPlannedCacheTimeMs = now;
-                return cachedPlannedAction;
-            }
-            cachedPlannedAction = computeTrainerPlannedAction(activeHp);
-            trainerPlannedCacheKey = cacheKey;
-            trainerPlannedCacheTimeMs = now;
-            return cachedPlannedAction;
-        } catch (Exception e) {
-            cachedPlannedAction = null;
-            trainerPlannedCacheTimeMs = now;
-            return null;
-        }
-    }
-
-    /** Invalidated when battle state changes (e.g. opponent switches). */
-    public void invalidateTrainerPlannedCache() {
-        trainerPlannedCacheKey = "";
-        cachedPlannedAction = null;
-    }
-
-    private TrainerPlannedAction computeTrainerPlannedAction(float activeHp) {
-        boolean forceSwitch = activeHp <= 0;
-        if (forceSwitch) {
-            List<String> oppTypes = getOpponentTypes();
-            var party = CobblemonClient.INSTANCE.getStorage().getParty();
-            if (party == null) return TrainerPlannedAction.switchTo("forced switch", "?", -1);
-            String bestName = null;
-            double bestScore = -1;
-            try {
-                @SuppressWarnings("unchecked")
-                java.util.List<Pokemon> slots = (java.util.List<Pokemon>) party.getClass().getMethod("getSlots").invoke(party);
-                for (Pokemon p : slots) {
-                    if (p == null || p.getCurrentHealth() <= 0) continue;
-                    float hpPct = getPokemonHpPercent(p);
-                    double offensive = evaluateOffensivePotential(p, oppTypes);
-                    double score = offensive * (hpPct / 100.0);
-                    String name = getSpeciesDisplayName(p.getSpecies());
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestName = name;
-                    }
-                }
-            } catch (Exception ignored) {}
-            return TrainerPlannedAction.switchTo(
-                    "forced switch (fainted)",
-                    bestName != null ? bestName : "?",
-                    bestScore >= 0 ? bestScore : -1);
-        }
-        // FIGHT: best move from active's move set (same scoring as chooseBestMove)
-        Pokemon active = getActivePokemonFromParty(getActivePokemonNameInternal());
-        List<String> oppTypes = getOpponentTypes();
-        List<String> myTypes = getActiveTypes();
-        if (active == null) return TrainerPlannedAction.fight("no party data", "?", "?", -1);
-        String bestMoveName = null;
-        String bestMoveType = null;
-        double bestScore = -1;
-        try {
-            Object moveSetObj = active.getClass().getMethod("getMoveSet").invoke(active);
-            java.util.List<?> moves = (java.util.List<?>) moveSetObj.getClass().getMethod("getMoves").invoke(moveSetObj);
-            for (Object moveObj : moves) {
-                if (moveObj == null) continue;
-                try {
-                    MoveTemplate tpl = (MoveTemplate) moveObj.getClass().getMethod("getTemplate").invoke(moveObj);
-                    String moveName = getMoveTemplateName(tpl);
-                    if (moveName == null || moveName.isEmpty()) continue;
-                    MoveInfo info = lookupMove(moveName);
-                    double eff = TypeChart.getEffectiveness(info.type, oppTypes);
-                    double stab = myTypes.contains(info.type) ? 1.5 : 1.0;
-                    double score = info.power > 0 ? info.power * eff * stab : 5.0;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMoveName = moveName;
-                        bestMoveType = info.type;
-                    }
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-        String reason = "no voluntary switch";
-        if (bestMoveName == null) bestMoveName = "?";
-        if (bestMoveType == null) bestMoveType = "?";
-        return TrainerPlannedAction.fight(reason, bestMoveName, bestMoveType, bestScore >= 0 ? bestScore : -1);
-    }
-
-    private static String getMoveTemplateName(MoveTemplate tpl) {
-        if (tpl == null) return null;
-        try {
-            Object name = tpl.getClass().getMethod("getName").invoke(tpl);
-            return name != null ? name.toString() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    // ========================
-    // Battle Advisor (passive HUD, works in any battle)
-    // ========================
-
-    public record AdvisorInfo(
-            String opponentName,
-            String opponentTypesDisplay,
-            String currentName,
-            double currentScore,
-            String bestName,
-            String bestTypesDisplay,
-            double bestScore,
-            double bestEffectiveness,
-            boolean hasBetterOption,
-            String damageRangePercent,
-            /** When advising a switch: best move that Pokémon would use vs current opponent. */
-            String bestMoveName,
-            /** When advising a switch: expected damage range (% of target HP) for that move. */
-            String bestDamageRangePercent
-    ) {}
-
-    private String advisorCacheKey = "";
-    private AdvisorInfo cachedAdvisor = null;
-    private long advisorCacheTimeMs = 0;
-    private static final long ADVISOR_CACHE_TTL_MS = 500;
-
-    /**
-     * Returns advisor info for the current battle, or null if not in battle.
-     * Cached to avoid recomputing every render frame.
-     */
-    public AdvisorInfo getAdvisorInfo() {
-        long now = System.currentTimeMillis();
-        if (now - advisorCacheTimeMs < ADVISOR_CACHE_TTL_MS && cachedAdvisor != null) {
-            return cachedAdvisor;
-        }
-
-        try {
-            ClientBattle battle = CobblemonClient.INSTANCE.getBattle();
-            if (battle == null) {
-                cachedAdvisor = null;
-                advisorCacheTimeMs = now;
-                return null;
-            }
-
-            String oppDisplay = getOpponentPokemonName();
-            String myDisplay = getActivePokemonName();
-            String cacheKey = getOpponentPokemonNameInternal() + "|" + getActivePokemonNameInternal();
-
-            if (cacheKey.equals(advisorCacheKey) && cachedAdvisor != null) {
-                advisorCacheTimeMs = now;
-                return cachedAdvisor;
-            }
-
-            cachedAdvisor = computeAdvisor(oppDisplay, myDisplay, getActivePokemonNameInternal());
-            advisorCacheKey = cacheKey;
-            advisorCacheTimeMs = now;
-            return cachedAdvisor;
-        } catch (Exception e) {
-            cachedAdvisor = null;
-            advisorCacheTimeMs = now;
-            return null;
-        }
-    }
-
-    /** Force cache refresh (e.g. when opponent switches). */
-    public void invalidateAdvisorCache() {
-        advisorCacheKey = "";
-        cachedAdvisor = null;
-        invalidateTrainerPlannedCache();
-    }
-
-    private AdvisorInfo computeAdvisor(String oppDisplay, String activeDisplay, String activeNameInternal) {
-        List<String> oppTypes = getOpponentTypes();
-        if (oppTypes.isEmpty()) return null;
-
-        var party = CobblemonClient.INSTANCE.getStorage().getParty();
-        if (party == null) return null;
-
-        String bestNameDisplay = null;
-        com.cobblemon.mod.common.pokemon.Species bestSpecies = null;
-        Pokemon bestPokemon = null;
-        List<String> bestTypes = List.of();
-        double bestScore = -1;
-        double bestEff = 1.0;
-        double activeScore = -1;
-
-        @SuppressWarnings("unchecked")
-        java.util.List<Pokemon> slots;
-        try {
-            Object partyObj = (Object) party;
-            slots = (java.util.List<Pokemon>) partyObj.getClass().getMethod("getSlots").invoke(partyObj);
-        } catch (Exception e) {
-            return null;
-        }
-        for (Pokemon p : slots) {
-            if (p == null) continue;
-            if (p.getCurrentHealth() <= 0) continue;
-
-            List<String> pTypes = extractTypes(p);
-            double offensive = evaluateOffensivePotential(p, oppTypes);
-            double oppEffAgainstMe = TypeChart.getBestStabEffectiveness(oppTypes, pTypes);
-            double defensive = 1.0 / Math.max(0.25, oppEffAgainstMe);
-            float hpPct = getPokemonHpPercent(p);
-            double hpFactor = hpPct > 0 ? hpPct / 100.0 : 1.0;
-
-            double score = (offensive + defensive * 50.0) * hpFactor;
-
-            String nameInternal = p.getSpecies().getName();
-            if (nameInternal.equalsIgnoreCase(activeNameInternal)) {
-                activeScore = score;
-            }
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestNameDisplay = getSpeciesDisplayName(p.getSpecies());
-                bestSpecies = p.getSpecies();
-                bestPokemon = p;
-                bestTypes = pTypes;
-                bestEff = TypeChart.getBestStabEffectiveness(pTypes, oppTypes);
-            }
-        }
-
-        if (bestNameDisplay == null || bestSpecies == null) return null;
-
-        // When active is KOd it was skipped in the loop so activeScore == -1: always advise best non-KOd
-        boolean activeIsFainted = (activeScore < 0);
-        boolean isSamePokemon = bestSpecies.getName().equalsIgnoreCase(activeNameInternal);
-        boolean hasBetter = activeIsFainted
-                || (!isSamePokemon && (activeScore < 0 || bestScore > activeScore * 1.2));
-
-        // Official damage range (% of opponent's HP) for current active's best move
-        String damageRangePercent = null;
-        Pokemon activePokemon = getActivePokemonFromParty(activeNameInternal);
-        ClientBattlePokemon opponentBp = getOpponentBattlePokemon();
-        if (activePokemon != null && opponentBp != null) {
-            DamageCalculator.DamageRange range = DamageCalculator.computeBestMoveDamage(
-                    activePokemon, opponentBp, oppTypes, getActiveTypes());
-            if (range != null && range.isValid()) {
-                damageRangePercent = range.formatPercentRange();
-            }
-        }
-
-        // When advising a switch: best move and expected damage for that Pokémon vs current opponent
-        String bestMoveName = null;
-        String bestDamageRangePercent = null;
-        if (hasBetter && bestPokemon != null && opponentBp != null) {
-            DamageCalculator.DamageRange bestRange = DamageCalculator.computeBestMoveDamage(
-                    bestPokemon, opponentBp, oppTypes, bestTypes);
-            if (bestRange != null && bestRange.isValid()) {
-                bestMoveName = formatMoveName(bestRange.moveName());
-                bestDamageRangePercent = bestRange.formatPercentRange();
-            }
-        }
-
-        return new AdvisorInfo(
-                oppDisplay,
-                formatTypes(oppTypes),
-                activeDisplay,
-                activeScore,
-                bestNameDisplay,
-                formatTypes(bestTypes),
-                bestScore,
-                bestEff,
-                hasBetter,
-                damageRangePercent,
-                bestMoveName,
-                bestDamageRangePercent
-        );
-    }
-
-    private static String formatMoveName(String moveName) {
-        if (moveName == null || moveName.isEmpty()) return "?";
-        String normalized = moveName.replaceAll("^[a-z]+:", "").trim();
-        if (normalized.isEmpty()) return moveName;
-        return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1).toLowerCase().replaceAll("_", " ");
-    }
-
-    private static String formatTypes(List<String> types) {
-        if (types.isEmpty()) return "?";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < types.size(); i++) {
-            if (i > 0) sb.append("/");
-            String t = types.get(i);
-            sb.append(Character.toUpperCase(t.charAt(0))).append(t.substring(1));
-        }
-        return sb.toString();
     }
 
     private static String f(double v) { return String.format("%.1f", v); }

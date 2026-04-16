@@ -165,10 +165,6 @@ public class AutoQiqiConfig {
     public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
     /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). */
     public String reconnectHome = "end";
-    /** Warp command to send after reconnect when in Trainer (tower) mode (e.g. "/warp Tour-de-Combat"). */
-    public String reconnectTowerWarp = "/warp Tour-de-Combat";
-    /** Delay (ms) after sending the tower warp before restarting the tower loop. */
-    public long reconnectTowerWarpDelayMs = 5000;
 
     // ========================
     // Biome Discovery

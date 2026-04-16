@@ -3,7 +3,6 @@ package com.cobblemoon.autoqiqi.npc;
 import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
-import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -104,10 +103,6 @@ public class TowerNpcEngine {
 
     /** Watchdog: last time the tower loop was actively doing something (ms). */
     private long lastActivityMs = 0;
-    /** How long (ms) the loop can be idle before the watchdog warps and restarts. */
-    private static final long WATCHDOG_IDLE_TIMEOUT_MS = 30_000;
-    /** Prevents the watchdog from firing multiple warps in quick succession. */
-    private boolean watchdogWarpPending = false;
 
     private TowerNpcEngine() {}
 
@@ -134,7 +129,6 @@ public class TowerNpcEngine {
         towerBattleConfirmed = false;
         battleEndNullTicks = 0;
         lastActivityMs = 0;
-        watchdogWarpPending = false;
         cancelWalk("tower loop stopped");
         AutoQiqiClient.logDebug("Tower", "Tower loop stopped by user");
     }
@@ -236,34 +230,9 @@ public class TowerNpcEngine {
             }
         }
 
-        // Watchdog: track activity and warp+restart if idle too long
-        if (towerLoopEnabled) {
-            if (isBusy()) {
-                markActivity();
-                watchdogWarpPending = false;
-            } else if (!watchdogWarpPending && lastActivityMs > 0) {
-                long idleMs = System.currentTimeMillis() - lastActivityMs;
-                if (idleMs >= WATCHDOG_IDLE_TIMEOUT_MS) {
-                    MinecraftClient mc = MinecraftClient.getInstance();
-                    AutoQiqiConfig config = AutoQiqiConfig.get();
-                    String warpCmd = config.reconnectTowerWarp;
-                    if (warpCmd != null && !warpCmd.isBlank()
-                            && mc.player != null && mc.player.networkHandler != null) {
-                        watchdogWarpPending = true;
-                        String cmd = warpCmd.startsWith("/") ? warpCmd.substring(1) : warpCmd;
-                        mc.player.networkHandler.sendChatCommand(cmd);
-                        AutoQiqiClient.logDebug("Tower", "Watchdog: idle for " + (idleMs / 1000)
-                                + "s — sent " + warpCmd + ", scheduling tower restart");
-                        mc.player.sendMessage(Text.literal("§e[Tower]§r Watchdog: idle détecté, warp + relance..."), false);
-                        AutoQiqiClient.runLater(() -> {
-                            watchdogWarpPending = false;
-                            markActivity();
-                            npcBlacklist.clear();
-                            tryStartTower();
-                        }, config.reconnectTowerWarpDelayMs);
-                    }
-                }
-            }
+        // Watchdog: track activity when busy
+        if (towerLoopEnabled && isBusy()) {
+            markActivity();
         }
 
         if (state == State.IDLE) return;
