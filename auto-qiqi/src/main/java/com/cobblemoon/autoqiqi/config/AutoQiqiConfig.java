@@ -61,20 +61,25 @@ public class AutoQiqiConfig {
     public String nextlegCommand = "/nextleg";
     public String mondeCommand = "/monde";
 
-    /** In ROAMING: poll /nextleg for single global timer, send /afk, move camera before expiry to stay eligible for legendary spawn. */
-    public boolean roamingNextlegAfkEnabled = true;
-    /** Command to gain AFK points in roaming (e.g. /afk). */
-    public String roamingAfkCommand = "/afk";
-    /** Seconds between /afk sends in roaming. */
-    public int roamingAfkIntervalSeconds = 60;
-    /** Seconds between /nextleg polls in roaming when using single global timer. */
-    public int roamingNextlegPollIntervalSeconds = 15;
+    /** Poll /nextleg for single global timer, send /afk, move camera before expiry to stay eligible for legendary spawn. Used by both ROAMING mode and auto-hop fallback (no LegendTracker). */
+    public boolean nextlegAfkEnabled = true;
+    /** Command to gain AFK points (e.g. /afk). */
+    public String afkCommand = "/afk";
+    /** Seconds between /afk sends. */
+    public int afkIntervalSeconds = 60;
+    /** Seconds between /nextleg polls when using single global timer. */
+    public int nextlegPollIntervalSeconds = 15;
     /** Move camera this many seconds before timer expiry to disable AFK and become eligible for legendary spawn. */
-    public int roamingCameraMoveSecondsBefore = 30;
+    public int cameraMoveSecondsBefore = 30;
     /** While engaged in a legendary battle, minimize the battle UI and nudge the camera every N seconds so the server doesn't flag us AFK. Default 540 = 9 min. Set 0 to disable. */
     public int roamingInBattleAntiAfkIntervalSeconds = 540;
     /** When true, at 1 min left on nextleg timer also send the world menu command (e.g. /monde) so the world selection GUI opens. */
-    public boolean roamingNextlegOpenMondeAt1Min = true;
+    public boolean nextlegOpenMondeAt1Min = true;
+
+    /** Legendaries in this list are completely ignored when they spawn — no engagement, no auto-hop pause, nothing. Names match game language; comparison is case-insensitive. */
+    public List<String> legendaryIgnoreList = new ArrayList<>(List.of(
+            "Tokotoro", "Tokopisco", "Électhor", "Favianos", "Fortusimia"
+    ));
 
     /** Legendaries in this list are always targeted for kill (never capture), even when uncaught. Used in ROAMING and when a legendary spawns near the player. Names match game language; comparison is case-insensitive. */
     public List<String> legendaryKillWhitelist = new ArrayList<>(List.of(
@@ -96,6 +101,18 @@ public class AutoQiqiConfig {
 
     /** Auto-hop mode: "auto" = only auto* homes, "all" = all homes, "off" = disabled. */
     public String autohopMode = "auto";
+
+    /** World+biome combos to always skip during auto-hop (all modes). Format: "World|biome_id" (case-insensitive world match). */
+    public List<String> autohopSkipWorldBiomes = new ArrayList<>(List.of(
+            "Lune|minecraft:mushroom_fields",
+            "Soleil|minecraft:mushroom_fields"
+    ));
+
+    /** Minutes past midnight at which auto-hop switches from "auto" to "all" (e.g. 150 = 2:30). -1 = disabled. */
+    public int autohopSwitchToAllHour = -1;
+
+    /** Minutes past midnight at which auto-hop switches from "off" to "all" (e.g. 150 = 2:30). -1 = disabled. */
+    public int autohopSwitchOffToAllHour = -1;
 
     /** Reconnect every N rotations to flush client-side dimension caches (0 = disabled).
      *  World-hopping accumulates client caches that slow down subsequent hops;
@@ -163,8 +180,8 @@ public class AutoQiqiConfig {
     public String reconnectButtonText = "Rejoindre";
     /** Button text to click to leave the disconnect/error screen (FR: "Retour à la liste des serveurs", EN: "Back to server list"). */
     public String reconnectBackToServerListButtonText = "Retour à la liste des serveurs";
-    /** After reconnect, send /home &lt;name&gt; to teleport to this home (e.g. "end" for resource End). Empty = do not send /home (stay at spawn). */
-    public String reconnectHome = "end";
+    /** @deprecated No longer used — post-reconnect now picks a random home from legendtracker.properties. Kept for config compatibility. */
+    public String reconnectHome = "";
 
     // ========================
     // Biome Discovery
@@ -172,15 +189,38 @@ public class AutoQiqiConfig {
 
     public boolean biomeDiscoveryEnabled = false;
     /** Target biome IDs to search for (e.g. "minecraft:jungle", "minecraft:mushroom_fields"). */
-    public List<String> biomeDiscoveryTargets = new ArrayList<>(List.of("minecraft:jungle"));
-    /** Y altitude to fly at during spiral search. */
+    public List<String> biomeDiscoveryTargets = new ArrayList<>(List.of("biomeswevegone:forgotten_forest",
+        "biomeswevegone:pale_bog",
+        "biomeswevegone:allium_shrubland",
+        "biomeswevegone:white_mangrove_marshes",
+        "biomeswevegone:weeping_witch_forest",
+        "biomeswevegone:baobab_savanna",
+        "minecraft:savanna_plateau",
+        "minecraft:mushroom_fields",
+        "minecraft:deep_ocean",
+        "biomeswevegone:pumpkin_valley",
+        "terralith:caldera",
+        "terralith:cave/thermal_caves",
+        "terralith:yellowstone",
+        "wythers:calcite_caverns",
+        "wythers:mediterranean_island_thermal_springs",
+        "biomeswevegone:allium_shrubland",
+        "wythers:snowy_thermal_taiga",
+        "wythers:thermal_taiga_crags",
+        "wythers:thermal_taiga",
+        "wythers:tibesti_mountains",
+        "wythers:danakil_desert",
+        "biomeswevegone:cypress_swamplands",
+        "minecraft:windswept_hills"
+));
+    /** Y altitude at which to start flying (ascend phase target). */
     public int biomeDiscoveryAltitude = 175;
-    /** Spacing between spiral arms in blocks (~64 = one chunk width). */
-    public double biomeDiscoverySpiralSpacing = 64.0;
-    /** Stop spiraling when global timer drops to this many seconds (3:15 = 195). */
+    /** Max Y altitude to reach while flying. Player keeps ascending during flight until this height. */
+    public int biomeDiscoveryMaxAltitude = 230;
+    /** Stop flying when global timer drops to this many seconds (3:15 = 195). */
     public int biomeDiscoveryStopThresholdSeconds = 195;
     /** Wait this many seconds after timer reset before starting a new cycle. */
-    public int biomeDiscoveryGraceSeconds = 30;
+    public int biomeDiscoveryGraceSeconds = 10;
 
     // ========================
     // Teleport mode helpers
@@ -224,6 +264,16 @@ public class AutoQiqiConfig {
         if (worldArrivalHome == null) worldArrivalHome = new HashMap<>();
     }
 
+    /** Merge code-defined defaults into the loaded config (adds missing entries, never removes user entries). */
+    private void mergeDefaults() {
+        AutoQiqiConfig defaults = new AutoQiqiConfig();
+        for (String biome : defaults.biomeDiscoveryTargets) {
+            if (!biomeDiscoveryTargets.contains(biome)) {
+                biomeDiscoveryTargets.add(biome);
+            }
+        }
+    }
+
     /** Clamp Berserk scan range to sensible bounds. */
     public boolean enforceBattleConstraints() {
         boolean changed = false;
@@ -259,6 +309,7 @@ public class AutoQiqiConfig {
                 }
                 INSTANCE.enforceBattleConstraints();
                 INSTANCE.migrateResourceWorlds();
+                INSTANCE.mergeDefaults();
                 save();
             } catch (IOException e) {
                 // Failed to load config (no file logging)

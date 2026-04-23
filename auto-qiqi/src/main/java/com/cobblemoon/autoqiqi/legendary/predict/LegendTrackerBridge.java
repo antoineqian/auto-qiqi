@@ -28,6 +28,8 @@ public final class LegendTrackerBridge {
 
     /** g.c — epoch millis when legendary spawns (changes when LT gets new timer data). */
     private static Field spawnEpochField;
+    /** g.g — current world name as detected by LegendTracker's timer parser. */
+    private static Field currentWorldField;
 
     /** Last observed spawn epoch — used to detect timer updates. */
     private static long lastSpawnEpoch = 0;
@@ -134,6 +136,7 @@ public final class LegendTrackerBridge {
                 timerDataMapField = accessible(timerParserClass.getDeclaredField("d"));
                 allHomesMapField = accessible(modConfigClass.getDeclaredField("e"));
                 spawnEpochField = accessible(timerParserClass.getDeclaredField("c"));
+                currentWorldField = accessible(timerParserClass.getDeclaredField("g"));
 
                 predictionEvField = accessible(predictionResultClass.getDeclaredField("a"));
                 predictionMapField = accessible(predictionResultClass.getDeclaredField("b"));
@@ -155,6 +158,21 @@ public final class LegendTrackerBridge {
             }
         }
         return available;
+    }
+
+    /**
+     * Returns the current world name as detected by LegendTracker's timer parser (g.g).
+     * Returns null if unavailable or set to "Inconnu" (LT's default when unknown).
+     */
+    public static String getCurrentWorld() {
+        if (!isAvailable()) return null;
+        try {
+            String world = (String) currentWorldField.get(null);
+            if (world == null || world.isEmpty() || "Inconnu".equalsIgnoreCase(world)) return null;
+            return world;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── Prediction for a specific home ──────────────────────────────────
@@ -205,6 +223,27 @@ public final class LegendTrackerBridge {
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    /**
+     * Returns all home configs as {@link HomeDefinition} records, reading directly from
+     * LegendTracker's in-memory map. Always up to date (no file I/O).
+     */
+    public static List<HomeDefinition> getAllHomesAsDefinitions() {
+        if (!isAvailable()) return List.of();
+        Collection<Object> ltHomes = getAllHomes();
+        if (ltHomes.isEmpty()) return List.of();
+        List<HomeDefinition> result = new ArrayList<>();
+        for (Object home : ltHomes) {
+            String name = getHomeName(home);
+            String world = getHomeWorld(home);
+            String biome = getHomeBiome(home);
+            String cmd = getHomeCmd(home);
+            int yLevel = getHomeYLevel(home);
+            // underground/underwater fields not exposed via cached fields; default false
+            result.add(new HomeDefinition(name, world, biome, cmd, yLevel, false, false));
+        }
+        return result;
     }
 
     // ── Read timer data ─────────────────────────────────────────────────

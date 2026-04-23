@@ -13,9 +13,11 @@ import com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Box;
 
+import com.cobblemoon.autoqiqi.common.ChatUtil;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 
 import java.util.LinkedHashMap;
@@ -124,15 +126,12 @@ public class ChatMessageHandler {
             } else {
                 clearanceCooldownUntilMs = System.currentTimeMillis() + POST_CLEAR_COOLDOWN_MS;
                 AutoQiqiClient.logDebug("Chat", "Entity clearance done, pausing target acquisition for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s");
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.player != null) {
-                    mc.player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §eEntities cleared — pausing scans for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s"), false);
-                }
+                ChatUtil.msg("§6[Auto-Qiqi]§r §eEntities cleared — pausing scans for " + (POST_CLEAR_COOLDOWN_MS / 1000) + "s");
             }
         }
 
         // Biome discovery: flight toggle detection
-        if (stripped.contains("Mode vol")) {
+        if (stripped.toLowerCase().contains("mode vol")) {
             BiomeDiscoveryEngine.get().onFlightChatMessage(stripped);
         }
 
@@ -156,20 +155,12 @@ public class ChatMessageHandler {
                 mc.player.setYaw(randomYaw);
                 mc.options.forwardKey.setPressed(true);
                 AutoQiqiClient.logDebug("Chat", "Teleport confirmed — random walk for 0.5s");
-                // After 10 ticks (0.5s), stop walking and advance state
-                mc.execute(() -> {
-                    new Thread(() -> {
-                        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
-                        mc.execute(() -> {
-                            MovementHelper.releaseMovementKeys(mc);
-                            // Send /nextleg to update ranking after every tp
-                            if (mc.player != null) {
-                                mc.player.networkHandler.sendCommand("nextleg");
-                            }
-                            AutoHopEngine.get().onTeleportConfirmed();
-                        });
-                    }).start();
-                });
+                // After 0.5s, stop walking and advance state
+                AutoQiqiClient.runLater(() -> {
+                    MovementHelper.releaseMovementKeys(mc);
+                    ChatUtil.sendCommand(mc.player, "nextleg");
+                    AutoHopEngine.get().onTeleportConfirmed();
+                }, 500);
             } else {
                 AutoHopEngine.get().onTeleportConfirmed();
             }
@@ -204,19 +195,11 @@ public class ChatMessageHandler {
             boolean trusted = sender != null
                     && (sender.toLowerCase().contains("qiqiqlann") || sender.toLowerCase().contains("ketamaxxing"));
             if (trusted) {
+                ChatUtil.msg("§6[Auto-Hop]§r TPA reçue de §e" + sender + "§r — /tpaccept (délai)");
+                // Small delay (1-2s) before accepting to look more natural
                 MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.player != null) {
-                    mc.player.sendMessage(Text.literal("§6[Auto-Hop]§r TPA reçue de §e" + sender + "§r — /tpaccept (délai)"), false);
-                    // Small delay (1-2s) before accepting to look more natural
-                    new Thread(() -> {
-                        try { Thread.sleep(1000 + new Random().nextInt(1000)); } catch (InterruptedException ignored) {}
-                        mc.execute(() -> {
-                            if (mc.player != null) {
-                                mc.player.networkHandler.sendCommand("tpaccept");
-                            }
-                        });
-                    }).start();
-                }
+                AutoQiqiClient.runLater(() -> ChatUtil.sendCommand(mc.player, "tpaccept"),
+                        1000 + new Random().nextInt(1000));
             }
         }
 
@@ -334,6 +317,14 @@ public class ChatMessageHandler {
         boolean isNearUs = isSelfReference || nearPlayer.equalsIgnoreCase(ourName);
         AutoQiqiConfig config = AutoQiqiConfig.get();
 
+        // Check legendary ignore list — skip entirely as if nothing spawned
+        boolean ignored = config.legendaryIgnoreList.stream()
+                .anyMatch(s -> s.equalsIgnoreCase(pokemonName));
+        if (ignored) {
+            AutoQiqiClient.logDebug("Legendary", "Ignoring " + pokemonName + " (in legendaryIgnoreList)");
+            return;
+        }
+
         // Check if the legendary spawned near the alt account
         String altName = config.autohopTpaAltAccount;
         boolean isNearAlt = altName != null && !altName.isEmpty()
@@ -367,13 +358,28 @@ public class ChatMessageHandler {
         }
 
         // Pause and auto-engage when legendary is near us — including "pres de vous" (isSelfReference) and "pres de [playerName]".
+        if (isNearUs || isNearAlt) {
+            // Play alert sound for legendaries near us or our alt
+            client.execute(() -> {
+                if (client.player != null) {
+                    client.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+                    client.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.5f);
+                    client.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 2.0f);
+                }
+            });
+        }
+
         if (isNearUs) {
             if (!AutoHopEngine.get().isDisabled()) {
                 AutoQiqiClient.logDebug("Legendary", "Disabling auto-hop — legendary spawned near us: " + pokemonName);
                 AutoHopEngine.get().setDisabled(true);
-                if (client.player != null) {
-                    client.player.sendMessage(Text.literal("§c[Auto-Hop]§r Désactivé (légendaire apparu). Réactivez manuellement."), false);
-                }
+                ChatUtil.msg("§c[Auto-Hop]§r Désactivé (légendaire apparu). Réactivez manuellement.");
+            }
+
+            // Stop biome discovery immediately so it doesn't teleport us away mid-engage
+            if (BiomeDiscoveryEngine.get().isEnabled()) {
+                AutoQiqiClient.logDebug("Legendary", "Stopping biome discovery — legendary spawned near us");
+                BiomeDiscoveryEngine.get().stop();
             }
 
             double[] effectiveCoords = coords != null ? coords : pendingLegendaryCoords;
@@ -405,27 +411,62 @@ public class ChatMessageHandler {
                 } else {
                     AutoQiqiClient.logDebug("Legendary", "Auto-engage: could not find entity for " + pokemonName
                             + (effectiveCoords != null ? " near coords (" + (int)effectiveCoords[0] + "," + (int)effectiveCoords[1] + "," + (int)effectiveCoords[2] + ")" : " (no coords)"));
+                    // Entity not found — schedule re-enable so we don't stay stuck
+                    AutoHopEngine.get().scheduleReEnable(120);
                     client.player.sendMessage(
                             Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                    + " §e§lest apparu pres de vous ! §c§lEntite introuvable, capture manuelle requise. §7[J] pour reprendre"),
+                                    + " §e§lest apparu pres de vous ! §c§lEntite introuvable, capture manuelle requise. §7Réactivation auto-hop dans 120s."),
                             false);
                 }
             });
         } else if (isNearAlt) {
-            // Legendary spawned on alt account — disable auto-hop until kill/capture
+            // Legendary spawned on alt account — treat same as near us (both at same location via /tpahere)
             if (!AutoHopEngine.get().isDisabled()) {
                 AutoQiqiClient.logDebug("Legendary", "Disabling auto-hop — legendary spawned near alt (" + altName + "): " + pokemonName);
                 AutoHopEngine.get().setDisabled(true);
-                if (client.player != null) {
-                    client.player.sendMessage(Text.literal(
-                            "§c[Auto-Hop]§r Désactivé (légendaire apparu sur §e" + altName + "§r)."), false);
-                }
+                ChatUtil.msg("§c[Auto-Hop]§r Désactivé (légendaire apparu sur §e" + altName + "§r).");
             }
+
+            // Stop biome discovery immediately so it doesn't teleport us away mid-engage
+            if (BiomeDiscoveryEngine.get().isEnabled()) {
+                AutoQiqiClient.logDebug("Legendary", "Stopping biome discovery — legendary spawned near alt");
+                BiomeDiscoveryEngine.get().stop();
+            }
+
+            double[] effectiveCoords = coords != null ? coords : pendingLegendaryCoords;
+            pendingLegendaryCoords = null;
+
             client.execute(() -> {
-                if (client.player != null) {
+                if (client.player == null || client.world == null) return;
+                Entity legendaryEntity = findLegendaryEntity(client, pokemonName, effectiveCoords);
+                if (legendaryEntity != null) {
+                    String name = PokemonScanner.getPokemonName(legendaryEntity);
+                    int level = PokemonScanner.getPokemonLevel(legendaryEntity);
+
+                    if (level > 0 && level != 70) {
+                        AutoQiqiClient.logDebug("Legendary", "Skipping " + name + " Lv." + level + " — expected Lv.70 for wild legendary (alt spawn)");
+                        client.player.sendMessage(
+                                Text.literal("§d§l[Auto-Qiqi] §e" + name + " Lv." + level + " §c— pas niveau 70, ignore."), false);
+                        AutoHopEngine.get().scheduleReEnable(15);
+                        return;
+                    }
+
+                    AutoQiqiClient.logDebug("Legendary", "Auto-engage (alt spawn): " + name + " Lv." + level
+                            + " dist=" + String.format("%.1f", client.player.distanceTo(legendaryEntity))
+                            + " -> ENGAGE (manual battle)");
+
                     client.player.sendMessage(
                             Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
-                                    + " §e§lest apparu sur l'alt §b" + altName + "§e§l !"),
+                                    + " §e§ldetecte (alt §b" + altName + "§e§l) ! §7Engagement auto — combat manuel."),
+                            false);
+                    AutoBattleEngine.get().forceTarget(legendaryEntity);
+                } else {
+                    AutoQiqiClient.logDebug("Legendary", "Auto-engage (alt spawn): could not find entity for " + pokemonName
+                            + (effectiveCoords != null ? " near coords (" + (int)effectiveCoords[0] + "," + (int)effectiveCoords[1] + "," + (int)effectiveCoords[2] + ")" : " (no coords)"));
+                    AutoHopEngine.get().scheduleReEnable(90);
+                    client.player.sendMessage(
+                            Text.literal("§d§l[Auto-Qiqi] §a§l" + pokemonName
+                                    + " §e§lest apparu sur l'alt §b" + altName + "§e§l ! §c§lEntite introuvable. §7Réactivation auto-hop dans 90s."),
                             false);
                 }
             });

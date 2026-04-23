@@ -9,6 +9,7 @@ import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleMoveSelection.
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection;
 import com.cobblemon.mod.common.client.gui.battle.subscreen.BattleSwitchPokemonSelection.SwitchTile;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.common.ChatUtil;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
@@ -51,10 +52,7 @@ public class CaptureEngine {
 
     /** Sends a ball-hit/breakout monitoring line to chat for debugging. */
     public static void chatBall(String msg) {
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c != null && c.player != null) {
-            c.player.sendMessage(Text.literal("§6[Ball]§r §7" + msg), false);
-        }
+        ChatUtil.msg("§6[Ball]§r §7" + msg);
     }
 
     public enum GeneralChoice { FIGHT, SWITCH, CAPTURE }
@@ -142,7 +140,7 @@ public class CaptureEngine {
             AutoQiqiClient.logDebug("Capture", "Skipping " + name + " - recently failed (cooldown " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s)");
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player != null) {
-                client.player.sendMessage(Text.literal("§6[Capture]§r §c" + name + " a echappe recemment, attente " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s avant de reessayer."), false);
+                ChatUtil.msg("§6[Capture]§r §c" + name + " a echappe recemment, attente " + AutoQiqiConfig.get().failedCaptureCooldownSeconds + "s avant de reessayer.");
             }
             return;
         }
@@ -334,7 +332,7 @@ public class CaptureEngine {
     private void tickWalking(CaptureSession s, MinecraftClient client) {
         if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
             AutoQiqiClient.logDebug("Capture", "Target gone during WALKING phase");
-            client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
+            ChatUtil.msg("§6[Capture]§r §cPokemon disparu !");
             stop();
             return;
         }
@@ -350,7 +348,7 @@ public class CaptureEngine {
                     + " player=" + fmtPos(client.player.getPos())
                     + " target=" + fmtPos(s.targetEntity.getPos()));
             if (s.walkRetries >= MAX_WALK_RETRIES) {
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + " (pathfinding echoue). /pk stop pour annuler."), false);
+                ChatUtil.msg("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + " (pathfinding echoue). /pk stop pour annuler.");
                 stop();
                 return;
             }
@@ -361,7 +359,7 @@ public class CaptureEngine {
         if (!PokemonWalker.get().isActive()) {
             if (PokemonWalker.get().hasTimedOut()) {
                 AutoQiqiClient.logDebug("Capture", "Walker timed out, aborting capture");
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + ". Arret."), false);
+                ChatUtil.msg("§6[Capture]§r §cImpossible d'atteindre " + s.targetName + ". Arret.");
                 stop();
                 return;
             }
@@ -416,7 +414,7 @@ public class CaptureEngine {
 
         if (s.targetEntity == null || !s.targetEntity.isAlive() || s.targetEntity.isRemoved()) {
             AutoQiqiClient.logDebug("Capture", "Target gone during ENGAGING phase");
-            client.player.sendMessage(Text.literal("§6[Capture]§r §cPokemon disparu !"), false);
+            ChatUtil.msg("§6[Capture]§r §cPokemon disparu !");
             stop();
             return;
         }
@@ -498,7 +496,7 @@ public class CaptureEngine {
             s.engageAttempts++;
             if (s.engageAttempts > MAX_ENGAGE_ATTEMPTS) {
                 AutoQiqiClient.logDebug("Capture", "Engagement failed after " + MAX_ENGAGE_ATTEMPTS + " attempts (not wild?)");
-                client.player.sendMessage(Text.literal("§6[Capture]§r §cImpossible d'engager " + s.targetName + " (pas sauvage ?). Arret."), false);
+                ChatUtil.msg("§6[Capture]§r §cImpossible d'engager " + s.targetName + " (pas sauvage ?). Arret.");
                 stop();
                 return;
             }

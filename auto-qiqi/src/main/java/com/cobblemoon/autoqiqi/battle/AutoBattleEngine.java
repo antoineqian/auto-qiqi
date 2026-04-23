@@ -2,7 +2,9 @@ package com.cobblemoon.autoqiqi.battle;
 
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.common.ChatUtil;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
+import com.cobblemoon.autoqiqi.common.NextlegAfkHelper;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import com.cobblemoon.autoqiqi.legendary.ChatMessageHandler;
@@ -136,10 +138,8 @@ public class AutoBattleEngine {
     private long lastInBattleAntiAfkTick = 0;
     private boolean inBattleAntiAfkPending = false;
 
-    // Roaming nextleg/afk: single timer from /nextleg, /afk for points, camera move before expiry
-    private long lastNextlegPollTick = 0;
-    private long lastAfkSentTick = 0;
-    private boolean roamingCameraMoveDone = false;
+    // Roaming nextleg/afk (delegated to shared helper)
+    private final NextlegAfkHelper roamingAfkHelper = new NextlegAfkHelper("Roaming");
     /** True when capture was active last tick; used to resume /afk right after returning from a capture. */
     private boolean wasCaptureActiveLastTick = false;
     /** Throttle: log at most once per 5 min when nextleg/afk is skipped (battle or capture active). */
@@ -157,9 +157,7 @@ public class AutoBattleEngine {
             AutoQiqiClient.logDebug("Battle", "Mode changed: " + this.mode + " -> " + mode);
             modeSwitchGraceTicks = MODE_SWITCH_GRACE;
             if (mode == BattleMode.ROAMING) {
-                lastNextlegPollTick = 0;
-                lastAfkSentTick = 0;
-                roamingCameraMoveDone = false;
+                roamingAfkHelper.reset();
             }
             if (mode != BattleMode.OFF && this.mode == BattleMode.OFF) {
                 sessionBossKills = 0;
@@ -336,12 +334,7 @@ public class AutoBattleEngine {
             AutoQiqiClient.logDebug("Battle", "Loot collection done: " + lootCollected + " items");
         }
 
-        // Re-enable auto-hop after legendary kill (any mode — auto-hop was disabled on spawn)
-        if (lastFightWasLegendary && com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().isDisabled()) {
-            int delay = AutoQiqiConfig.get().autohopReEnableDelaySeconds;
-            AutoQiqiClient.logDebug("Battle", "Legendary killed — scheduling auto-hop re-enable in " + delay + "s");
-            com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().scheduleReEnable(delay);
-        }
+        // Auto-hop stays disabled after legendary — must be re-enabled manually
         lastFightWasLegendary = false;
 
         cooldown = POST_BATTLE_COOLDOWN;
@@ -357,66 +350,15 @@ public class AutoBattleEngine {
      * camera-move un-AFK is not immediately undone. /afk resumes once the timer resets (new cycle).
      */
     private void tickRoamingNextlegAfk(MinecraftClient client, ClientPlayerEntity player) {
-        AutoQiqiConfig config = AutoQiqiConfig.get();
         if (!AutoQiqiClient.isConnected(client)) return;
 
         if (wasCaptureActiveLastTick) {
-            lastAfkSentTick = 0;
+            roamingAfkHelper.resetAfkCooldown();
             AutoQiqiClient.logDebug("Battle", "Roaming: returned from capture, resuming AFK mode");
         }
 
-        WorldTracker tracker = WorldTracker.get();
-        int pollIntervalTicks = Math.max(20, config.roamingNextlegPollIntervalSeconds * 20);
-        int afkIntervalTicks = Math.max(20, config.roamingAfkIntervalSeconds * 20);
-        int cameraThresholdSec = Math.max(1, config.roamingCameraMoveSecondsBefore);
-
-        long remaining = tracker.getGlobalRemainingSeconds();
-        boolean timerImminent = remaining >= 0 && remaining <= cameraThresholdSec;
-
-        // 1) Poll /nextleg
-        boolean pollCooldownElapsed = lastNextlegPollTick == 0 || (globalTickCounter - lastNextlegPollTick) >= pollIntervalTicks;
-        boolean sentNextleg = false;
-        if (pollCooldownElapsed) {
-            String cmd = config.nextlegCommand.startsWith("/") ? config.nextlegCommand.substring(1) : config.nextlegCommand;
-            try {
-                player.networkHandler.sendChatCommand(cmd);
-                ChatMessageHandler.get().setPendingPollGlobal();
-                lastNextlegPollTick = globalTickCounter;
-                sentNextleg = true;
-                AutoQiqiClient.logDebug("Battle", "Roaming: sent " + config.nextlegCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s, imminent=" + timerImminent + ", cameraDone=" + roamingCameraMoveDone + ")");
-            } catch (Exception e) {
-                AutoQiqiClient.logDebug("Battle", "Roaming: " + config.nextlegCommand + " failed: " + e.getMessage());
-            }
-        }
-
-        // 2) Send /afk periodically — but NOT when timer is imminent (camera already un-AFKed us)
-        boolean afkCooldownElapsed = lastAfkSentTick == 0 || (globalTickCounter - lastAfkSentTick) >= afkIntervalTicks;
-        if (!sentNextleg && afkCooldownElapsed) {
-            if (timerImminent) {
-                AutoQiqiClient.logDebug("Battle", "Roaming: " + config.roamingAfkCommand + " SUPPRESSED (timer=" + remaining + "s <= threshold=" + cameraThresholdSec + "s) — staying un-AFK for legendary eligibility");
-            } else {
-                String afkCmd = config.roamingAfkCommand.startsWith("/") ? config.roamingAfkCommand.substring(1) : config.roamingAfkCommand;
-                try {
-                    player.networkHandler.sendChatCommand(afkCmd);
-                    lastAfkSentTick = globalTickCounter;
-                    AutoQiqiClient.logDebug("Battle", "Roaming: sent " + config.roamingAfkCommand + " (timer=" + remaining + "s, threshold=" + cameraThresholdSec + "s)");
-                } catch (Exception e) {
-                    AutoQiqiClient.logDebug("Battle", "Roaming: " + config.roamingAfkCommand + " failed: " + e.getMessage());
-                }
-            }
-        }
-
-        // 3) Camera move to disable AFK before spawn
-        if (remaining > cameraThresholdSec) {
-            roamingCameraMoveDone = false;
-        } else if (timerImminent && !roamingCameraMoveDone) {
-            float yaw = player.getYaw();
-            float pitch = player.getPitch();
-            player.setYaw(yaw + 8.0f);
-            player.setPitch(net.minecraft.util.math.MathHelper.clamp(pitch + 4.0f, -90.0f, 90.0f));
-            roamingCameraMoveDone = true;
-            AutoQiqiClient.logDebug("Battle", "Roaming: CAMERA MOVED (timer=" + remaining + "s) — un-AFK for legendary eligibility, /afk suppressed until timer resets");
-        }
+        long remaining = WorldTracker.get().getGlobalRemainingSeconds();
+        roamingAfkHelper.tick(player, globalTickCounter, remaining);
     }
 
     /**
@@ -505,23 +447,9 @@ public class AutoBattleEngine {
      * Returns null if nothing happened.
      */
     public java.util.List<String> getSessionSummaryAndReset() {
-        if (sessionBossKills == 0 && sessionPokemonKills == 0 && sessionCaptures.isEmpty()) {
-            return null;
-        }
-        java.util.List<String> lines = new java.util.ArrayList<>();
-        lines.add("§e=== Session Summary ===");
-        if (!sessionCaptures.isEmpty()) {
-            lines.add("§aPokemon captures: §f" + sessionCaptures.size());
-            for (String name : sessionCaptures) {
-                lines.add("  §7- §f" + name);
-            }
-        }
-        if (sessionBossKills > 0) {
-            lines.add("§cBoss kills: §f" + sessionBossKills);
-        }
-        if (sessionPokemonKills > 0) {
-            lines.add("§7Pokemon kills: §f" + sessionPokemonKills);
-        }
+        java.util.List<String> lines = buildSummaryLines("Pokemon captures");
+        if (lines == null) return null;
+        lines.add(0, "§e=== Session Summary ===");
         sessionBossKills = 0;
         sessionPokemonKills = 0;
         sessionCaptures.clear();
@@ -529,12 +457,16 @@ public class AutoBattleEngine {
     }
 
     public java.util.List<String> getSessionSummaryLines() {
+        return buildSummaryLines("Captures");
+    }
+
+    private java.util.List<String> buildSummaryLines(String captureLabel) {
         if (sessionBossKills == 0 && sessionPokemonKills == 0 && sessionCaptures.isEmpty()) {
             return null;
         }
         java.util.List<String> lines = new java.util.ArrayList<>();
         if (!sessionCaptures.isEmpty()) {
-            lines.add("§aCaptures: §f" + sessionCaptures.size());
+            lines.add("§a" + captureLabel + ": §f" + sessionCaptures.size());
             for (String name : sessionCaptures) {
                 lines.add("  §7- §f" + name);
             }
@@ -612,7 +544,7 @@ public class AutoBattleEngine {
             int healEvery = AutoQiqiConfig.get().battleHealEveryN;
             if (healEvery > 0 && battleCount % healEvery == 0 && AutoQiqiClient.isConnected(MinecraftClient.getInstance())) {
                 try {
-                    player.networkHandler.sendChatCommand("pokeheal");
+                    ChatUtil.sendCommand(player, "pokeheal");
                     AutoQiqiClient.logDebug("Battle", "Sent /pokeheal (after " + battleCount + " battles)");
                 } catch (Exception e) {
                     AutoQiqiClient.logDebug("Battle", "pokeheal failed (network?): " + e.getMessage());
@@ -685,7 +617,7 @@ public class AutoBattleEngine {
 
         // Roaming: single timer from /nextleg, /afk for points, camera move before expiry to stay eligible for legendary.
         // This runs in addition to normal roaming: we still scan for uncaught, capture them, then resume AFK (see tickRoamingNextlegAfk).
-        if (mode == BattleMode.ROAMING && AutoQiqiConfig.get().roamingNextlegAfkEnabled) {
+        if (mode == BattleMode.ROAMING && AutoQiqiConfig.get().nextlegAfkEnabled) {
             boolean inBattle = CobblemonClient.INSTANCE.getBattle() != null;
             boolean captureActive = CaptureEngine.get().isActive();
             boolean autoHopActive = com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().isActive();

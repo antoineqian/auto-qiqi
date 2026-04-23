@@ -1,6 +1,7 @@
 package com.cobblemoon.autoqiqi.legendary;
 
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.common.ChatUtil;
 import com.cobblemoon.autoqiqi.common.SessionLogger;
 import com.cobblemoon.autoqiqi.config.AutoQiqiConfig;
 import net.minecraft.client.MinecraftClient;
@@ -19,9 +20,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Detects disconnected/logged-out state and automatically navigates
  * the reconnect flow: DisconnectedScreen -> TitleScreen -> "Rejoindre"
- * -> lobby right-click -> GUI item click -> spawn. If config.reconnectHome
- * is set (e.g. "end"), then sends /home &lt;name&gt; once in world and waits
- * for warmup before completing (so you end up in the configured home world).
+ * -> lobby right-click -> GUI item click -> spawn. After spawn, auto-hop
+ * handles positioning on its next rotation tick.
  */
 public class AutoReconnectEngine {
     private static final AutoReconnectEngine INSTANCE = new AutoReconnectEngine();
@@ -45,6 +45,9 @@ public class AutoReconnectEngine {
     private Phase phase = Phase.DISABLED;
     private long phaseStartMs = 0;
     private int consecutiveFailures = 0;
+
+    /** Suppression timestamp: skip monitoring until this time (world transfers null player briefly). */
+    private long monitoringSuppressedUntilMs = 0;
 
 
     private int lobbyGuiTicksSinceOpen = 0;
@@ -82,6 +85,17 @@ public class AutoReconnectEngine {
         SessionLogger.get().logInfo("Auto-reconnect disabled");
     }
 
+    /**
+     * Suppress reconnect monitoring for the given duration.
+     * Cross-world teleports (auto-hop, biome discovery) briefly null client.player,
+     * which looks like a disconnect to tickMonitoring(). Call this before sending
+     * any /home command to prevent false-positive reconnect triggers.
+     */
+    public void suppressMonitoringForMs(long ms) {
+        monitoringSuppressedUntilMs = System.currentTimeMillis() + ms;
+        AutoQiqiClient.logDebug("Reconnect", "Monitoring suppressed for " + ms + "ms (world transfer grace)");
+    }
+
     public void tick(MinecraftClient client) {
         AutoQiqiConfig config = AutoQiqiConfig.get();
 
@@ -117,6 +131,12 @@ public class AutoReconnectEngine {
     // --- Phase: MONITORING ---
 
     private void tickMonitoring(MinecraftClient client) {
+        // Grace period during expected world transfers (auto-hop, biome discovery).
+        // Cross-world teleports briefly null client.player, which looks like a disconnect.
+        if (monitoringSuppressedUntilMs > 0 && System.currentTimeMillis() < monitoringSuppressedUntilMs) {
+            return;
+        }
+
         Screen screen = client.currentScreen;
         if (screen instanceof DisconnectedScreen) {
             AutoQiqiClient.logDebug("Reconnect", "Disconnect detected (DisconnectedScreen), starting reconnect flow");
@@ -305,6 +325,7 @@ public class AutoReconnectEngine {
         }
 
         AutoQiqiClient.logDebug("Reconnect", "Sending right-click in lobby");
+        com.cobblemoon.autoqiqi.biome.BiomeDiscoveryEngine.get().suspend();
         client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
         transition(Phase.WAIT_LOBBY_GUI);
     }
@@ -465,6 +486,16 @@ public class AutoReconnectEngine {
         consecutiveFailures = 0;
         resetLobbyGui();
         transition(Phase.MONITORING);
+
+        // Suppress auto-hop for a few seconds so it doesn't race with the lobby → spawn transfer.
+        // Without this, AutoHopEngine.tick() fires on the very next tick (timer under threshold)
+        // and sends /home while the client is still stabilizing on the lobby server, which can
+        // crash the client during the resulting server transfer (XaerosWorldMap + renderer NPE).
+        com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get().suppressForMs(8_000);
+
+        // Don't send a random /home here — auto-hop will handle positioning
+        // on its next rotation tick. Sending a random home caused cascading
+        // false reconnects (world transfer nulls player → re-triggers onSuccess).
     }
 
     private void onFailure(String reason) {

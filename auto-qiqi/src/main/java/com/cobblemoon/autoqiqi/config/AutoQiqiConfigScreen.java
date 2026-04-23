@@ -1,6 +1,7 @@
 package com.cobblemoon.autoqiqi.config;
 
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.biome.BiomeDiscoveryEngine;
 import com.cobblemoon.autoqiqi.battle.AutoBattleEngine;
 import com.cobblemoon.autoqiqi.battle.BattleMode;
 import com.cobblemoon.autoqiqi.battle.CaptureEngine;
@@ -15,7 +16,10 @@ public class AutoQiqiConfigScreen extends Screen {
     private BattleMode selectedMode;
     private ButtonWidget modeButton;
     private ButtonWidget autoHomesButton;
+    private ButtonWidget allHopSwitchButton;
+    private ButtonWidget offToAllSwitchButton;
     private ButtonWidget tpaAltButton;
+    private ButtonWidget biomeDiscoveryButton;
 
     public AutoQiqiConfigScreen() {
         super(Text.literal("Auto-Qiqi Configuration"));
@@ -40,11 +44,29 @@ public class AutoQiqiConfigScreen extends Screen {
         ).dimensions(width / 2 - 100, 54, 200, 20).build();
         addDrawableChild(autoHomesButton);
 
+        allHopSwitchButton = ButtonWidget.builder(
+                Text.literal("AllHop switch: " + allHopSwitchLabel(config.autohopSwitchToAllHour)),
+                btn -> cycleAllHopSwitchHour()
+        ).dimensions(width / 2 - 100, 78, 200, 20).build();
+        addDrawableChild(allHopSwitchButton);
+
+        offToAllSwitchButton = ButtonWidget.builder(
+                Text.literal("Off→All switch: " + allHopSwitchLabel(config.autohopSwitchOffToAllHour)),
+                btn -> cycleOffToAllSwitchHour()
+        ).dimensions(width / 2 - 100, 102, 200, 20).build();
+        addDrawableChild(offToAllSwitchButton);
+
         tpaAltButton = ButtonWidget.builder(
                 Text.literal("TP Alt: " + (config.autohopTpaEnabled ? "ON" : "OFF")),
                 btn -> toggleTpaAlt()
-        ).dimensions(width / 2 - 100, 78, 200, 20).build();
+        ).dimensions(width / 2 - 100, 126, 200, 20).build();
         addDrawableChild(tpaAltButton);
+
+        biomeDiscoveryButton = ButtonWidget.builder(
+                Text.literal("Biome Discovery: " + (BiomeDiscoveryEngine.get().isEnabled() ? "ON" : "OFF")),
+                btn -> toggleBiomeDiscovery()
+        ).dimensions(width / 2 - 100, 150, 200, 20).build();
+        addDrawableChild(biomeDiscoveryButton);
 
         ButtonWidget doneButton = ButtonWidget.builder(
                 Text.literal("Done"),
@@ -84,7 +106,53 @@ public class AutoQiqiConfigScreen extends Screen {
         };
         autoHomesButton.setMessage(Text.literal("Auto-Hop: " + autohopModeLabel(config.autohopMode)));
         AutoQiqiConfig.save();
+
+        // Clear the runtime disabled flag when the user selects a non-off mode.
+        // The disabled flag is set by legendary spawns and is separate from the config mode,
+        // but changing the mode to auto/all is an explicit user intent to enable auto-hop.
+        var hop = com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get();
+        if (!"off".equals(config.autohopMode) && hop.isDisabled()) {
+            hop.setDisabled(false);
+        }
+
         AutoQiqiClient.logDebug("Config", "autohopMode = " + config.autohopMode);
+    }
+
+    private void cycleAllHopSwitchHour() {
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        // Cycle: -1 → 2:00 → 2:30 → 3:00 → 3:30 → 4:00 → -1
+        // Stored as minutes past midnight for half-hour granularity
+        int cur = config.autohopSwitchToAllHour;
+        if (cur < 120) {
+            config.autohopSwitchToAllHour = 120;  // 2:00
+        } else if (cur >= 240) {
+            config.autohopSwitchToAllHour = -1;
+        } else {
+            config.autohopSwitchToAllHour = cur + 30;
+        }
+        allHopSwitchButton.setMessage(Text.literal("AllHop switch: " + allHopSwitchLabel(config.autohopSwitchToAllHour)));
+        AutoQiqiConfig.save();
+        AutoQiqiClient.logDebug("Config", "autohopSwitchToAllHour = " + config.autohopSwitchToAllHour);
+    }
+
+    private void cycleOffToAllSwitchHour() {
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        int cur = config.autohopSwitchOffToAllHour;
+        if (cur < 120) {
+            config.autohopSwitchOffToAllHour = 120;  // 2:00
+        } else if (cur >= 240) {
+            config.autohopSwitchOffToAllHour = -1;
+        } else {
+            config.autohopSwitchOffToAllHour = cur + 30;
+        }
+        offToAllSwitchButton.setMessage(Text.literal("Off→All switch: " + allHopSwitchLabel(config.autohopSwitchOffToAllHour)));
+        AutoQiqiConfig.save();
+        AutoQiqiClient.logDebug("Config", "autohopSwitchOffToAllHour = " + config.autohopSwitchOffToAllHour);
+    }
+
+    private static String allHopSwitchLabel(int minutesPastMidnight) {
+        if (minutesPastMidnight < 0) return "OFF";
+        return String.format("%02d:%02d", minutesPastMidnight / 60, minutesPastMidnight % 60);
     }
 
     private static String autohopModeLabel(String mode) {
@@ -102,6 +170,21 @@ public class AutoQiqiConfigScreen extends Screen {
         tpaAltButton.setMessage(Text.literal("TP Alt: " + (config.autohopTpaEnabled ? "ON" : "OFF")));
         AutoQiqiConfig.save();
         AutoQiqiClient.logDebug("Config", "autohopTpaEnabled = " + config.autohopTpaEnabled);
+    }
+
+    private void toggleBiomeDiscovery() {
+        BiomeDiscoveryEngine engine = BiomeDiscoveryEngine.get();
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (engine.isEnabled()) {
+            engine.stop();
+            config.biomeDiscoveryEnabled = false;
+        } else {
+            engine.start();
+            config.biomeDiscoveryEnabled = true;
+        }
+        biomeDiscoveryButton.setMessage(Text.literal("Biome Discovery: " + (engine.isEnabled() ? "ON" : "OFF")));
+        AutoQiqiConfig.save();
+        AutoQiqiClient.logDebug("Config", "biomeDiscoveryEnabled = " + config.biomeDiscoveryEnabled);
     }
 
     @Override

@@ -579,6 +579,8 @@ public class AutoQiqiClient implements ClientModInitializer {
                             .executes(context -> { executeSmogonInfo(); return 1; }))
                     .then(ClientCommandManager.literal("reset")
                             .executes(context -> { executeReset(); return 1; }))
+                    .then(ClientCommandManager.literal("allhop")
+                            .executes(context -> { executeAllHopToggle(); return 1; }))
             );
         });
     }
@@ -1178,6 +1180,24 @@ public class AutoQiqiClient implements ClientModInitializer {
             freeMb = Runtime.getRuntime().freeMemory() / (1024 * 1024);
             totalMb = Runtime.getRuntime().totalMemory() / (1024 * 1024);
             msg(client, "§a[Reset]§r Caches + chunk cache vidés, GC lancé. §7RAM: " + freeMb + "/" + totalMb + " MB libre.");
+        }
+    }
+
+    private void executeAllHopToggle() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return;
+        var hop = com.cobblemoon.autoqiqi.legendary.autohop.AutoHopEngine.get();
+        AutoQiqiConfig config = AutoQiqiConfig.get();
+        if (!"auto".equals(config.autohopMode)) {
+            msg(client, "§c[AllHop]§r Mode actuel: §e" + config.autohopMode + "§r — switch only applies when base mode is §eauto§r.");
+            return;
+        }
+        if (hop.isAllHopEffective()) {
+            hop.deactivateAllHopOverride();
+            msg(client, "§6[AllHop]§r Override §cdésactivé§r — back to §eauto* homes§r.");
+        } else {
+            hop.activateAllHopOverride();
+            msg(client, "§6[AllHop]§r Override §aactivé§r — using §eall homes§r now.");
         }
     }
 

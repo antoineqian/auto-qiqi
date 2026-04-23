@@ -1,6 +1,7 @@
 package com.cobblemoon.autoqiqi.legendary;
 
 import com.cobblemoon.autoqiqi.AutoQiqiClient;
+import com.cobblemoon.autoqiqi.common.ChatUtil;
 import com.cobblemoon.autoqiqi.common.MovementHelper;
 import com.cobblemoon.autoqiqi.common.PathFinder;
 import com.cobblemoon.autoqiqi.common.PokemonScanner;
@@ -131,7 +132,7 @@ public class PokemonWalker {
         if (player.isDead()) { stop(); return; }
 
         if (!target.isAlive() || target.isRemoved()) {
-            player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cPokemon disparu !"), false);
+            ChatUtil.msg("§6[Auto-Qiqi]§r §cPokemon disparu !");
             stop();
             return;
         }
@@ -140,7 +141,7 @@ public class PokemonWalker {
         if (elapsed > WALK_TOTAL_TIMEOUT_MS) {
             String name = PokemonScanner.getPokemonName(target);
             AutoQiqiClient.logDebug("Walker", "TIMEOUT after " + (elapsed / 1000) + "s walking to " + name);
-            player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §cTimeout: impossible d'atteindre §e" + name + "§c en " + (WALK_TOTAL_TIMEOUT_MS / 1000) + "s."), false);
+            ChatUtil.msg("§6[Auto-Qiqi]§r §cTimeout: impossible d'atteindre §e" + name + "§c en " + (WALK_TOTAL_TIMEOUT_MS / 1000) + "s.");
             timedOut = true;
             stop();
             return;
@@ -164,7 +165,7 @@ public class PokemonWalker {
         if (distToTarget <= ARRIVAL_DISTANCE) {
             String name = PokemonScanner.getPokemonName(target);
             AutoQiqiClient.logDebug("Walker", "Arrived near " + name + " (dist=" + String.format("%.1f", distToTarget) + ")");
-            player.sendMessage(Text.literal("§6[Auto-Qiqi]§r §aArrive pres de §e" + name + "§a !"), false);
+            ChatUtil.msg("§6[Auto-Qiqi]§r §aArrive pres de §e" + name + "§a !");
             lastWalkTargetEntityId = target.getId();
             lastWalkTargetGraceTicks = MANUAL_WALK_GRACE_TICKS;
             stop();
